@@ -1685,7 +1685,7 @@ function render() {
   ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
   ctx.strokeStyle = RULE; ctx.lineWidth = 1; ctx.beginPath(); for (let y = 40 - (camY * 0.5) % 34; y < H; y += 34) { ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); } ctx.stroke();
   if (!P) return;
-  if (mode === 'map') { drawMap(); return; }
+  if (mode === 'map') { drawMap(); cv.style.cursor = mapHits.some(m => P.visited.has(m.i) && Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18) ? 'pointer' : 'default'; return; }
   const sx = shake ? rnd(-shake, shake) : 0, sy = shake ? rnd(-shake, shake) * 0.6 : 0;
   ctx.save(); ctx.translate(sx, sy); drawWorld(); ctx.restore();
   drawDark(); drawOverDark();
