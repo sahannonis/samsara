@@ -56,6 +56,10 @@ and go to `http://localhost:8000/dist/samsara.html`.
 13. **Longbow and Voice**: the Empty longbow for bodies with no mana (a full draw flies flat and pierces; R picks reed, iron, ember or ink arrows, made at forges). Spells on your keys and prepared chants are now set at shrines (three chants, five for a body with no mana). A mic check before play learns how the player's voice comes through, the game keeps learning mishearings in play when you press the key after a miss, and chants survive being started over. This closes Phase 2; offline speech moves to the desktop build and co-op chants to Phase 6.
 14. **Polish**: the Empty longbow shows its arrows and counts in the gear screen; any chant can be done without the voice by holding C for 3 seconds at 85% strength, in every mic setting; the horse jumps a second time in the air (each mount will have its own perk later: higher jumps, flight).
 
+### Phase 3: soul systems
+
+15. **Your Birth**: character creation. The first life begins at the player's own birth (date, local time and place, with past time zone changes handled), read with the same star engine as the Star Panel; if the hour is unknown the chart is read from the Moon (Chandra lagna); or the wheel decides. Then the body (build, hair, clothing), an optional soul name, and a soul mark that stays the same in every life and marks your past bodies. The player chooses how their birth is kept: with their saves (Steam Cloud on Steam), on this device only, or not at all.
+
 ## Running the tests
 
 ```
@@ -70,6 +74,7 @@ python tests/test_chants.py
 python tests/test_bosses.py
 python tests/test_born_empty.py
 python tests/test_bow_and_voice.py
+python tests/test_birth.py
 ```
 
 ## Credits

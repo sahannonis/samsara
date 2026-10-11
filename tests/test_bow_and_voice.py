@@ -29,7 +29,7 @@ async def main():
         R['mic_check'] = await ev("document.getElementById('micCheckMsg').innerText.replace(/\\n/g,' | ')")
         R['learned_store'] = await ev("localStorage.getItem('samsara.heard')")
         await fr.screenshot(path=OUT + 'b13_01_miccheck.png')
-        await pg.select_option('#micStart', 'always'); await pg.click('#btnBegin'); await pg.wait_for_timeout(300)
+        await pg.select_option('#micStart', 'always'); await pg.click('#btnQuick'); await pg.wait_for_timeout(300)
         await ev("__life.freeze(true); __life.noFoes()")
         async def run(n, keys={}, press={}): await ev(f"__life.run({n},{json.dumps(keys)},{json.dumps(press)})")
         await ev("(()=>{const L=__life,P=L.P; P.noMana=false; P.manaTierMax=100; L.applyStats(true); P.wordSlots=['ignite','shield','restore',null]; L.setNight(false);})()")

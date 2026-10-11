@@ -2212,7 +2212,7 @@ function drawWorld() {
   for (const d of drops) { ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.a); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(4, 0); ctx.stroke(); ctx.restore(); }
   // past bodies & shades
   ctx.textAlign = 'center';
-  for (const b of soul.bodies) if (!b.taken && b.life !== life.n) { ctx.save(); ctx.globalAlpha = 0.85; stick(b.x, b.y, POSE.kneel(), 1, PENCIL, b.looks.build, { hair: b.looks.hair, robe: b.looks.robe }); ctx.restore(); ctx.font = `15px ${FH}`; ctx.fillStyle = PENCIL; ctx.fillText('a body you once wore', b.x, b.y - 70); }
+  for (const b of soul.bodies) if (!b.taken && b.life !== life.n) { ctx.save(); ctx.globalAlpha = 0.85; const rb = stick(b.x, b.y, POSE.kneel(), 1, PENCIL, b.looks.build, { hair: b.looks.hair, robe: b.looks.robe });  if (soul.mark) drawMark(soul.mark, rb.neck.x + (rb.hip.x - rb.neck.x) * 0.32, rb.neck.y + (rb.hip.y - rb.neck.y) * 0.32, 0.6, PAPER); ctx.restore(); ctx.font = `15px ${FH}`; ctx.fillStyle = PENCIL; ctx.fillText('a body you once wore', b.x, b.y - 70); }
   for (const s of shades) if (!s.taken) { ctx.fillStyle = INK; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(clock * 4); ctx.beginPath(); ctx.ellipse(s.x, s.y - 30, 10, 24, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; ctx.font = `14px ${FH}`; ctx.fillStyle = INK2; ctx.fillText(`${s.seeds} seeds`, s.x, s.y - 66); }
   drawMagic();
   for (const n of NODES) if (n.k !== 'petal' && visible({ x: n.x - 40, y: n.gy - 120, w: 80, h: 120 })) drawNode(n);
@@ -2523,6 +2523,7 @@ function drawPlayerBody(p) {
   // soul mark: scarf
   ctx.strokeStyle = INK; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(r.neck.x, r.neck.y + 2); for (let i = 1; i <= 4; i++) ctx.lineTo(r.neck.x - p.face * i * 6, r.neck.y + 2 + i * (p.glide ? 0.5 : p.mount && Math.abs(p.vx) > 200 ? 0.3 : 2.5) + Math.sin(clock * 12 + i) * 1.5); ctx.stroke();
   drawGarb(p, r);
+  if (soul.mark && !p.dead) drawMark(soul.mark, r.neck.x + (r.hip.x - r.neck.x) * 0.32, r.neck.y + (r.hip.y - r.neck.y) * 0.32, 0.6, PAPER);
   if (p.glide && !p.dead) { ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(r.hB.x - p.face * 6, r.hB.y); ctx.quadraticCurveTo(cx, r.head.y - 40, r.hF.x + p.face * 6, r.hF.y); ctx.quadraticCurveTo(cx, r.head.y - 22, r.hB.x - p.face * 6, r.hB.y); ctx.fill(); ctx.stroke(); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, r.head.y - 30); ctx.lineTo(cx, r.head.y - 22); ctx.stroke(); }
   if (p.torch.lit && !p.dead) { const tx = r.hB.x, ty = r.hB.y; ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(tx, ty + 4); ctx.lineTo(tx - p.face * 4, ty - 14); ctx.stroke(); const fl = 7 + Math.sin(clock * 15) * 2, fx0 = tx - p.face * 4, fy0 = ty - 15; ctx.fillStyle = PAPER; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(fx0, fy0 - fl * 1.6); ctx.quadraticCurveTo(fx0 + 6, fy0 - 2, fx0, fy0 + 1); ctx.quadraticCurveTo(fx0 - 6, fy0 - 2, fx0, fy0 - fl * 1.6); ctx.fill(); ctx.stroke(); }
   if (!p.dead && !p.ladder && !p.hang && p.climbT <= 0 && !(p.inWater && !p.onG) && !p.glide) drawWeapon(p, r);
@@ -2562,7 +2563,7 @@ function drawHUD() {
   const LD = loadNow(), other = WEAPONS[p.slots[1 - p.slotIdx]].name.toUpperCase();
   const timers = [p.bless ? `${CHANT(p.bless.el).name.split(' ')[0].toUpperCase()} ${Math.ceil(p.bless.t)}s` : '', ...SUMMONS.map(sm => `${sm.id.toUpperCase()} ${Math.ceil(sm.t)}s`)].filter(Boolean);
   const RL = [
-    [`LIFE ${life.n} · LV ${levelOf()}`, INK],
+    [`${soul.name ? soul.name.toUpperCase() + ' · ' : ''}LIFE ${life.n} · LV ${levelOf()}`, INK],
     [`${curW().name.toUpperCase()} ${TIER_NAME[tierOf(p.slots[p.slotIdx])]} · Q: ${other}`, INK],
     [micMode === 'off' ? 'MIC OFF · KEYS 1 TO 4' : micMode === 'ptt' ? (pttHeld ? (micReady ? 'LISTENING' : 'MIC STARTING…') : 'HOLD V TO SPEAK') : (recOn ? 'MIC ON · SPEAK A WORD' : 'MIC STARTING…'), PENCIL],
     [`LOAD ${LD.full ? 'PACK FULL' : LD.cls.toUpperCase()} · PACK ${Math.round(LD.pack)}/${P.packMax}`, LD.cls === 'over' || LD.full ? RED : INK2],
@@ -2621,11 +2622,177 @@ function loop(now) {
   for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false;
   requestAnimationFrame(loop);
 }
+/* ---------- character creation (Phase 3): your birth moment, your body, your soul mark ---------- */
+const CITIES = (/*CITIES*/[]).map(r => ({ name: r[0], prov: r[1], country: r[2], lat: r[3], lon: r[4], tz: r[5], key: (r[0] + ' ' + r[1] + ' ' + r[2]).toLowerCase() }));
+const SELF_KEY = 'samsara.self';
+let SELF = null; try { SELF = JSON.parse(localStorage.getItem(SELF_KEY)); } catch (_) { SELF = null; }
+const MARKS = { lotus: 'Lotus', spiral: 'Spiral', eye: 'Open eye', crescent: 'Crescent', flame: 'Flame', knot: 'Endless knot' };
+const BUILDS = [[3.4, 'Slender'], [4.2, 'Middling'], [5.2, 'Strong']];
+const HAIRS = ['Shaved', 'Short', 'Long', 'Topknot'];
+function drawMark(id, x, y, s = 1, col = INK, fill = null) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.strokeStyle = col; ctx.fillStyle = fill || col; ctx.lineWidth = 1.6 / Math.max(0.5, s) * Math.min(1, s * 1.4); ctx.lineCap = 'round'; ctx.beginPath();
+  if (id === 'lotus') { ctx.ellipse(0, -3, 2.6, 6, 0, 0, Math.PI * 2); ctx.moveTo(-1, 2); ctx.ellipse(-4.6, -0.6, 2.2, 5, -0.9, 0, Math.PI * 2); ctx.moveTo(6.6, -0.6); ctx.ellipse(4.6, -0.6, 2.2, 5, 0.9, 0, Math.PI * 2); ctx.moveTo(-7, 4); ctx.lineTo(7, 4); }
+  else if (id === 'spiral') { for (let a = 0; a < Math.PI * 5; a += 0.2) { const r = 0.6 + a * 0.45; const px = Math.cos(a) * r, py = Math.sin(a) * r; a === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); } }
+  else if (id === 'eye') { ctx.moveTo(-8, 0); ctx.quadraticCurveTo(0, -7, 8, 0); ctx.quadraticCurveTo(0, 7, -8, 0); ctx.moveTo(2.6, 0); ctx.arc(0, 0, 2.6, 0, Math.PI * 2); }
+  else if (id === 'crescent') { ctx.arc(0, 0, 7, 0.9, Math.PI * 2 - 0.9); ctx.arc(3.2, 0, 5, Math.PI * 2 - 1.15, 1.15, true); ctx.closePath(); }
+  else if (id === 'flame') { ctx.moveTo(0, -8); ctx.quadraticCurveTo(7, -1, 4, 5); ctx.quadraticCurveTo(0, 9, -4, 5); ctx.quadraticCurveTo(-7, -1, 0, -8); ctx.moveTo(0, -1); ctx.quadraticCurveTo(2.5, 2, 0, 5); }
+  else if (id === 'knot') { ctx.rect(-4.5, -4.5, 9, 9); ctx.moveTo(-4.5, 0); ctx.lineTo(-8, 0); ctx.moveTo(4.5, 0); ctx.lineTo(8, 0); ctx.moveTo(0, -4.5); ctx.lineTo(0, -8); ctx.moveTo(0, 4.5); ctx.lineTo(0, 8); ctx.moveTo(-4.5, -1.5); ctx.lineTo(4.5, -1.5); ctx.moveTo(-4.5, 1.5); ctx.lineTo(4.5, 1.5); }
+  if (fill) ctx.fill(); ctx.stroke(); ctx.restore();
+}
+function findCities(q) {
+  q = q.trim().toLowerCase(); if (q.length < 2) return [];
+  const starts = [], has = [];
+  for (const c of CITIES) { if (c.name.toLowerCase().startsWith(q)) starts.push(c); else if (c.key.includes(q)) has.push(c); if (starts.length >= 8) break; }
+  return starts.concat(has).slice(0, 8);
+}
+// a real birth: the chart of the moment the player was born, or (time unknown) the day read from the Moon
+function realBirth(date, time, city) {
+  if (!E) return null;
+  const [y, mo, d] = date.split('-').map(Number), known = !!time, [h, mi] = known ? time.split(':').map(Number) : [12, 0];
+  const { utc, offset } = E.localToUTC(y, mo, d, h, mi, city.tz);
+  const c = E.chart(utc, city.lat, city.lon);
+  let moonNote = '';
+  if (!known) {
+    const ls = c.by.Moon.sign; c.lagna = Object.assign(E.describe(ls * 30), { chandra: true }); c.planets.forEach(p => { p.house = ((p.sign - ls + 12) % 12) + 1; });
+    const m0 = E.chart(E.localToUTC(y, mo, d, 0, 1, city.tz).utc, city.lat, city.lon).by.Moon, m1 = E.chart(E.localToUTC(y, mo, d, 23, 59, city.tz).utc, city.lat, city.lon).by.Moon;
+    if (m0.nak !== m1.nak) moonNote = `That day the Moon moved from ${m0.nakName} into ${m1.nakName}; without the hour, midday is used.`;
+  }
+  const g = E.game(c), now = Date.now(), yr = 365.25 * 864e5;
+  const where = `${city.name}${city.country ? ', ' + city.country : ''}`;
+  const local = new Intl.DateTimeFormat('en-GB', { timeZone: city.tz, day: 'numeric', month: 'short', year: 'numeric', ...(known ? { hour: '2-digit', minute: '2-digit' } : {}) }).format(new Date(utc));
+  return { ms: utc, real: true, timeKnown: known, place: where, local: known ? local : `${local} (hour unknown)`, offset: E.fmtOffset(offset), age: Math.floor((now - utc) / yr), looks: null,
+    lagna: `${E.SIGNS[c.lagna.sign].en}${known ? '' : ' (from the Moon)'}`, moon: `${E.SIGNS[c.by.Moon.sign].en}, ${c.by.Moon.nakName}`, sun: E.SIGNS[c.by.Sun.sign].en, moonNote,
+    tier: g.manaTierIndex, tierName: g.manaTier, school: g.school ? g.school.id : null, style: g.social.split(':')[0], styleFull: g.social, region: g.region, people: g.civilization,
+    lagnaWindow: known ? c.lagnaWindow : null, chart: { lagna: c.lagna.sign, moonLon: c.by.Moon.lon, utc } };
+}
+let CR = null;
+function openCreate() {
+  mode = 'create'; clearHeld(); banner = null;
+  const s = SELF || {};
+  CR = { step: 1, kind: s.date ? (s.time ? 'real' : 'day') : null, date: s.date || '', time: s.time || '', city: s.city || null, q: s.city ? s.city.name : '', birth: null, err: '',
+    looks: s.looks || { hair: 1, build: 4.2, robe: false }, mark: s.mark || 'lotus', name: s.name || '', store: s.store || null };
+  $('ovCreate').hidden = false; renderCreate();
+}
+function birthCard(b) {
+  const line = (k, v) => `<span><b>${k}</b> ${esc(v)}</span>`;
+  return `<div class="stats">${b.real ? line('Born', `${b.local} in ${b.place} · ${b.offset}`) : line('Born', `${b.local} in ${b.place}`)}
+    ${line(b.real && !b.timeKnown ? 'Rising sign' : 'Lagna (rising sign)', b.lagna)}${b.sun ? line('Sun', b.sun) : ''}${line('Moon', b.moon)}
+    ${line('Mana', `${b.tierName}${b.school ? ' · ' + b.school + ' school' : ''}`)}${line('Way', b.styleFull || b.style)}${line('Land', b.region)}${line('People', b.people)}
+    ${b.moonNote ? `<span>${esc(b.moonNote)}</span>` : ''}${b.lagnaWindow && b.lagnaWindow.fwd !== null && Math.min(b.lagnaWindow.back, b.lagnaWindow.fwd) < 15 ? `<span>The rising sign changes within ${Math.min(b.lagnaWindow.back, b.lagnaWindow.fwd)} minutes of this time. If your time is not exact, it may differ.</span>` : ''}</div>
+    <div class="stats">${perks(b).map(p => `<span>${esc(p)}</span>`).join('')}</div>`;
+}
+function renderCreate() {
+  const c = CR, el = $('createIn'), step = c.step, real = c.kind === 'real' || c.kind === 'day';
+  const steps = ['Your birth', 'Your body', ...(real ? ['Keeping it'] : [])];
+  const head = `<span class="eyebrow">Before your first life · step ${step} of ${steps.length} · ${steps[step - 1]}</span>`;
+  if (step === 1) {
+    const choice = (k, t, d) => `<button class="choice${c.kind === k ? ' on' : ''}" type="button" data-kind="${k}"><b>${t}</b><span>${d}</span></button>`;
+    const cityList = c.kind && c.kind !== 'wheel' ? findCities(c.q).filter(x => !c.city || x !== c.city) : [];
+    el.innerHTML = `${head}<h2>When were you born?</h2>
+      <p>Your first life begins at a real moment under the real sky. The stars at that moment shape your body: its mana, its school of magic, and where it comes from.</p>
+      <div class="choices">${choice('real', 'My real birth', 'The day, the hour and the place you were born.')}${choice('day', 'I know the day, not the hour', 'Without the hour the rising sign is unknown, so the chart is read from the Moon, as the tradition does.')}${choice('wheel', 'Let the wheel decide', 'A real moment from the past, chosen for you.')}</div>
+      ${real ? `<div class="form">
+        <label class="field"><span class="lbl">Date of birth</span><input id="crDate" type="date" min="1900-01-01" max="${new Date().toISOString().slice(0, 10)}" value="${esc(c.date)}"></label>
+        ${c.kind === 'real' ? `<label class="field"><span class="lbl">Time of birth (local clock)</span><input id="crTime" type="time" value="${esc(c.time)}"></label>` : ''}
+        <label class="field wide"><span class="lbl">Place of birth</span><input id="crCity" type="text" autocomplete="off" placeholder="Start typing a town or city" value="${esc(c.q)}">
+          ${c.city ? `<span class="m">✓ ${esc(c.city.name)}, ${esc(c.city.prov ? c.city.prov + ', ' : '')}${esc(c.city.country)} · ${esc(c.city.tz)}</span>` : ''}
+          ${cityList.length ? `<span class="clist">${cityList.map((x, i) => `<button type="button" data-city="${i}">${esc(x.name)}<i>${esc([x.prov, x.country].filter(Boolean).join(', '))}</i></button>`).join('')}</span>` : ''}</label>
+        </div>
+        <div class="row"><button class="btn ghost" id="crCast" type="button">Read my chart</button></div>` : ''}
+      ${c.kind === 'wheel' && !c.birth ? '<div class="row"><button class="btn ghost" id="crCast" type="button">Turn the wheel</button></div>' : ''}
+      ${c.err ? `<p class="err">${esc(c.err)}</p>` : ''}
+      ${c.birth ? `<span class="lbl">${c.birth.real ? 'Your chart' : 'The moment the wheel chose'}</span>${birthCard(c.birth)}` : ''}
+      <div class="row"><button class="btn" id="crNext" type="button"${c.birth ? '' : ' disabled'}>Next: your body</button></div>
+      <p class="note">This uses the sidereal zodiac (Lahiri), as in Vedic astrology. The birth time you enter is your local clock time; past time zone changes are taken care of.</p>`;
+    el.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { c.kind = b.dataset.kind; c.birth = null; c.err = ''; renderCreate(); }));
+    const keep = () => { if ($('crDate')) c.date = $('crDate').value; if ($('crTime')) c.time = $('crTime').value; };
+    const ci = $('crCity'); if (ci) { ci.addEventListener('input', () => { keep(); c.q = ci.value; c.city = null; c.birth = null; const pos = ci.selectionStart; renderCreate(); const n = $('crCity'); n.focus(); n.setSelectionRange(pos, pos); }); ci.addEventListener('keydown', e => e.stopPropagation()); }
+    el.querySelectorAll('input').forEach(i => i.addEventListener('keydown', e => e.stopPropagation()));
+    el.querySelectorAll('[data-city]').forEach(b => b.addEventListener('click', () => { keep(); c.city = cityList[+b.dataset.city]; c.q = c.city.name; c.birth = null; renderCreate(); }));
+    ['crDate', 'crTime'].forEach(id => { const i = $(id); if (i) i.addEventListener('change', () => { keep(); c.birth = null; }); });
+    const cast = $('crCast'); if (cast) cast.addEventListener('click', () => {
+      keep(); c.err = '';
+      if (c.kind === 'wheel') { c.birth = makeBirth(); renderCreate(); return; }
+      if (!E) { c.err = 'The star library did not load (no internet?), so a real chart cannot be read. Let the wheel decide for now.'; renderCreate(); return; }
+      if (!c.date) c.err = 'Enter the date you were born.'; else if (c.kind === 'real' && !c.time) c.err = 'Enter the time you were born, or choose "I know the day, not the hour".'; else if (!c.city) c.err = 'Choose your place of birth from the list.';
+      else if (new Date(c.date) > new Date()) c.err = 'That date has not come yet.';
+      if (!c.err) c.birth = realBirth(c.date, c.kind === 'real' ? c.time : null, c.city);
+      renderCreate();
+    });
+    $('crNext').addEventListener('click', () => { if (!c.birth) return; c.step = 2; renderCreate(); });
+    return;
+  }
+  if (step === 2) {
+    const pick = (attr, val, label, on) => `<button class="choice sm${on ? ' on' : ''}" type="button" data-${attr}="${val}">${label}</button>`;
+    el.innerHTML = `${head}<h2>Your body, and the mark of your soul</h2>
+      <p>This body is yours for one life. When it ends you are born again into another, chosen by your karma. Only the soul mark stays the same in every life: it is how you will know your own past bodies.</p>
+      <div class="create2"><div class="prev"><canvas id="crPrev" width="360" height="400" aria-label="Your body"></canvas></div>
+      <div class="form left">
+        <label class="field wide"><span class="lbl">A name for your soul (optional)</span><input id="crName" type="text" maxlength="24" placeholder="Nameless" value="${esc(c.name)}"></label>
+        <span class="lbl">Build</span><div class="pickrow">${BUILDS.map(([v, n]) => pick('build', v, n, c.looks.build === v)).join('')}</div>
+        <span class="lbl">Hair</span><div class="pickrow">${HAIRS.map((n, i) => pick('hair', i, n, c.looks.hair === i)).join('')}</div>
+        <span class="lbl">Clothing</span><div class="pickrow">${pick('robe', 0, 'Wrap and legs', !c.looks.robe)}${pick('robe', 1, 'Long robe', c.looks.robe)}</div>
+        <span class="lbl">Soul mark · it stays with you in every life</span><div class="pickrow marks">${Object.keys(MARKS).map(k => `<button class="choice sm mk${c.mark === k ? ' on' : ''}" type="button" data-mark="${k}"><canvas width="44" height="44" data-mk="${k}"></canvas>${MARKS[k]}</button>`).join('')}</div>
+      </div></div>
+      <div class="row"><button class="btn ghost" id="crBack" type="button">Back</button><button class="btn" id="crNext" type="button">${real ? 'Next: keeping your birth' : 'Be born'}</button></div>`;
+    const nm = $('crName'); nm.addEventListener('input', () => { c.name = nm.value; }); nm.addEventListener('keydown', e => e.stopPropagation());
+    el.querySelectorAll('[data-build]').forEach(b => b.addEventListener('click', () => { c.looks.build = +b.dataset.build; renderCreate(); }));
+    el.querySelectorAll('[data-hair]').forEach(b => b.addEventListener('click', () => { c.looks.hair = +b.dataset.hair; renderCreate(); }));
+    el.querySelectorAll('[data-robe]').forEach(b => b.addEventListener('click', () => { c.looks.robe = b.dataset.robe === '1'; renderCreate(); }));
+    el.querySelectorAll('[data-mark]').forEach(b => b.addEventListener('click', () => { c.mark = b.dataset.mark; renderCreate(); }));
+    el.querySelectorAll('[data-mk]').forEach(cv2 => { const g = cv2.getContext('2d'), old = ctx; ctx = g; g.setTransform(2, 0, 0, 2, 0, 0); drawMark(cv2.dataset.mk, 11, 11, 1, INK); ctx = old; });
+    $('crBack').addEventListener('click', () => { c.step = 1; renderCreate(); });
+    $('crNext').addEventListener('click', () => { if (real) { c.step = 3; renderCreate(); } else finishCreate(); });
+    requestAnimationFrame(drawPreview);
+    return;
+  }
+  const opt = (k, t, d) => `<button class="choice${c.store === k ? ' on' : ''}" type="button" data-store="${k}"><b>${t}</b><span>${d}</span></button>`;
+  el.innerHTML = `${head}<h2>Keeping your birth</h2>
+    <p>Your date, time and place of birth are personal. The game uses them for your first life and, later, for readings of the sky at shrines. Choose where they are kept. You can change this later.</p>
+    <div class="choices">${opt('cloud', 'Keep it with my saves', 'In this test build: kept in this browser. On Steam: kept in your own Steam Cloud, private to your account, so it follows you to any computer.')}
+      ${opt('device', 'Keep it on this device only', 'Never sent anywhere. If this device is lost or reset, it is gone, and the game will ask for it again.')}
+      ${opt('none', 'Do not keep it', 'Used for this first life only. Readings later in the game will ask for it each time.')}</div>
+    <p class="note">Your name, body and soul mark are kept either way. Nothing is ever shared with other players.</p>
+    <div class="row"><button class="btn ghost" id="crBack" type="button">Back</button><button class="btn" id="crBorn" type="button"${c.store ? '' : ' disabled'}>Be born</button></div>`;
+  el.querySelectorAll('[data-store]').forEach(b => b.addEventListener('click', () => { c.store = b.dataset.store; renderCreate(); }));
+  $('crBack').addEventListener('click', () => { c.step = 2; renderCreate(); });
+  $('crBorn').addEventListener('click', () => { if (c.store) finishCreate(); });
+}
+function drawPreview() {
+  if (mode !== 'create' || !CR || CR.step !== 2) return;
+  const cv2 = $('crPrev'); if (!cv2) return;
+  const g = cv2.getContext('2d'), old = ctx; ctx = g;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv2.width, cv2.height); g.setTransform(3, 0, 0, 3, 0, 0);
+  g.strokeStyle = RULE; g.lineWidth = 0.5; g.beginPath(); for (let y = 12; y < 134; y += 12) { g.moveTo(0, y); g.lineTo(120, y); } g.stroke();
+  g.strokeStyle = INK; g.lineWidth = 1.5; g.beginPath(); g.moveTo(10, 118); g.lineTo(110, 118); g.stroke();
+  const t = performance.now() / 1000, r = stick(60, 118, POSE.idle(t), 1, INK, CR.looks.build, { hair: CR.looks.hair, robe: CR.looks.robe, eye: true, s: 1.9 });
+  drawMark(CR.mark, r.neck.x + (r.hip.x - r.neck.x) * 0.32 + 0.5, r.neck.y + (r.hip.y - r.neck.y) * 0.32, 0.55, INK, PAPER);
+  ctx.font = `9px ${FH}`; ctx.fillStyle = INK2; ctx.textAlign = 'center'; ctx.fillText(CR.name || 'Nameless', 60, 131);
+  ctx = old; requestAnimationFrame(drawPreview);
+}
+function finishCreate() {
+  const c = CR, b = c.birth; b.looks = { ...c.looks };
+  soul.name = c.name.trim() || null; soul.mark = c.mark;
+  const keepBirth = b.real && c.store !== 'none';
+  soul.self = b.real ? { date: c.date, time: c.kind === 'real' ? c.time : null, city: c.city, chart: b.chart, store: c.store } : null;
+  const save = { name: soul.name, looks: c.looks, mark: c.mark, store: b.real ? c.store : (SELF && SELF.store) || null };
+  if (keepBirth) Object.assign(save, { date: c.date, time: c.kind === 'real' ? c.time : null, city: { name: c.city.name, prov: c.city.prov, country: c.city.country, lat: c.city.lat, lon: c.city.lon, tz: c.city.tz } });
+  else if (!b.real && SELF && SELF.date && SELF.store !== 'none') Object.assign(save, { date: SELF.date, time: SELF.time, city: SELF.city });
+  try { localStorage.setItem(SELF_KEY, JSON.stringify(save)); SELF = save; } catch (_) {}
+  $('ovCreate').hidden = true; CR = null;
+  newLife(b); mode = 'play';
+  banner = { t: 4.2, top: `LIFE 1${soul.name ? ' · ' + soul.name.toUpperCase() : ''}`, sub: b.real ? `Born ${b.local} in ${b.place}. ${b.lagna} rising, Moon in ${b.moon}. ${b.tierName} mana${b.school ? ', ' + b.school : ''}.` : `Born ${b.local} in ${b.place} · ${b.lagna} lagna` };
+  if (micMode === 'always') startRec();
+  tone(330, 660, 0.3, 'sine', 0.04);
+}
 for (const id in HEARD) { const w = SPELL(id); if (w) for (const ph of HEARD[id]) if (!w.alias.includes(ph)) w.alias.push(ph); }
 $('btnMicCheck').addEventListener('click', e => { e.currentTarget.blur(); micCheck(); });
 $('btnBegin').addEventListener('click', () => { if (MC) { try { MC.stop(); } catch (_) {} MC = null; }
+  setMicMode($('micStart').value); $('ovStart').hidden = true; openCreate();
+});
+$('btnQuick').addEventListener('click', () => { if (MC) { try { MC.stop(); } catch (_) {} MC = null; }
   setMicMode($('micStart').value);
-  $('ovStart').hidden = true; newLife(makeBirth()); mode = 'play';
+  $('ovStart').hidden = true; if (!soul.mark) soul.mark = (SELF && SELF.mark) || 'lotus'; newLife(makeBirth()); mode = 'play';
   if (micMode === 'always') startRec();
   tone(330, 660, 0.3, 'sine', 0.04);
 });
@@ -2636,7 +2803,7 @@ window.__life = {
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };

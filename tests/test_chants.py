@@ -21,7 +21,7 @@ async def main():
         await pg.route('https://cdn.jsdelivr.net/**', lambda r: r.fulfill(path=LIB, content_type='application/javascript'))
         await pg.route('https://fonts.googleapis.com/**', lambda r: r.abort())
         await pg.goto(PAGE); await pg.wait_for_timeout(400)
-        await pg.select_option('#micStart', 'always'); await pg.click('#btnBegin'); await pg.wait_for_timeout(300)
+        await pg.select_option('#micStart', 'always'); await pg.click('#btnQuick'); await pg.wait_for_timeout(300)
         ev = pg.evaluate; fr = pg.locator('#frame')
         await ev("__life.freeze(true); __life.noFoes()")
         async def run(n, keys={}, press={}): await ev(f"__life.run({n},{json.dumps(keys)},{json.dumps(press)})")

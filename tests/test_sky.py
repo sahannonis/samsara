@@ -15,7 +15,7 @@ async def main():
         await pg.route('https://cdn.jsdelivr.net/**', lambda r: r.fulfill(path=LIB, content_type='application/javascript'))
         await pg.route('https://fonts.googleapis.com/**', lambda r: r.abort())
         await pg.goto(PAGE); await pg.wait_for_timeout(400)
-        await pg.select_option('#micStart', 'off'); await pg.click('#btnBegin'); await pg.wait_for_timeout(300)
+        await pg.select_option('#micStart', 'off'); await pg.click('#btnQuick'); await pg.wait_for_timeout(300)
         ev = pg.evaluate; fr = pg.locator('#frame')
         R = {}
         R['place'] = await ev("__life.SKY.name+' '+__life.SKY.lat+','+__life.SKY.lon")

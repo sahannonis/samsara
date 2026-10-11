@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Samsara Build 14</title>
+<title>Samsara Build 15</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&family=Kalam:wght@400;700&display=swap">
@@ -89,13 +89,42 @@ input.num{font-family:var(--f-mono);font-size:14px;padding:8px;width:110px;borde
 .meter{position:relative;display:block;height:12px;border:1.5px solid var(--ink);background:var(--rule)}
 .meter i{position:absolute;inset:0 auto 0 0;background:var(--ink-2)}
 .meter b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink)}
+/* character creation */
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;width:100%}
+.choice{all:unset;box-sizing:border-box;cursor:pointer;border:1.5px solid var(--ink);padding:12px 14px;display:flex;flex-direction:column;gap:4px;text-align:left;background:var(--paper);color:var(--ink)}
+.choice b{font-family:var(--f-display);font-weight:400;font-size:12px;letter-spacing:.06em}
+.choice span{font-size:14px;line-height:1.35}
+.choice.on{background:var(--ink);color:var(--paper)}
+.choice.on canvas{filter:invert(1)}
+.choice.sm{padding:8px 10px;font-family:var(--f-mono);font-size:13px;flex-direction:row;align-items:center;gap:6px}
+.choice:focus-visible{outline:3px dashed var(--ink);outline-offset:3px}
+.form{display:flex;flex-wrap:wrap;gap:12px;width:100%;justify-content:center;text-align:left}
+.form.left{flex-direction:column;flex-wrap:nowrap;justify-content:flex-start}
+.field{display:flex;flex-direction:column;gap:5px;min-width:180px}
+.field.wide{flex:1 1 300px}
+.form.left .field.wide{flex:none}
+.field input{font-family:var(--f-mono);font-size:14px;padding:9px;border:1.5px solid var(--ink);background:var(--paper);color:var(--ink)}
+.field .m{font-family:var(--f-mono);font-size:12px;color:var(--ink-2)}
+.clist{display:flex;flex-direction:column;border:1.5px solid var(--ink);background:var(--paper)}
+.clist button{all:unset;cursor:pointer;padding:7px 10px;font-family:var(--f-mono);font-size:13px;display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--rule)}
+.clist button:hover,.clist button:focus-visible{background:var(--ink);color:var(--paper)}
+.clist i{font-style:normal;color:var(--pencil)}
+.ov .err{color:var(--red);font-family:var(--f-mono);font-size:13px}
+.ov .stats{text-align:left;width:100%}
+.stats b{font-family:var(--f-display);font-weight:400;font-size:10px;letter-spacing:.08em;margin-right:6px}
+.create2{display:grid;grid-template-columns:minmax(0,210px) minmax(0,1fr);gap:20px;width:100%;align-items:start;text-align:left}
+@media (max-width:640px){.create2{grid-template-columns:1fr}}
+.prev{border:1.5px solid var(--ink);background:var(--paper)}
+.prev canvas{position:static;width:100%;height:auto;aspect-ratio:9/10}
+.pickrow{display:flex;flex-wrap:wrap;gap:8px}
+.mk canvas{position:static;width:22px;height:22px}
 footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);padding-top:12px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div><span class="eyebrow">Samsara · test build 14</span><h1>Longbow and Voice, polished</h1></div>
+    <div><span class="eyebrow">Samsara · test build 15 · Phase 3</span><h1>Your Birth</h1></div>
     <span class="lbl" id="lifeLabel">Life 1</span>
   </header>
 
@@ -103,9 +132,9 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
     <canvas id="cv" aria-label="Samsara test: a long proving ground of planks, ledges, water, walls, wind and darkness"></canvas>
 
     <div class="ov" id="ovStart"><div class="ov-in">
-      <span class="eyebrow">The end of phase two</span>
-      <h2>Longbow and voice</h2>
-      <p>Bodies born with no mana can now find the Empty longbow on the trial road: a full draw flies flat and passes through foes, and R picks the arrow (reed, iron, ember or ink). Spells on your keys and the chants you carry are now chosen at shrines, and a body with no mana carries five chants instead of three. Check your mic before you play: the game listens to you say three spells and learns how your voice comes through, and it keeps learning in play when it mishears you and you press the key instead. Starting a chant over no longer spoils it.</p>
+      <span class="eyebrow">Phase 3 begins</span>
+      <h2>Your birth</h2>
+      <p>Your first life now begins at your own birth: the day, the hour and the place you were born, read under the real sky with the same star engine as the Star Panel. If you know the day but not the hour, the chart is read from the Moon. Or let the wheel decide. Then shape your body, and choose a soul mark: your body changes with every life, but the mark stays, and it is how you will know your own past bodies.</p>
       <div class="row">
         <label class="lbl" for="micStart">Mic</label>
         <select id="micStart">
@@ -114,12 +143,14 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
           <option value="off">Off: buttons only</option>
         </select>
       </div>
-      <div class="row"><button class="btn ghost" id="btnMicCheck" type="button">Check my mic</button><button class="btn" id="btnBegin" type="button">Be born</button></div>
+      <div class="row"><button class="btn ghost" id="btnMicCheck" type="button">Check my mic</button><button class="btn" id="btnBegin" type="button">Begin</button></div>
+      <div class="row"><button class="btn ghost sm" id="btnQuick" type="button">Skip: be born at random</button></div>
       <p class="note" id="micCheckMsg">The mic check asks you to say three spells and learns how your voice comes through.</p>
       <p class="note" id="libNote"></p>
     </div></div>
 
     <div class="ov dark" id="ovDeath" hidden><div class="ov-in" id="deathIn"></div></div>
+    <div class="ov" id="ovCreate" hidden><div class="ov-in" id="createIn"></div></div>
     <div class="ov" id="ovChoice" hidden><div class="ov-in" id="choiceIn"></div></div>
     <div class="ov" id="ovGear" hidden><div class="ov-in" id="gearIn"></div></div>
     <div class="ov" id="ovPause" hidden><div class="ov-in"><h2>Paused</h2><div class="row"><button class="btn" id="btnResume" type="button">Resume</button></div></div></div>

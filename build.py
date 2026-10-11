@@ -9,10 +9,11 @@ import pathlib
 ROOT = pathlib.Path(__file__).parent
 DIST = ROOT / 'dist'
 ENGINE = (ROOT / 'engine' / 'star-engine.js').read_text()
+CITIES = (ROOT / 'star-panel' / 'cities.json').read_text().strip()
 
 def game(folder, out):
     head = (folder / 'head.html').read_text()
-    page = head.replace('/*ENGINE*/', ENGINE).replace('/*GAME*/', (folder / 'game.js').read_text())
+    page = head.replace('/*ENGINE*/', ENGINE).replace('/*GAME*/', (folder / 'game.js').read_text().replace('/*CITIES*/[]', CITIES))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(page)
     print(f'{out.relative_to(ROOT)}  {len(page) // 1024} KB')
