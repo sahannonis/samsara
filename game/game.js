@@ -203,8 +203,9 @@ let mode = 'start';
 addEventListener('keydown', e => {
   if (e.target.tagName === 'SELECT' || (e.target.tagName === 'INPUT' && e.target.type !== 'checkbox')) return;
   if (e.code === 'Tab') { e.preventDefault(); if (mode === 'play') openGear(); else if (mode === 'gear') closePanel(); return; }
+  if (mode === 'map' && /^Digit[1-9]$/.test(e.code)) { travelTo(+e.code.slice(5) - 1); return; }
   if (e.code === 'KeyM' && !e.repeat) { if (mode === 'play') { mode = 'map'; clearHeld(); } else if (mode === 'map') closePanel(); return; }
-  if (e.code === 'Escape') { if (mode === 'gear' || mode === 'map' || mode === 'shrine' || mode === 'forge') { closePanel(); return; } if (mode === 'play') { mode = 'pause'; $('ovPause').hidden = false; } else if (mode === 'pause') resume(); return; }
+  if (e.code === 'Escape') { if (mode === 'gear' || mode === 'map' || mode === 'shrine' || mode === 'forge' || mode === 'chest') { closePanel(); return; } if (mode === 'play') { mode = 'pause'; $('ovPause').hidden = false; } else if (mode === 'pause') resume(); return; }
   const a = KEYS[e.code]; if (!a) return;
   if (mode === 'play') e.preventDefault();
   if (e.repeat) return;
@@ -218,6 +219,7 @@ const mouse = { x: W / 2, y: H / 2, in: false };
 cv.addEventListener('mousemove', e => { const r = cv.getBoundingClientRect(); mouse.x = (e.clientX - r.left) / r.width * W; mouse.y = (e.clientY - r.top) / r.height * H; mouse.in = true; });
 cv.addEventListener('mouseleave', () => { mouse.in = false; });
 cv.addEventListener('mousedown', e => {
+  if (mode === 'map') { const h = mapHits.find(m => Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18); if (h) travelTo(h.i); return; }
   if (mode !== 'play') return;
   e.preventDefault();
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
@@ -302,7 +304,7 @@ function startRec() {
 function stopRec() { try { rec && rec.stop(); } catch (_) {} }
 
 /* ---------- state ---------- */
-const soul = { karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set() };
+const soul = { home: null, karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set() };
 let life = null, P = null, foes = [], shots = [], fx = [], floaters = [], shades = [], drops = [], pots = [];
 let shake = 0, hitstop = 0, clock = 0, banner = null, pendingDeath = 0, zoneTag = null;
 const villager = { x: 560, gy: 1000, helped: false, talkT: 0, line: '' };
@@ -322,13 +324,14 @@ function newLife(birth) {
     wordSlots: WORDS.slice(0, [0, 1, 2, 3, 3][b.tier]).map(w => w.id),
     atk: null, charge: 0, charging: false, rollT: 0, rollIF: 0, parryT: 0, parryCd: 0, healT: 0, hitT: 0, inv: 0, shieldT: 0, riposte: 0, dead: false, deadT: 0,
     dmgMul: (noMana ? 1.15 : 1) * (b.style === 'Sovereign' ? 1.1 : 1), looks: b.looks, school: b.school, noMana, run: 0,
-    stBase: noMana ? 125 : 100, weapons: new Set([0, 2]), stats: birthStats(b), stats0: birthStats(b), skills: new Set(), skillPending: null, wtier: {}, mats: { wood: 0, iron: 0, ink: 0, petal: 0, ember: 0 }, knivesMax: KNIVES, torchMax: TORCH, made: new Set(), manaTierMax: manaMax, garb: { head: null, body: 'wrap', feet: 'sandals' }, garbOwned: new Set(['wrap', 'sandals']), loadMax: 20, combo: 0, comboT: 0, rollV: 0, mount: false, trampleCd: 0,
+    stBase: noMana ? 125 : 100, visited: new Set([0]), weapons: new Set([0, 2]), stats: birthStats(b), stats0: birthStats(b), skills: new Set(), skillPending: null, wtier: {}, mats: { wood: 0, iron: 0, ink: 0, petal: 0, ember: 0 }, knivesMax: KNIVES, torchMax: TORCH, made: new Set(), manaTierMax: manaMax, garb: { head: null, body: 'wrap', feet: 'sandals' }, garbOwned: new Set(['wrap', 'sandals']), loadMax: 20, combo: 0, comboT: 0, rollV: 0, mount: false, trampleCd: 0,
     relics: new Set(sr), equip: sr.concat([null, null, null, null]).slice(0, 4), shrine: 0, safe: { x: SHRINES[0].x + 40, y: SHRINES[0].gy },
     jumpsLeft: 0, jumping: false, coy: 0, jbuf: 0, dropT: 0, grabCd: 0, kickT: 0, clingMem: 0, clingDir: 0, cling: 0, hang: null, climbT: 0, climb: null, ladder: null, glide: false, plunge: false, landT: 0,
     inWater: false, headUnder: false, breath: BREATH, burnT: 0, crouch: false, torch: { fuel: TORCH, lit: false }, knives: KNIVES, knifeCd: 0, zones: new Set(), zone: -1 };
   applyStats(true);
   resetNodes();
-  newHorse();
+  if (!soul.home) soul.home = emptyInv();
+  newHorse(); resetChests();
   pots = POT_SPOTS.map(([x, gy, seeds]) => ({ x, gy, seeds, broken: false }));
   FAKES.forEach(f => f.found = false);
   drops = []; shots = []; resetCrumbles(); spawnFoes();
@@ -383,7 +386,7 @@ const GARB = {
 };
 const SLOT_NAMES = { head: 'Head', body: 'Body', feet: 'Feet' };
 const LOADS = { light: { roll: 440, dur: 0.34, iF: 0.26, st: 0.9, walk: 1, say: 'Light: long, fast rolls' }, medium: { roll: 380, dur: 0.36, iF: 0.24, st: 1, walk: 1, say: 'Medium: normal rolls' }, heavy: { roll: 300, dur: 0.42, iF: 0.18, st: 1.3, walk: 0.92, say: 'Heavy: short, slow rolls that cost more' }, over: { roll: 0, dur: 0, iF: 0, st: 0, walk: 0.75, say: 'Too heavy: you cannot roll and you walk slowly' } };
-function loadNow() { const w = P.slots.reduce((a, i) => a + WEAPONS[i].weight, 0) + ['head', 'body', 'feet'].reduce((a, k) => a + (P.garb[k] ? GARB[P.garb[k]].weight : 0), 0), r = w / P.loadMax; const cls = r <= 0.35 ? 'light' : r <= 0.7 ? 'medium' : r <= 1 ? 'heavy' : 'over'; return Object.assign({ w, r, cls }, LOADS[cls]); }
+function loadNow() { const w = P.slots.reduce((a, i) => a + WEAPONS[i].weight, 0) + ['head', 'body', 'feet'].reduce((a, k) => a + (P.garb[k] ? GARB[P.garb[k]].weight : 0), 0), r = w / P.loadMax; const pk = packWeight(), full = pk > P.packMax + 1e-9; const cls = full ? 'over' : r <= 0.35 ? 'light' : r <= 0.7 ? 'medium' : r <= 1 ? 'heavy' : 'over'; return Object.assign({ w, r, cls, pack: pk, full }, LOADS[cls], full ? { say: 'Your pack is too full: you cannot roll and you walk slowly. Leave something in a chest.' } : {}); }
 const protNow = () => ['head', 'body', 'feet'].reduce((a, k) => a + (P.garb[k] ? GARB[P.garb[k]].prot : 0), 0);
 const LEVEL_COST = lv => Math.round(50 * Math.pow(1.15, lv - 1));
 const levelOf = () => 1 + Object.keys(P.stats).reduce((a, k) => a + P.stats[k] - P.stats0[k], 0);
@@ -392,6 +395,7 @@ function applyStats(fill) {
   P.hpMax = 100 + (s.vit - 10) * 8;
   P.stBase = (P.noMana ? 125 : 100) + (s.end - 10) * 6;
   P.loadMax = 20 + (s.end - 10) * 2 + (P.skills.has('strong_back') ? 6 : 0);
+  P.packMax = 30 + (s.end - 10) * 3 + (P.skills.has('strong_back') ? 6 : 0);
   P.manaMax = P.manaTierMax ? P.manaTierMax + (s.foc - 10) * 6 : 0;
   if (fill) { P.hp = P.hpMax; P.mana = P.manaMax; P.st = P.stBase; P.stMax = P.stBase; }
   else { P.hp += Math.max(0, P.hpMax - oldHp); P.mana += Math.max(0, P.manaMax - oldMana); }
@@ -638,7 +642,7 @@ function afterMove(dt, mx, onLadder) {
   const fy = P.y + P.h;
   for (const s of shades) if (!s.taken && Math.abs(cx - s.x) < 30 && Math.abs(fy - s.y) < 70) { s.taken = true; P.seeds += s.seeds; floater(s.x, s.y - 80, `+${s.seeds} seeds recovered`); tone(500, 1000, 0.2, 'sine', 0.04); }
   for (const b of soul.bodies) if (!b.taken && b.life !== life.n && Math.abs(cx - b.x) < 30 && Math.abs(fy - b.y) < 70) { b.taken = true; floater(b.x, b.y - 90, `A body you wore in life ${b.life}.`); tone(300, 600, 0.6, 'sine', 0.04); }
-  for (const [id, x, gy] of RELIC_SPOTS) if (!P.relics.has(id) && Math.abs(cx - x) < 28 && Math.abs(fy - gy) < 50) pickRelic(id);
+  for (const [id, x, gy] of RELIC_SPOTS) if (!P.relics.has(id) && !relicStored(id) && Math.abs(cx - x) < 28 && Math.abs(fy - gy) < 50) pickRelic(id);
   for (const d of drops) if (!d.taken && Math.abs(cx - d.x) < 26 && d.y > P.y - 10 && d.y < fy + 24) { d.taken = true; P.knives = Math.min(P.knivesMax, P.knives + 1); tone(1300, 1600, 0.05, 'triangle', 0.02); }
   drops = drops.filter(d => !d.taken);
   for (const n of NODES) if (n.k === 'petal' && n.hp > 0 && overlap(P, nodeBox(n))) hitNode(n, 1);
@@ -670,7 +674,7 @@ const NODES = [
 const NODE_HP = { tree: 3, ore: 3, ember: 2, petal: 1 }, NODE_GIVES = { tree: ['wood', 2], ore: ['iron', 2], ember: ['ember', 1], petal: ['petal', 1] };
 function resetNodes() { NODES.forEach(n => { n.hp = NODE_HP[n.k]; n.shake = 0; }); }
 function nodeBox(n) { return n.k === 'tree' ? { x: n.x - 14, y: n.gy - 90, w: 28, h: 90 } : n.k === 'petal' ? { x: n.x - 16, y: n.gy - 12, w: 32, h: 24 } : { x: n.x - 17, y: n.gy - 24, w: 34, h: 24 }; }
-function gain(mat, n, x, y) { P.mats[mat] += n; floater(x, y, `+${n} ${MATS[mat].toUpperCase()}`, INK2); tone(700, 1000, 0.08, 'triangle', 0.03); }
+function gain(mat, n, x, y) { n = Math.max(0, Math.min(n, Math.floor((P.packMax - packWeight()) / MAT_W[mat] + 1e-9))); if (!n) { floater(x, y, 'YOUR PACK IS FULL', PENCIL); return; } P.mats[mat] += n; floater(x, y, `+${n} ${MATS[mat].toUpperCase()}`, INK2); tone(700, 1000, 0.08, 'triangle', 0.03); }
 function hitNode(n, dmg) {
   n.hp -= dmg; n.shake = 0.2; burst(n.x, n.gy - (n.k === 'tree' ? 50 : 14), 6, n.k === 'ember' ? RED : INK2, 160); tone(n.k === 'tree' ? 260 : 900, n.k === 'tree' ? 180 : 500, 0.06, 'square', 0.03);
   if (n.hp <= 0) { const [m, q] = NODE_GIVES[n.k]; gain(m, q + (P.skills.has('forager') ? 1 : 0), n.x, n.gy - (n.k === 'tree' ? 100 : 40)); }
@@ -831,7 +835,8 @@ function use() {
     } else mount();
     return;
   }
-  const ci = CHESTS.findIndex(c => !chestOpen(c) && Math.abs(cx - c.x) < 40 && Math.abs(fy - c.gy) < 40);
+  if (Math.abs(cx - HOME.x) < 40 && Math.abs(fy - HOME.gy) < 40 && !P.mount) { openContainer(soul.home, 'Your chest', true); return; }
+  const ci = CHESTS.findIndex(c => Math.abs(cx - c.x) < 40 && Math.abs(fy - c.gy) < 40);
   if (ci >= 0) { openChest(CHESTS[ci]); return; }
   if (Math.abs(P.x - villager.x) < 70 && Math.abs(P.y + P.h - villager.gy) < 40) {
     if (!villager.helped && life.n === 1 && !soul.memories.gift) {
@@ -854,7 +859,7 @@ function talkVillager() {
   villager.idx = ((villager.idx ?? -1) + 1) % lines.length; villager.line = lines[villager.idx]; villager.talkT = 5;
 }
 function rest(i) {
-  P.hp = P.hpMax; P.lotus = P.lotusMax; P.st = P.stMax; P.mana = P.manaMax; P.breath = BREATH; P.torch.fuel = P.torchMax; P.knives = P.knivesMax; P.shrine = i; SFX.rest();
+  P.hp = P.hpMax; P.lotus = P.lotusMax; P.st = P.stMax; P.mana = P.manaMax; P.breath = BREATH; P.torch.fuel = P.torchMax; P.knives = P.knivesMax; P.shrine = i; P.visited.add(i); SFX.rest();
   drops = []; spawnFoes(); shots = []; resetCrumbles(); resetNodes();
   if (horse.state !== 'wild') { horse.hp = horse.hpMax; if (horse.state === 'fled') horse.state = 'away'; }
   banner = { t: 2.4, top: 'RESTED', sub: `${SHRINES[i].name}. If you fall, you wake here. The Grasping return, and so do trees, ore and flowers.` };
@@ -982,17 +987,96 @@ function updateHorse(dt) {
 
 /* ---------- chests ---------- */
 const CHESTS = [
-  { x: 300, gy: 1000, kind: 'garb', id: 'hat' }, { x: 925, gy: 900, kind: 'garb', id: 'leather' }, { x: 990, gy: 1000, kind: 'weapon', id: 1 },
+  { x: 380, gy: 1000, kind: 'garb', id: 'hat' }, { x: 925, gy: 900, kind: 'garb', id: 'leather' }, { x: 990, gy: 1000, kind: 'weapon', id: 1 },
   { x: 2400, gy: 810, kind: 'weapon', id: 3 }, { x: 3120, gy: 790, kind: 'weapon', id: 4 }, { x: 4220, gy: 1100, kind: 'weapon', id: 5 },
   { x: 4385, gy: 955, kind: 'garb', id: 'boots' }, { x: 4825, gy: 955, kind: 'garb', id: 'cleats' }, { x: 5790, gy: 1020, kind: 'garb', id: 'helm' },
   { x: 6330, gy: 560, kind: 'garb', id: 'band' }, { x: 7440, gy: 560, kind: 'garb', id: 'robe' }, { x: 9100, gy: 760, kind: 'garb', id: 'mail' },
 ];
-const chestOpen = c => c.kind === 'weapon' ? P.weapons.has(c.id) : P.garbOwned.has(c.id);
-function openChest(c) {
-  SFX.relic(); burst(c.x, c.gy - 20, 16, INK2, 200);
-  if (c.kind === 'weapon') { P.weapons.add(c.id); const w = WEAPONS[c.id]; banner = { t: 3.4, top: w.name.toUpperCase(), sub: `${w.perk} Weight ${w.weight}. Put it in a hand in Tab.` }; }
-  else { P.garbOwned.add(c.id); const g = GARB[c.id]; banner = { t: 3.4, top: g.name.toUpperCase(), sub: `${SLOT_NAMES[g.slot]}. Protection ${g.prot}%, weight ${g.weight}. ${g.what} Wear it in Tab.` }; }
+const chestOpen = c => !!c.opened;
+/* ---------- carrying: the pack, world chests and your own chest ---------- */
+const emptyInv = () => ({ weapons: new Set(), garb: new Set(), relics: new Set(), mats: { wood: 0, iron: 0, ink: 0, petal: 0, ember: 0 }, wtier: {} });
+const HOME = { x: 280, gy: 1000 };
+const MAT_W = { wood: 1, iron: 1.5, ink: 0.2, petal: 0.2, ember: 0.5 }, RELIC_W = 0.3;
+const invEmpty = v => !v.weapons.size && !v.garb.size && !v.relics.size && !Object.values(v.mats).some(Boolean);
+const relicStored = id => soul.home.relics.has(id) || CHESTS.some(c => c.inv && c.inv.relics.has(id));
+function resetChests() {
+  for (const c of CHESTS) {
+    c.inv = emptyInv(); c.opened = false;
+    const atHome = c.kind === 'weapon' ? soul.home.weapons.has(c.id) : soul.home.garb.has(c.id);
+    if (!atHome) (c.kind === 'weapon' ? c.inv.weapons : c.inv.garb).add(c.id);
+  }
 }
+function packWeight() {
+  let w = 0;
+  for (const wi of P.weapons) if (!P.slots.includes(wi)) w += WEAPONS[wi].weight;
+  for (const id of P.garbOwned) if (P.garb[GARB[id].slot] !== id) w += GARB[id].weight;
+  for (const id of P.relics) if (!P.equip.includes(id)) w += RELIC_W;
+  for (const k in P.mats) w += P.mats[k] * MAT_W[k];
+  return w;
+}
+const room = w => packWeight() + w <= P.packMax + 1e-9;
+let openInv = null;
+function openContainer(inv, name, home) { banner = null; mode = 'chest'; clearHeld(); openInv = { inv, name, home }; renderChest(); $('ovGear').hidden = false; SFX.relic(); }
+function renderChest() {
+  const { inv, name, home } = openInv, pw = packWeight();
+  const btn = (txt, attr, ok, why) => `<button class="btn ghost sm" type="button" ${attr}${ok ? '' : ' disabled'}>${ok ? txt : why}</button>`;
+  const row = (label, sub, w, btns) => `<div class="item"><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}<span class="m">Weight ${w}</span><div class="row">${btns}</div></div>`;
+  const C = [], Pk = [];
+  for (const wi of inv.weapons) { const w = WEAPONS[wi], dup = P.weapons.has(wi); C.push(row(`${w.name} · Tier ${TIER_NAME[inv.wtier[wi] || 1]}`, w.perk, w.weight, dup ? btn('Swap with yours', `data-swap="${wi}"`, !P.slots.includes(wi) || true, '') : btn('Take', `data-take="weapon:${wi}"`, room(w.weight), 'Too heavy'))); }
+  for (const id of inv.garb) { const g = GARB[id]; C.push(row(g.name, `${SLOT_NAMES[g.slot]} · ${g.what}`, g.weight, btn('Take', `data-take="garb:${id}"`, !P.garbOwned.has(id) && room(g.weight), P.garbOwned.has(id) ? 'You have one' : 'Too heavy'))); }
+  for (const id of inv.relics) C.push(row(RELICS[id].name, RELICS[id].what, RELIC_W, btn('Take', `data-take="relic:${id}"`, room(RELIC_W), 'Too heavy')));
+  for (const k in inv.mats) if (inv.mats[k]) C.push(row(`${MATS[k]} × ${inv.mats[k]}`, '', `${MAT_W[k]} each`, btn('Take 1', `data-take="mat:${k}:1"`, room(MAT_W[k]), 'Too heavy') + btn('Take all', `data-take="mat:${k}:all"`, room(MAT_W[k]), 'Too heavy')));
+  for (const wi of [...P.weapons].sort((a, b) => a - b)) { const w = WEAPONS[wi], hand = P.slots.includes(wi); Pk.push(row(`${w.name} · Tier ${TIER_NAME[tierOf(wi)]}`, hand ? 'In your hands' : '', w.weight, btn('Put in', `data-put="weapon:${wi}"`, !hand && !inv.weapons.has(wi), hand ? 'In your hands' : 'Already one inside'))); }
+  for (const id of P.garbOwned) { const g = GARB[id], worn = P.garb[g.slot] === id; Pk.push(row(g.name, worn ? 'Worn' : SLOT_NAMES[g.slot], g.weight, btn('Put in', `data-put="garb:${id}"`, !worn && !inv.garb.has(id), worn ? 'Worn' : 'Already one inside'))); }
+  for (const id of P.relics) { const on = P.equip.includes(id), soulR = RELICS[id].soul; Pk.push(row(RELICS[id].name, on ? 'Worn' : '', RELIC_W, btn('Put in', `data-put="relic:${id}"`, !on && !soulR, soulR ? 'Stays with your soul' : 'Worn'))); }
+  for (const k in P.mats) if (P.mats[k]) Pk.push(row(`${MATS[k]} × ${P.mats[k]}`, '', `${MAT_W[k]} each`, btn('Put 1', `data-put="mat:${k}:1"`, true, '') + btn('Put all', `data-put="mat:${k}:all"`, true, '')));
+  $('gearIn').innerHTML = `
+    <span class="eyebrow">${home ? 'Kept across lives · ' : ''}Esc to close</span><h2>${esc(name)}</h2>
+    ${home ? '<p class="note">Whatever you leave in your own chest waits here for your next life. Everything else you carry is lost when a life ends.</p>' : '<p class="note">Take what you want and leave what you do not need. Things left here stay for the rest of this life.</p>'}
+    <div class="stats" style="width:100%;max-width:640px"><span>Your pack: ${pw.toFixed(1)} of ${P.packMax} (what you carry but are not holding or wearing)</span><span class="meter"><i style="width:${Math.min(100, pw / P.packMax * 100)}%"></i></span></div>
+    <div class="gear">
+      <div class="gcol"><span class="lbl">Inside</span>${C.length ? `<div class="row" style="justify-content:flex-start"><button class="btn sm" type="button" id="takeAll">Take everything that fits</button></div>` : ''}<div class="inv">${C.join('') || '<p class="note">Empty.</p>'}</div></div>
+      <div class="gcol"><span class="lbl">You carry</span><div class="inv">${Pk.join('') || '<p class="note">Nothing.</p>'}</div></div>
+    </div>`;
+  const q = sel => $('gearIn').querySelectorAll(sel);
+  q('[data-take]').forEach(b => b.addEventListener('click', () => { moveItem(inv, b.dataset.take, true); renderChest(); }));
+  q('[data-put]').forEach(b => b.addEventListener('click', () => { moveItem(inv, b.dataset.put, false); renderChest(); }));
+  q('[data-swap]').forEach(b => b.addEventListener('click', () => { const wi = +b.dataset.swap, t = inv.wtier[wi] || 1; inv.wtier[wi] = tierOf(wi); P.wtier[wi] = t; renderChest(); }));
+  const ta = $('takeAll'); if (ta) ta.addEventListener('click', () => {
+    for (const wi of [...inv.weapons]) if (!P.weapons.has(wi) && room(WEAPONS[wi].weight)) moveItem(inv, `weapon:${wi}`, true);
+    for (const id of [...inv.garb]) if (!P.garbOwned.has(id) && room(GARB[id].weight)) moveItem(inv, `garb:${id}`, true);
+    for (const id of [...inv.relics]) if (room(RELIC_W)) moveItem(inv, `relic:${id}`, true);
+    for (const k in inv.mats) if (inv.mats[k]) moveItem(inv, `mat:${k}:all`, true);
+    renderChest();
+  });
+}
+function moveItem(inv, spec, take) {
+  const [kind, id, n] = spec.split(':'), from = take ? inv : null;
+  if (kind === 'weapon') { const wi = +id;
+    if (take) { if (P.weapons.has(wi) || !room(WEAPONS[wi].weight)) return; P.weapons.add(wi); P.wtier[wi] = inv.wtier[wi] || 1; delete inv.wtier[wi]; inv.weapons.delete(wi); }
+    else { if (P.slots.includes(wi) || inv.weapons.has(wi)) return; inv.weapons.add(wi); inv.wtier[wi] = tierOf(wi); delete P.wtier[wi]; P.weapons.delete(wi); } }
+  if (kind === 'garb') {
+    if (take) { if (P.garbOwned.has(id) || !room(GARB[id].weight)) return; P.garbOwned.add(id); inv.garb.delete(id); }
+    else { if (P.garb[GARB[id].slot] === id || inv.garb.has(id)) return; inv.garb.add(id); P.garbOwned.delete(id); } }
+  if (kind === 'relic') {
+    if (take) { if (!room(RELIC_W)) return; P.relics.add(id); inv.relics.delete(id); }
+    else { if (P.equip.includes(id) || RELICS[id].soul) return; inv.relics.add(id); P.relics.delete(id); } }
+  if (kind === 'mat') {
+    const src = take ? inv.mats : P.mats, dst = take ? P.mats : inv.mats;
+    let q = n === 'all' ? src[id] : Math.min(1, src[id]);
+    if (take) q = Math.min(q, Math.floor((P.packMax - packWeight()) / MAT_W[id] + 1e-9));
+    q = Math.max(0, q); src[id] -= q; dst[id] += q;
+  }
+  tone(take ? 800 : 500, take ? 1100 : 350, 0.06, 'triangle', 0.03);
+}
+function drawHome() {
+  const x = HOME.x, g = HOME.gy;
+  ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.fillRect(x - 22, g - 26, 44, 26); hatch(x - 22, g - 26, 44, 26, 5); ctx.strokeRect(x - 22, g - 26, 44, 26);
+  ctx.beginPath(); ctx.moveTo(x - 24, g - 26); ctx.quadraticCurveTo(x, g - 42, x + 24, g - 26); ctx.closePath(); ctx.fillStyle = INK; ctx.fill();
+  ctx.strokeStyle = PAPER; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 10, g - 14); for (let i = 1; i <= 4; i++) ctx.lineTo(x - 10 + i * 5, g - 14 + (i % 2 ? 3 : -2)); ctx.stroke();
+  ctx.font = `11px ${FD}`; ctx.fillStyle = PENCIL; ctx.textAlign = 'center'; ctx.fillText('YOUR CHEST', x, g - 50);
+}
+function openChest(c) { c.opened = true; openContainer(c.inv, c.kind === 'weapon' ? 'A chest' : 'A chest'); }
 
 /* ---------- falling & true death ---------- */
 function fall(why, useSafe) {
@@ -1024,7 +1108,8 @@ function trueDeath(spot) {
   const k = soul.karma, choices = k >= 3 ? 3 : 1, debt = k < 0;
   const births = Array.from({ length: choices }, makeBirth);
   const lost = [...P.relics].filter(id => !RELICS[id].soul), kept = [...P.relics].filter(id => RELICS[id].soul);
-  const gearFound = CHESTS.filter(chestOpen).length, horseLine = horse.state !== 'wild' ? ' The horse you befriended goes back to the wild.' : '';
+  const homeLine = invEmpty(soul.home) ? '' : ' What you left in your own chest by the village shrine waits for your next life.';
+  const gearFound = 1, horseLine = horse.state !== 'wild' ? ' The horse you befriended goes back to the wild.' : '';
   const deeds = life.deeds.length ? life.deeds.map(d => `<li class="${d.weight < 0 ? 'bad' : ''}">${esc(d.text)}</li>`).join('') : '<li>You passed through this life leaving little trace.</li>';
   const offer = choices > 1 ? 'Your merit is heavy. The wheel lets you choose your next life.' : debt ? 'Your deeds weigh on you. There is no choice this time, and a debt follows you.' : 'The wheel chooses your next life.';
   const relLine = (lost.length ? `Your relics (${lost.map(id => RELICS[id].name).join(', ')}) fall back to where you found them. ` : '') + (kept.length ? `The ${kept.map(id => RELICS[id].name).join(', ')} stays with your soul.` : '');
@@ -1034,7 +1119,7 @@ function trueDeath(spot) {
     <p class="hand">The wheel weighs this life.</p>
     <ul class="deeds">${deeds}</ul>
     ${relLine ? `<p class="hand">${esc(relLine)}</p>` : ''}
-    ${true ? `<p class="hand">Your level, skills and materials stay with this body. ${gearFound ? 'The weapons and garments you found go back to their chests.' : ''}${esc(horseLine)}</p>` : ''}
+    ${true ? `<p class="hand">Your level, skills and materials stay with this body. Weapons and garments you carried go back to the chests they came from.${esc(homeLine)}${esc(horseLine)}</p>` : ''}
     <p>${offer}</p>
     ${debt ? '<p class="hand">Karmic debt: you are born near the one you wronged. (A quest to make it right comes in a later build.)</p>' : ''}
     <div class="cards">${births.map((b, i) => `<button class="card" type="button" data-i="${i}">
@@ -1057,8 +1142,8 @@ toolBtn('tRelics', () => {
   banner = { t: 2.6, top: 'EVERY RELIC', sub: 'Test tool: you carry all seven. Feather, gecko, kite and bead are on. Swap in Tab.' };
 });
 toolBtn('tRich', () => {
-  P.seeds += 1000; Object.keys(P.mats).forEach(k => P.mats[k] += 10);
-  banner = { t: 2.6, top: 'SEEDS AND MATERIALS', sub: 'Test tool: 1000 seeds and 10 of every material. Rest at a shrine to level up; use a forge to temper.' };
+  P.seeds += 1000; Object.keys(P.mats).forEach(k => P.mats[k] += 6);
+  banner = { t: 2.6, top: 'SEEDS AND MATERIALS', sub: 'Test tool: 1000 seeds and 6 of every material. Rest at a shrine to level up; use a forge to temper.' };
 });
 toolBtn('tGear', () => {
   WEAPONS.forEach((w, i) => P.weapons.add(i)); Object.keys(GARB).forEach(id => P.garbOwned.add(id));
@@ -1104,7 +1189,7 @@ function renderGear() {
     <div class="gear">
       <div class="gcol">
         <span class="lbl">Load · what you carry in your hands and wear</span>
-        <div class="stats"><span>${LD.w.toFixed(1)} of ${P.loadMax} · ${LD.cls.toUpperCase()}</span><span class="meter"><i style="width:${Math.min(100, LD.r * 100)}%"></i><b style="left:35%"></b><b style="left:70%"></b></span><span>${LD.say}</span></div>
+        <div class="stats"><span>${LD.w.toFixed(1)} of ${P.loadMax} · ${LD.cls.toUpperCase()}</span><span class="meter"><i style="width:${Math.min(100, LD.r * 100)}%"></i><b style="left:35%"></b><b style="left:70%"></b></span><span>${LD.say}</span><span>Pack ${LD.pack.toFixed(1)} of ${P.packMax}: weapons you are not holding, garments you are not wearing, spare relics and materials.</span></div>
         <span class="lbl">In your hands (Q switches)</span><div class="slots">${slot(0)}${slot(1)}</div>
         <span class="lbl">Weapons</span><div class="inv">${inv}</div>
         <span class="lbl">Garments · protection ${protNow()}%</span><div class="slots three">${gslots}</div>
@@ -1126,10 +1211,24 @@ function renderGear() {
   q('[data-on]').forEach(bt => bt.addEventListener('click', () => { const i = P.equip.indexOf(null); if (i >= 0) P.equip[i] = bt.dataset.on; renderGear(); }));
   q('[data-ws]').forEach(se => se.addEventListener('change', () => { const i = +se.dataset.ws, v = se.value, j = P.wordSlots.indexOf(v); if (j >= 0 && j !== i) P.wordSlots[j] = P.wordSlots[i]; P.wordSlots[i] = v; renderGear(); }));
 }
+let mapHits = [], mapMsg = null;
+function danger() { return foes.some(f => f.alive && (f.state === 'chase' || f.state === 'wind' || f.state === 'swing') && Math.abs(f.x - P.x) < 520 && Math.abs(f.gy - (P.y + P.h)) < 160); }
+function travelTo(i) {
+  if (i < 0 || i >= SHRINES.length || !P || P.dead) return;
+  if (!P.visited.has(i)) { mapMsg = { t: clock + 2.5, text: 'You have not rested at that shrine in this life.' }; return; }
+  if (danger()) { mapMsg = { t: clock + 2.5, text: 'The Grasping are hunting you. Get away from them first.' }; return; }
+  if (P.mount) dismount(false);
+  if (horse.state === 'idle') horse.state = 'away';
+  const s = SHRINES[i]; Object.assign(P, { x: s.x + 40, y: s.gy - PH, h: PH, w: 22, vx: 0, vy: 0, hang: null, ladder: null, climbT: 0, glide: false, plunge: false, cling: 0 });
+  $('ovGear').hidden = true; mode = 'play'; clearHeld(); rest(i); snapCam();
+  for (let k = 0; k < 30; k++) fx.push({ k: 'ink', x: pcx() + rnd(-20, 20), y: P.y + rnd(0, P.h), vx: rnd(-40, 40), vy: -rnd(20, 80), life: rnd(0.4, 1) });
+  banner = { t: 2.6, top: 'YOU TRAVEL', sub: `${s.name}. You arrive rested. If your horse was with you, ring the bell to call it again.` };
+}
 function drawMap() {
   ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
   ctx.textAlign = 'center'; ctx.fillStyle = INK; ctx.font = `22px ${FD}`; ctx.fillText('THE PROVING GROUNDS', W / 2, 52);
-  ctx.font = `16px ${FH}`; ctx.fillStyle = INK2; ctx.fillText('M or Esc to close', W / 2, 78);
+  ctx.font = `16px ${FH}`; ctx.fillStyle = INK2; ctx.fillText('Click a shrine you have rested at (or press its number) to travel there · M or Esc to close', W / 2, 78);
+  if (mapMsg && mapMsg.t > clock) { ctx.font = `16px ${FH}`; ctx.fillStyle = RED; ctx.fillText(mapMsg.text, W / 2, 104); }
   const x0 = 30, y0 = 150, kx = (W - 60) / LW, ky = 300 / LH, X = x => x0 + x * kx, Y = y => y0 + y * ky;
   for (const d of DARKS) { ctx.fillStyle = 'rgba(21,21,19,0.10)'; ctx.fillRect(X(d.x), Y(d.y), d.w * kx, d.h * ky); }
   for (const w of WINDS) { ctx.strokeStyle = PENCIL; ctx.lineWidth = 1.5; ctx.beginPath(); for (let i = 0; i < 4; i++) { const ax = X(w.x + w.w * (i + 0.5) / 4); ctx.moveTo(ax, Y(1300)); ctx.lineTo(ax, Y(700)); ctx.moveTo(ax - 4, Y(700) + 6); ctx.lineTo(ax, Y(700)); ctx.lineTo(ax + 4, Y(700) + 6); } ctx.stroke(); }
@@ -1141,11 +1240,15 @@ function drawMap() {
   for (const f of FAKES) { if (f.found || has('bead')) { ctx.fillStyle = PAPER; ctx.fillRect(X(f.x), Y(f.y), f.w * kx, f.h * ky); ctx.save(); ctx.setLineDash([3, 2]); ctx.strokeStyle = INK2; ctx.strokeRect(X(f.x), Y(f.y), f.w * kx, f.h * ky); ctx.restore(); } else { ctx.fillStyle = INK2; ctx.fillRect(X(f.x), Y(f.y), f.w * kx, f.h * ky); } }
   ctx.font = `14px ${FH}`; ctx.fillStyle = INK2; ctx.textAlign = 'left';
   ZONES.forEach(([zx, name], i) => { const tx = X(zx) + 2; ctx.fillStyle = P.zones.has(i) ? INK : PENCIL; ctx.fillText(name.replace('THE ', '').toLowerCase(), tx, y0 - 22 - (i % 2) * 16); ctx.strokeStyle = FAINT; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(zx), y0 - 18 - (i % 2) * 16); ctx.lineTo(X(zx), y0); ctx.stroke(); });
-  SHRINES.forEach((s, i) => { const sx = X(s.x), sy = Y(s.gy); ctx.fillStyle = i === P.shrine ? INK : PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx, sy - 16); ctx.lineTo(sx - 6, sy - 4); ctx.lineTo(sx + 6, sy - 4); ctx.closePath(); ctx.fill(); ctx.stroke(); });
+  mapHits = [];
+  SHRINES.forEach((s, i) => { const sx = X(s.x), sy = Y(s.gy), seen = P.visited.has(i), hov = Math.hypot(mouse.x - sx, mouse.y - (sy - 10)) < 18; mapHits.push({ i, x: sx, y: sy - 10 });
+    ctx.font = `12px ${FD}`; ctx.textAlign = 'center'; ctx.fillStyle = seen ? INK : PENCIL; ctx.fillText(seen ? String(i + 1) : '?', sx, sy + 16);
+    if (seen && hov) { ctx.strokeStyle = RED; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy - 10, 15, 0, Math.PI * 2); ctx.stroke(); ctx.font = `15px ${FH}`; ctx.fillStyle = INK; ctx.fillText(s.name + ' · click to travel', clamp(sx, 150, W - 150), sy - 30); }
+    ctx.fillStyle = i === P.shrine ? INK : PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx, sy - 16); ctx.lineTo(sx - 6, sy - 4); ctx.lineTo(sx + 6, sy - 4); ctx.closePath(); ctx.fill(); ctx.stroke(); });
   for (const f of FORGES) { ctx.fillStyle = INK; ctx.fillRect(X(f.x) - 5, Y(f.gy) - 7, 10, 5); ctx.fillRect(X(f.x) - 2, Y(f.gy) - 3, 4, 3); }
   for (const c of CHESTS) if (!chestOpen(c)) { ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.fillRect(X(c.x) - 4, Y(c.gy) - 8, 8, 7); ctx.strokeRect(X(c.x) - 4, Y(c.gy) - 8, 8, 7); }
   if (horse.state === 'wild' || horse.state === 'idle') { ctx.font = `13px ${FH}`; ctx.fillStyle = INK2; ctx.textAlign = 'center'; ctx.fillText('horse', X(horse.x), Y(horse.gy) - 6); }
-  for (const [id, x, gy] of RELIC_SPOTS) if (!P.relics.has(id)) { const rx = X(x), ry = Y(gy) - 12; ctx.fillStyle = PAPER; ctx.beginPath(); ctx.arc(rx, ry, 9, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.stroke(); relicIcon(id, rx, ry, 0.6); }
+  for (const [id, x, gy] of RELIC_SPOTS) if (!P.relics.has(id) && !relicStored(id)) { const rx = X(x), ry = Y(gy) - 12; ctx.fillStyle = PAPER; ctx.beginPath(); ctx.arc(rx, ry, 9, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.stroke(); relicIcon(id, rx, ry, 0.6); }
   for (const s of shades) if (!s.taken) { ctx.fillStyle = INK; ctx.beginPath(); ctx.ellipse(X(s.x), Y(s.y) - 6, 3, 6, 0, 0, Math.PI * 2); ctx.fill(); }
   for (const bd of soul.bodies) if (!bd.taken && bd.life !== life.n) { const bx = X(bd.x), by = Y(bd.y) - 6; ctx.strokeStyle = PENCIL; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(bx - 5, by - 5); ctx.lineTo(bx + 5, by + 5); ctx.moveTo(bx + 5, by - 5); ctx.lineTo(bx - 5, by + 5); ctx.stroke(); }
   const px = X(pcx()), py = Y(P.y);
@@ -1285,7 +1388,7 @@ function drawWorld() {
   for (const [id, x, gy] of RELIC_SPOTS) {
     if (!visible({ x: x - 30, y: gy - 70, w: 60, h: 70 })) continue;
     ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.fillRect(x - 15, gy - 12, 30, 12); ctx.strokeRect(x - 15, gy - 12, 30, 12);
-    if (P.relics.has(id)) continue;
+    if (P.relics.has(id) || relicStored(id)) continue;
     const by = gy - 36 + Math.sin(clock * 2.5 + x) * 4;
     ctx.strokeStyle = PENCIL; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, by, 16 + Math.sin(clock * 3) * 2, 0, Math.PI * 2); ctx.stroke();
     relicIcon(id, x, by, 1);
@@ -1302,6 +1405,7 @@ function drawWorld() {
   if (villager.talkT > 0) speech(villager.x, villager.gy - 110, villager.line);
   for (const n of NODES) if (n.k !== 'petal' && visible({ x: n.x - 40, y: n.gy - 120, w: 80, h: 120 })) drawNode(n);
   for (const f of FORGES) if (visible({ x: f.x - 40, y: f.gy - 80, w: 80, h: 80 })) drawForge(f);
+  if (visible({ x: HOME.x - 40, y: HOME.gy - 60, w: 80, h: 60 })) drawHome();
   for (const c of CHESTS) if (visible({ x: c.x - 24, y: c.gy - 40, w: 48, h: 40 })) {
     const open = chestOpen(c); ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
     ctx.fillRect(c.x - 17, c.gy - 20, 34, 20); hatch(c.x - 17, c.gy - 20, 34, 20, 6); ctx.strokeRect(c.x - 17, c.gy - 20, 34, 20);
@@ -1354,7 +1458,8 @@ function drawOverDark() {
   if (!P.mount && horse && (horse.state === 'wild' || horse.state === 'idle') && Math.abs(pcx() - horse.x) < 70 && Math.abs(P.y + P.h - horse.gy) < 50) { ctx.fillStyle = INK2; ctx.fillText(horse.state === 'wild' ? 'E: offer the horse a lotus' : 'E: ride', horse.x, horse.gy - 96); }
   else if (P.mount && P.onG && Math.abs(P.vx) < 40) { ctx.fillStyle = INK2; ctx.fillText('E: get down · Shift: gallop', pcx(), P.y - 26); }
   if (nearForge() >= 0 && !P.mount) { const f = FORGES[nearForge()]; ctx.fillStyle = INK2; ctx.fillText('E: use the forge', f.x + 4, f.gy - 92); }
-  for (const c of CHESTS) if (!chestOpen(c) && Math.abs(pcx() - c.x) < 60 && Math.abs(P.y + P.h - c.gy) < 50) { ctx.fillStyle = darkAt(c.x, c.gy - 50) ? '#b9b6ac' : INK2; ctx.fillText('E: open', c.x, c.gy - 40); }
+  if (Math.abs(pcx() - HOME.x) < 60 && Math.abs(P.y + P.h - HOME.gy) < 50) { ctx.fillStyle = INK2; ctx.fillText('E: your chest · it keeps things across lives', HOME.x, HOME.gy - 70); }
+  for (const c of CHESTS) if (Math.abs(pcx() - c.x) < 60 && Math.abs(P.y + P.h - c.gy) < 50) { ctx.fillStyle = darkAt(c.x, c.gy - 50) ? '#b9b6ac' : INK2; ctx.fillText(chestOpen(c) ? (invEmpty(c.inv) ? 'E: an empty chest' : 'E: look inside') : 'E: open', c.x, c.gy - 40); }
   if (Math.abs(P.x - villager.x) < 90 && Math.abs(P.y + P.h - villager.gy) < 60) { ctx.fillStyle = INK2; ctx.fillText('E: talk', villager.x, villager.gy - 92); }
   if (P.breath < BREATH && !P.dead) { const n = 8, left = Math.ceil(P.breath / BREATH * n); for (let i = 0; i < n; i++) { const bx = pcx() - (n - 1) * 5 + i * 10, by = P.y - 16; ctx.strokeStyle = left <= 2 ? RED : INK; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(bx, by, 3.5, 0, Math.PI * 2); if (i < left) { ctx.fillStyle = PAPER; ctx.fill(); } ctx.stroke(); } }
   for (const f of floaters) { ctx.globalAlpha = Math.min(1, f.life * 2); ctx.font = `13px ${FD}`; ctx.fillStyle = darkAt(f.x, f.y) && f.c !== RED ? '#d8d5cb' : f.c; ctx.textAlign = 'center'; const hw = ctx.measureText(f.t).width / 2 + 12; ctx.fillText(f.t, clamp(f.x, camX + hw, camX + W - hw), f.y); }
@@ -1553,7 +1658,7 @@ function drawHUD() {
   ctx.textAlign = 'right'; ctx.fillStyle = INK; ctx.fillText(`LIFE ${life.n} · LV ${levelOf()} · ${curW().name.toUpperCase()} ${TIER_NAME[tierOf(p.slots[p.slotIdx])]} (Q: ${WEAPONS[p.slots[1 - p.slotIdx]].name.toUpperCase()})`, W - 20, 22);
   ctx.fillStyle = PENCIL; ctx.fillText(micMode === 'off' ? 'MIC OFF · KEYS 1 TO 4' : micMode === 'ptt' ? (pttHeld ? (micReady ? 'LISTENING' : 'MIC STARTING…') : 'HOLD V TO SPEAK') : (recOn ? 'MIC ON · SPEAK A WORD' : 'MIC STARTING…'), W - 20, 40);
   ctx.fillText('TAB: GEAR · M: MAP', W - 20, 56);
-  const LD = loadNow(); ctx.fillStyle = LD.cls === 'over' ? RED : INK2; ctx.fillText(`LOAD ${LD.cls.toUpperCase()} · PROTECTION ${protNow()}%`, W - 20, 72);
+  const LD = loadNow(); ctx.fillStyle = LD.cls === 'over' ? RED : INK2; ctx.fillText(`LOAD ${LD.full ? 'PACK FULL' : LD.cls.toUpperCase()} · PACK ${Math.round(LD.pack)}/${P.packMax} · PROTECTION ${protNow()}%`, W - 20, 72);
   if (p.mount) { ctx.textAlign = 'left'; bar(W - 220, 84, 200, horse.hp, horse.hpMax, '', INK2); ctx.textAlign = 'right'; ctx.fillStyle = INK; ctx.fillText('HORSE', W - 226, 93); }
   // hotbar
   const bw = 54, gap = 6, total = 8 * bw + 7 * gap, x0 = (W - total) / 2, y0 = H - 50;
@@ -1585,7 +1690,7 @@ function render() {
   ctx.save(); ctx.translate(sx, sy); drawWorld(); ctx.restore();
   drawDark(); drawOverDark();
   drawHUD();
-  cv.style.cursor = mode === 'play' && mouse.in ? 'none' : 'default';
+  cv.style.cursor = mode === 'play' && mouse.in ? 'none' : mode === 'map' && mapHits.some(m => P.visited.has(m.i) && Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18) ? 'pointer' : 'default';
   if (mode === 'play' && mouse.in) { const dkc = darkAt(mouse.x + camX, mouse.y + camY); ctx.strokeStyle = dkc ? PAPER : INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 9, 0, Math.PI * 2); ctx.moveTo(mouse.x - 15, mouse.y); ctx.lineTo(mouse.x - 5, mouse.y); ctx.moveTo(mouse.x + 5, mouse.y); ctx.lineTo(mouse.x + 15, mouse.y); ctx.moveTo(mouse.x, mouse.y - 15); ctx.lineTo(mouse.x, mouse.y - 5); ctx.moveTo(mouse.x, mouse.y + 5); ctx.lineTo(mouse.x, mouse.y + 15); ctx.stroke(); }
 }
 let last = performance.now(), frozen = false;
@@ -1608,7 +1713,7 @@ window.__life = {
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };

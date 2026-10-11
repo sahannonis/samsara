@@ -42,6 +42,7 @@ and go to `http://localhost:8000/dist/samsara.html`.
 4. **The Proving Grounds**: crouch, ledges, ladders, plunge, swimming and breath, mud, ice, wind, darkness, crumbling floors, false walls, seven relics, the hotbar, shrine checkpoints, the map.
 5. **Steed and Steel**: a horse to befriend, ride and call; spear, staff and twin daggers; garments; weight.
 6. **Growth and the Forge**: starting stats from the chart, leveling at shrines, skills, gathering, weapon tiers and crafting.
+7. **Pack and Road**: pack weight, two-way chests, your own chest that keeps things across lives, fast travel from the map.
 
 ## Running the tests
 
@@ -50,6 +51,7 @@ pip install playwright
 playwright install chromium
 python build.py
 python tests/test_growth.py
+python tests/test_pack_and_travel.py
 ```
 
 ## Credits
