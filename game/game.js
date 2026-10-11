@@ -220,7 +220,7 @@ const dk = document.createElement('canvas'), dctx = dk.getContext('2d');
 let scale = 1;
 function fit() { const r = cv.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2); cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); dk.width = cv.width; dk.height = cv.height; scale = cv.width / W; }
 addEventListener('resize', fit);
-const KEYS = { KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyW: 'up', ArrowUp: 'up', Space: 'jump', KeyS: 'down', ArrowDown: 'down', KeyJ: 'light', KeyK: 'heavy', KeyL: 'roll', ShiftLeft: 'roll', ShiftRight: 'roll', KeyI: 'parry', KeyF: 'heal', KeyQ: 'swap', KeyE: 'use', KeyV: 'talk', KeyC: 'chant' };
+const KEYS = { KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyW: 'up', ArrowUp: 'up', Space: 'jump', KeyS: 'down', ArrowDown: 'down', KeyJ: 'light', KeyK: 'heavy', KeyL: 'roll', ShiftLeft: 'roll', ShiftRight: 'roll', KeyI: 'parry', KeyF: 'heal', KeyQ: 'swap', KeyE: 'use', KeyV: 'talk', KeyC: 'chant', KeyR: 'arrow' };
 for (let i = 1; i <= 8; i++) KEYS['Digit' + i] = 'h' + i;
 const held = {}, pressed = {}, released = {};
 let mode = 'start';
@@ -305,6 +305,18 @@ function findWord(tokens) {
   return null;
 }
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+// the game learns how this player's voice comes out of the recogniser, per spell, and keeps it in this browser
+const HEARD_KEY = 'samsara.heard'; let HEARD = {}, lastMiss = null;
+try { HEARD = JSON.parse(localStorage.getItem(HEARD_KEY)) || {}; } catch (_) { HEARD = {}; }
+function saveHeard() { try { localStorage.setItem(HEARD_KEY, JSON.stringify(HEARD)); } catch (_) {} }
+function cleanPhrase(t) { return String(t).toLowerCase().replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ').trim(); }
+function learnAlias(id, phrase) {
+  const ph = cleanPhrase(phrase), w = SPELL(id); if (!w || !ph || ph.split(' ').length > 2) return false;
+  if (WORDS.some(x => x.alias.includes(ph))) return false;
+  (HEARD[id] = HEARD[id] || []).push(ph); if (HEARD[id].length > 6) { const old = HEARD[id].shift(); w.alias = w.alias.filter(a => a !== old); }
+  w.alias.push(ph); saveHeard(); return true;
+}
+function forgetHeard(id) { const w = SPELL(id), list = HEARD[id] || []; w.alias = w.alias.filter(a => !list.includes(a)); delete HEARD[id]; saveHeard(); }
 let micMode = 'ptt', rec = null, recOn = false, pttHeld = false, lastWordAt = {}, voiceLines = [], micReady = false, pttRelease = -1e9;
 function setMicMode(m) {
   micMode = m; $('micMode').value = m; $('micStart').value = m;
@@ -316,6 +328,29 @@ $('micStart').addEventListener('change', e => setMicMode(e.target.value));
 function voiceLog(text, hit) {
   voiceLines.unshift({ text, hit }); voiceLines = voiceLines.slice(0, 6);
   $('voiceLog').innerHTML = voiceLines.map(l => `<span class="${l.hit ? 'hit' : 'miss'}">${esc(l.text)}</span>`).join('');
+}
+let MC = null;
+function micCheck() {
+  const out = $('micCheckMsg');
+  if (!SR) { out.textContent = 'This browser cannot hear speech. Use Chrome or Edge, or play with the mic off: every spell and chant still works from the keys.'; return; }
+  if (MC) return;
+  const words = ['ignite', 'shield', 'restore'].map(SPELL), log = []; let k = 0;
+  const show = tail => { out.innerHTML = log.map(l => `<span style="display:block">${l}</span>`).join('') + (tail ? `<span style="display:block">${tail}</span>` : ''); };
+  const ask = () => show(`Say <b>${words[k].say}</b> once, clearly.`);
+  let r; try { r = new SR(); } catch (_) { out.textContent = 'The microphone could not start.'; return; }
+  r.lang = 'en-IN'; r.continuous = true; r.interimResults = false; r.maxAlternatives = 3; MC = r; ask();
+  r.onresult = e => {
+    const res = e.results[e.results.length - 1]; if (!res || res.isFinal === false) return;
+    const heard = cleanPhrase(res[0].transcript), f = findWord(heard.split(' ').filter(Boolean)), want = words[k];
+    if (f && f.w.id === want.id) log.push(`✓ ${esc(want.say)}: heard “${esc(heard)}”`);
+    else if (f) { show(`That sounded like ${esc(f.w.say)}. Say <b>${esc(want.say)}</b> again.`); return; }
+    else if (learnAlias(want.id, heard)) log.push(`✓ ${esc(want.say)}: heard “${esc(heard)}”, and I will remember that is how you say it`);
+    else { show(`I heard “${esc(heard)}”. Say <b>${esc(want.say)}</b> again, a little slower.`); return; }
+    k++; if (k < words.length) ask(); else { show('Your mic works. You are ready to play.'); try { r.stop(); } catch (_) {} MC = null; }
+  };
+  r.onerror = e => { show({ 'not-allowed': 'The microphone is blocked. Allow it in the address bar, then try again.', network: 'The speech service could not be reached. It needs the internet in this browser.', 'audio-capture': 'No microphone was found.', 'no-speech': 'I heard nothing. Try again a little closer to the mic.' }[e.error] || `The mic stopped (${esc(e.error)}).`); MC = null; };
+  r.onend = () => { MC = null; };
+  try { r.start(); } catch (_) { MC = null; }
 }
 function startRec() {
   if (!SR || recOn) return;
@@ -337,7 +372,7 @@ function startRec() {
           if (now - (lastWordAt[found.w.id] || 0) > 700) { lastWordAt[found.w.id] = now; castWord(found.w, 1); voiceLog(`heard “${r[a].transcript.trim()}” → ${found.w.say}`, true); }
           break;
         }
-        if (a === 0 && r.isFinal && toks.length) voiceLog(`heard “${r[a].transcript.trim()}” (no battle word)`, false);
+        if (a === 0 && r.isFinal && toks.length) { voiceLog(`heard “${r[a].transcript.trim()}” (no battle word)`, false); if (toks.length <= 2) lastMiss = { ph: toks.join(' '), t: performance.now() }; }
       }
     }
   };
@@ -365,7 +400,7 @@ function newLife(birth) {
   const sr = [...soul.soulRelics];
   P = { x: SHRINES[0].x + 40, y: SHRINES[0].gy - PH, w: 22, h: PH, vx: 0, vy: 0, face: 1, onG: true, groundS: null, hp: 100, hpMax: 100, st: noMana ? 125 : 100, stMax: noMana ? 125 : 100, stDelay: 0,
     mana: manaMax, manaMax, prana: 3, pranaMax: 3, lotus: 3, lotusMax: 3, seeds: 0, slots: [0, 2], slotIdx: 0, swapT: 0, mT: 0, mDown: false, chargeSrc: null, bufLight: 0,
-    scrolls: {}, wordSlots: noMana ? [null, null, null, null] : Array.from({ length: [0, 1, 2, 3, 4][b.tier] }, (_, i) => (WORDS.filter(w => soul.spells.has(w.id))[i] || {}).id || null),
+    chantSlots: noMana ? 5 : 3, prepared: new Set(CHANTS.filter(c => soul.chants.has(c.id)).slice(0, noMana ? 5 : 3).map(c => c.id)), scrolls: {}, arrows: { iron: 0, ember: 0, ink: 0 }, arrowKind: 'reed', wordSlots: noMana ? [null, null, null, null] : Array.from({ length: [0, 1, 2, 3, 4][b.tier] }, (_, i) => (WORDS.filter(w => soul.spells.has(w.id))[i] || {}).id || null),
     atk: null, charge: 0, charging: false, rollT: 0, rollIF: 0, parryT: 0, parryCd: 0, healT: 0, hitT: 0, inv: 0, shieldT: 0, riposte: 0, dead: false, deadT: 0,
     dmgMul: (noMana ? 1.15 : 1) * (b.style === 'Sovereign' ? 1.1 : 1), looks: b.looks, school: b.school, noMana, run: 0,
     stBase: noMana ? 125 : 100, visited: new Set([0]), weapons: new Set([0, 2]), stats: birthStats(b), stats0: birthStats(b), skills: new Set(), skillPending: null, wtier: {}, mats: { wood: 0, iron: 0, ink: 0, petal: 0, ember: 0 }, knivesMax: KNIVES, torchMax: TORCH, made: new Set(), manaTierMax: manaMax, garb: { head: null, body: 'wrap', feet: 'sandals' }, garbOwned: new Set(['wrap', 'sandals']), loadMax: 20, combo: 0, comboT: 0, rollV: 0, mount: false, trampleCd: 0,
@@ -419,6 +454,7 @@ const WEAPONS = [
   { id: 'staff', name: 'Staff', weight: 2, perk: 'Hits in front and behind. The heavy spin throws foes away. Mana returns 50% faster while you hold it.', light: { dmg: 10, st: 12, dur: 0.34, a0: 0.1, a1: 0.2, reach: 60, both: true }, heavy: { dmg: 22, st: 26, dur: 0.62, a0: 0.16, a1: 0.46, reach: 72, both: true, spin: true, knock: 460 } },
   { id: 'daggers', name: 'Twin daggers', weight: 1.5, perk: 'Very fast. Every third cut hits twice as hard. Hits from behind do 2.5 times the damage. Rolls cost less.', light: { dmg: 7, st: 8, dur: 0.2, a0: 0.04, a1: 0.11, reach: 42 }, heavy: { dmg: 7, st: 24, dur: 0.55, a0: 0.08, a1: 0.48, reach: 46, multi: 0.1 } },
   { id: 'empty', name: 'Empty edge', nomana: true, weight: 3, perk: 'Only a body born with no mana can hold it. Against bosses it cuts 40% deeper and breaks their poise twice as fast. Chant blessings on it last half as long again.', light: { dmg: 13, st: 13, dur: 0.30, a0: 0.08, a1: 0.17, reach: 54 }, heavy: { dmg: 32, st: 30, dur: 0.5, a0: 0.18, a1: 0.3, reach: 64 } },
+  { id: 'longbow', name: 'Empty longbow', nomana: true, bow: true, long: true, weight: 3, perk: 'Only a body born with no mana can draw it. Hold longer for a full draw that flies flat and passes through foes. It shoots four kinds of arrow (R picks): reed, iron, ember and ink.', light: { dmg: 13, st: 12, dur: 0.42, speed: 1100 }, heavy: { dmg: 30, st: 26, dur: 0.5, speed: 1650 } },
 ];
 const GARB = {
   hat: { slot: 'head', name: 'Straw hat', prot: 2, weight: 0.5, what: 'Light. Keeps the sun off.' },
@@ -448,17 +484,30 @@ function applyStats(fill) {
   if (fill) { P.hp = P.hpMax; P.mana = P.manaMax; P.st = P.stBase; P.stMax = P.stBase; }
   else { P.hp += Math.max(0, P.hpMax - oldHp); P.mana += Math.max(0, P.manaMax - oldMana); }
 }
-const SCALE = { blade: { str: 0.5, agi: 0.5 }, mace: { str: 1 }, bow: { agi: 1 }, spear: { str: 0.8, agi: 0.2 }, staff: { agi: 0.4, foc: 0.6 }, daggers: { agi: 1 }, empty: { end: 0.6, agi: 0.4 }, knife: { agi: 1 } };
+const SCALE = { blade: { str: 0.5, agi: 0.5 }, mace: { str: 1 }, bow: { agi: 1 }, spear: { str: 0.8, agi: 0.2 }, staff: { agi: 0.4, foc: 0.6 }, daggers: { agi: 1 }, empty: { end: 0.6, agi: 0.4 }, longbow: { agi: 0.6, end: 0.4 }, knife: { agi: 1 } };
 const TIER_MUL = [1, 1, 1.15, 1.35], TIER_NAME = ['', 'I', 'II', 'III'];
 const tierOf = wi => P.wtier[wi] || 1;
 function statMul(id) { const sc = SCALE[id] || {}; let m = 1; for (const k in sc) m += 0.04 * sc[k] * (P.stats[k] - 10); return m; }
 function wMul(W8) { return statMul(W8.id) * TIER_MUL[tierOf(WEAPONS.indexOf(W8))]; }
 function curW() { return WEAPONS[P.slots[P.slotIdx]]; }
 function aimVec(sx, sy) { let dx = aimX() - sx, dy = aimY() - sy; if (!mouse.in) { dx = P.face; dy = 0; } const d = Math.hypot(dx, dy) || 1; return [dx / d, dy / d]; }
-function shootArrow(spec, mult) {
-  const sx = pcx() + P.face * 14, sy = P.y + Math.min(18, P.h * 0.4), [ux, uy] = aimVec(sx, sy), v = spec.speed * (0.8 + 0.2 * mult);
-  shots.push({ arrow: true, x: sx, y: sy, vx: ux * v, vy: uy * v, g: 520, life: 1.6, dmg: spec.dmg * mult * P.dmgMul * wMul(WEAPONS[2]), r: 6 });
-  tone(900, 300, 0.08, 'triangle', 0.03);
+const ARROWS = { reed: { name: 'Reed', what: 'Endless. A full draw passes through two foes.' }, iron: { name: 'Iron', what: 'Hits half again as hard and breaks a boss\'s poise three times as fast. A full draw passes through every foe.' }, ember: { name: 'Ember', what: 'Bursts into fire: foes around it burn.' }, ink: { name: 'Ink', what: 'Pins a foe in place for 2 seconds. A boss only slows.' } };
+const ARROW_W = 0.05;
+function shootArrow(spec, mult, full) {
+  const W8 = curW(), sx = pcx() + P.face * 14, sy = P.y + Math.min(18, P.h * 0.4), [ux, uy] = aimVec(sx, sy), v = spec.speed * (0.8 + 0.2 * mult);
+  const s = { arrow: true, x: sx, y: sy, vx: ux * v, vy: uy * v, g: W8.long ? (full ? 120 : 320) : 520, life: W8.long ? 2 : 1.6, dmg: spec.dmg * mult * P.dmgMul * wMul(W8), r: 6, kind: 'reed', pierce: 0, hit: new Set() };
+  if (W8.long) {
+    let k = P.arrowKind || 'reed'; if (k !== 'reed' && !(P.arrows[k] > 0)) k = 'reed';
+    if (k !== 'reed') { P.arrows[k]--; if (!P.arrows[k]) { P.arrowKind = 'reed'; floater(pcx(), P.y - 44, `NO ${ARROWS[k].name.toUpperCase()} ARROWS LEFT`, PENCIL); } }
+    s.kind = k; if (full) s.pierce = k === 'iron' ? 99 : k === 'reed' ? 2 : 0;
+  }
+  shots.push(s); tone(full ? 1200 : 900, 300, full ? 0.14 : 0.08, 'triangle', 0.03);
+}
+function arrowHit(s, t) {
+  if (s.kind === 'iron') { hurtFoe(t, s.dmg * 1.5, true, { poiseMul: 3, knock: 200 }); return; }
+  if (s.kind === 'ember') { hurtFoe(t, s.dmg, false); t.burnT = 3; for (const f of foes) if (f !== t && f.alive && f.state !== 'kneel' && !f.hidden && Math.hypot(f.x + f.w / 2 - s.x, f.y + f.h / 2 - s.y) < 80) { hurtFoe(f, s.dmg * 0.5, false); f.burnT = 3; } for (let i = 0; i < 16; i++) fx.push({ k: 'flame', x: s.x + rnd(-20, 20), y: s.y + rnd(-14, 14), vx: rnd(-120, 120), vy: -rnd(30, 140), life: rnd(0.3, 0.6) }); tone(200, 80, 0.3, 'sawtooth', 0.04); return; }
+  if (s.kind === 'ink') { hurtFoe(t, s.dmg * 0.7, false); if (t.boss) { t.pinT = 2; floater(t.x + t.w / 2, t.y - 30, 'SLOWED', INK2); } else if (t.alive && t.state !== 'kneel') { t.state = 'stun'; t.t = 2; t.vx = 0; floater(t.x + 12, t.y - 24, 'PINNED', INK2); } for (let i = 0; i < 10; i++) fx.push({ k: 'ink', x: s.x + rnd(-8, 8), y: s.y + rnd(-8, 8), vx: rnd(-40, 40), vy: rnd(-20, 60), life: 0.6 }); return; }
+  hurtFoe(t, s.dmg, false);
 }
 function throwKnife() {
   if (P.knives <= 0) { floater(pcx(), P.y - 20, 'NO KNIVES', PENCIL); return; }
@@ -573,23 +622,24 @@ function updatePlayer(dt) {
     else if (pressed.use) use();
     for (let i = 0; i < 4; i++) if (pressed['h' + (i + 1)]) {
       const id = P.wordSlots[i];
-      if (id) castWord(WORDS.find(w => w.id === id), 0.8);
+      if (id) { castWord(WORDS.find(w => w.id === id), 0.8); if (lastMiss && micMode !== 'off' && performance.now() - lastMiss.t < 3000) { if (learnAlias(id, lastMiss.ph)) { floater(pcx(), P.y - 50, `NOW I HEAR “${lastMiss.ph.toUpperCase()}” AS ${SPELL(id).say.toUpperCase()}`, INK2); voiceLog(`learned: “${lastMiss.ph}” means ${SPELL(id).say}`, true); } lastMiss = null; } }
       else if (P.noMana) floater(pcx(), P.y - 30, 'NO SCROLL ON THIS KEY', PENCIL);
       else floater(pcx(), P.y - 30, i < P.wordSlots.length ? 'EMPTY SLOT' : 'MORE MANA OPENS THIS SLOT', PENCIL);
     }
     if (pressed.h5) { if (P.torch.fuel > 0) { P.torch.lit = !P.torch.lit; tone(P.torch.lit ? 400 : 300, P.torch.lit ? 800 : 150, 0.15, 'triangle', 0.03); } else floater(pcx(), P.y - 24, 'NO FUEL · REST TO REFILL', PENCIL); }
     if (pressed.h6) throwKnife();
+    if (pressed.arrow) { if (!curW().long) floater(pcx(), P.y - 30, 'ONLY THE EMPTY LONGBOW TAKES OTHER ARROWS', PENCIL); else { const ks = ['reed', 'iron', 'ember', 'ink'].filter(k => k === 'reed' || P.arrows[k] > 0), i2 = ks.indexOf(P.arrowKind || 'reed'); P.arrowKind = ks[(i2 + 1) % ks.length]; floater(pcx(), P.y - 30, `${ARROWS[P.arrowKind].name.toUpperCase()} ARROWS${P.arrowKind === 'reed' ? '' : ' ×' + P.arrows[P.arrowKind]}`); tone(700, 900, 0.05, 'triangle', 0.03); } }
     if (pressed.h8) callHorse();
   }
   if (P.charging) {
-    P.charge = Math.min(0.7, P.charge + dt);
+    const cmax = W8.long ? 1 : 0.7; P.charge = Math.min(cmax, P.charge + dt);
     if (P.chargeSrc === 'mouse') faceAim();
     const letGo = P.chargeSrc === 'mouse' ? !held.mouseL : !held.heavy;
     if (letGo || P.hitT > 0) {
       P.charging = false;
       if (P.hitT <= 0 && spend(W8.heavy.st)) { P.unseenT = 0;
-        const m = 1 + P.charge / 0.7 * 0.5;
-        if (W8.bow) { shootArrow(W8.heavy, m); P.atk = { t: 0, dur: W8.heavy.dur, a0: 99, a1: 99, bow: true, heavy: true, hit: new Set() }; }
+        const m = W8.long ? 1 + P.charge * 0.9 : 1 + P.charge / 0.7 * 0.5;
+        if (W8.bow) { shootArrow(W8.heavy, m, W8.long && P.charge >= 0.95); P.atk = { t: 0, dur: W8.heavy.dur, a0: 99, a1: 99, bow: true, heavy: true, hit: new Set() }; }
         else { P.atk = Object.assign({ t: 0, hit: new Set(), heavy: true }, W8.heavy, { dmg: W8.heavy.dmg * m * wMul(W8), daggers: W8.id === 'daggers' }); if (P.mount) delete P.atk.lunge; SFX.swing(); }
       }
     }
@@ -799,11 +849,14 @@ const TIER_COST = { 2: { iron: 3, wood: 2, ink: 2, seeds: 80 }, 3: { iron: 5, in
 const MAKES = [
   { id: 'knives', name: 'Two more ink knives', what: 'Carry 7 knives instead of 5.', cost: { iron: 3, wood: 1 }, at: 'forge', once: true, done: () => { P.knivesMax += 2; P.knives += 2; } },
   { id: 'torch', name: 'Ember-core torch', what: 'The torch burns 40 seconds longer.', cost: { wood: 2, ember: 1 }, at: 'forge', once: true, done: () => { P.torchMax += 40; P.torch.fuel = P.torchMax; } },
+  { id: 'arr_iron', name: 'Five iron arrows', what: ARROWS.iron.what, cost: { iron: 1, wood: 1 }, at: 'forge', once: false, show: () => P.noMana || P.weapons.has(7), done: () => { P.arrows.iron += 5; } },
+  { id: 'arr_ember', name: 'Five ember arrows', what: ARROWS.ember.what, cost: { ember: 1, wood: 1 }, at: 'forge', once: false, show: () => P.noMana || P.weapons.has(7), done: () => { P.arrows.ember += 5; } },
+  { id: 'arr_ink', name: 'Five ink arrows', what: ARROWS.ink.what, cost: { ink: 2, wood: 1 }, at: 'forge', once: false, show: () => P.noMana || P.weapons.has(7), done: () => { P.arrows.ink += 5; } },
   { id: 'lotus', name: 'Grow a lotus', what: 'Carry one more lotus (up to 6).', cost: { petal: 3, seeds: 40 }, at: 'shrine', once: false, ok: () => P.lotusMax < 6, done: () => { P.lotusMax++; P.lotus = P.lotusMax; } },
 ];
 const matsLine = () => Object.keys(MATS).map(k => `<span>${MATS[k]}: ${P.mats[k]} <span class="note">(${MAT_WHERE[k]})</span></span>`).join('');
 function makeHTML(at) {
-  return MAKES.filter(m => m.at === at).map(m => { const done = m.once && P.made.has(m.id), able = !done && canPay(m.cost) && (!m.ok || m.ok());
+  return MAKES.filter(m => m.at === at && (!m.show || m.show())).map(m => { const done = m.once && P.made.has(m.id), able = !done && canPay(m.cost) && (!m.ok || m.ok());
     return `<div class="item"><b>${m.name}</b><span>${m.what}</span><span class="m">${done ? 'Made' : costText(m.cost)}</span><div class="row"><button class="btn ghost sm" type="button" data-make="${m.id}"${able ? '' : ' disabled'}>${done ? 'Done' : 'Make'}</button></div></div>`; }).join('');
 }
 function bindMakes(rerender) { $('gearIn').querySelectorAll('[data-make]').forEach(bt => bt.addEventListener('click', () => { const m = MAKES.find(x => x.id === bt.dataset.make); if (!canPay(m.cost)) return; pay(m.cost); m.done(); P.made.add(m.id); SFX.relic(); rerender(); })); }
@@ -819,7 +872,8 @@ function renderShrine(i) {
       <div class="gcol"><span class="lbl">Level ${lv} · you carry ${P.seeds} seeds · the next point costs ${cost}</span>
         ${skillBox}${rows}
         <div class="stats"><span>Health ${P.hpMax} · Stamina ${P.stBase} · Mana ${P.manaMax} · Load ${P.loadMax}</span><span>${esc(W8.name)} ${TIER_NAME[tierOf(P.slots[P.slotIdx])]}: ${Math.round((wMul(W8) - 1) * 100)}% extra damage from stats and tier</span></div></div>
-      <div class="gcol"><span class="lbl">Skills</span><div class="stats"><span>${skills}</span></div>
+      <div class="gcol"><div class="row"><button class="btn sm" type="button" id="shrineSpells">Spells on your keys</button><button class="btn sm" type="button" id="shrineChants">Prepare chants</button></div>
+        <span class="lbl">Skills</span><div class="stats"><span>${skills}</span></div>
         <span class="lbl">Shrine offering</span><div class="inv">${makeHTML('shrine')}</div>
         <span class="lbl">Join spells</span><div class="inv"><div class="item"><b>Ignite + Gust → Fire wind</b><span>${SPELL('firewind').what}</span><span class="m">${soul.spells.has('firewind') ? 'Already joined' : `Needs Ignite and Gust · ${costText({ ember: 1, seeds: 40 })}`}</span><div class="row"><button class="btn ghost sm" type="button" id="joinFW"${!soul.spells.has('firewind') && soul.spells.has('ignite') && soul.spells.has('gust') && canPay({ ember: 1, seeds: 40 }) ? '' : ' disabled'}>Join</button></div></div></div>
         ${P.noMana ? `<span class="lbl">Write a scroll · ${costText(SCRIBE_COST)} each · only a body with no mana has the stillness for it</span><div class="inv">${[...soul.spells].map(id => `<div class="item"><b>${SPELL(id).say}</b><span class="m">You carry ${P.scrolls[id] || 0}</span><div class="row"><button class="btn ghost sm" type="button" data-scribe="${id}"${canPay(SCRIBE_COST) ? '' : ' disabled'}>Write one</button></div></div>`).join('')}</div>` : ''}
@@ -835,6 +889,8 @@ function renderShrine(i) {
   $('gearIn').querySelectorAll('[data-skill]').forEach(bt => bt.addEventListener('click', () => { P.skills.add(bt.dataset.skill); P.skillPending = null; applyStats(false); SFX.relic(); renderShrine(i); }));
   bindMakes(() => renderShrine(i));
   $('gearIn').querySelectorAll('[data-scribe]').forEach(bt => bt.addEventListener('click', () => { if (!canPay(SCRIBE_COST)) return; pay(SCRIBE_COST); P.scrolls[bt.dataset.scribe] = (P.scrolls[bt.dataset.scribe] || 0) + 1; if (!P.wordSlots.includes(bt.dataset.scribe)) { const f = P.wordSlots.indexOf(null); if (f >= 0) P.wordSlots[f] = bt.dataset.scribe; } tone(600, 900, 0.2, 'triangle', 0.04); renderShrine(i); }));
+  $('shrineSpells').addEventListener('click', () => { gearView = 'spells'; mode = 'gear'; renderGear(); });
+  $('shrineChants').addEventListener('click', () => { gearView = 'chants'; mode = 'gear'; renderGear(); });
   const jf = $('joinFW'); if (jf) jf.addEventListener('click', () => { if (!canPay({ ember: 1, seeds: 40 })) return; pay({ ember: 1, seeds: 40 }); closePanel(); learnSpell('firewind', 'At the shrine, fire and wind become one.'); });
 }
 function openForge() { banner = null; mode = 'forge'; clearHeld(); renderForge(); $('ovGear').hidden = false; }
@@ -1171,7 +1227,7 @@ function openChantPick() {
   if (CHS && CHS.state === 'chant') return;
   const page = !CHS ? 'bless' : CHS.page === 'bless' ? 'summon' : null;
   if (!page) { CHS = null; return; }
-  CHS = { state: 'pick', page, list: CHANTS.filter(c => c.kind === page && soul.chants.has(c.id)) };
+  CHS = { state: 'pick', page, list: CHANTS.filter(c => c.kind === page && soul.chants.has(c.id) && P.prepared.has(c.id)) };
 }
 function startChant(c) {
   const why = chantBlocked(c); if (why) { floater(pcx(), P.y - 30, why, PENCIL); CHS = null; return; }
@@ -1180,7 +1236,13 @@ function startChant(c) {
   P.atk = null; P.charging = false; SFX.drink(); banner = null; zoneTag = null;
   if (micMode === 'ptt' && !pttHeld) floater(pcx(), P.y - 40, 'HOLD V AND SPEAK', INK2);
 }
-function chantHeard(tokens) { if (!CHS || CHS.state !== 'chant') return; const m = matchWords(CHS.c.words, tokens); CHS.matched = CHS.matched.map((v, i) => v || m[i]); }
+function chantHeard(tokens) {
+  if (!CHS || CHS.state !== 'chant') return;
+  const tw = CHS.c.words; let m = matchWords(tw, tokens);
+  // starting the line over: try again from every place the first word comes back
+  for (let k = 1; k < tokens.length; k++) if (sim(tokens[k], tw[0]) >= 0.62) { const m2 = matchWords(tw, tokens.slice(k)); m = m.map((v, i) => v || m2[i]); }
+  CHS.matched = CHS.matched.map((v, i) => v || m[i]);
+}
 function cancelChant(why) { if (!CHS) return; if (CHS.state === 'chant' && why) floater(pcx(), P.y - 40, why, RED); CHS = null; }
 function chantStep(dt, mx) {
   if (!CHS) return;
@@ -1263,7 +1325,7 @@ function readInscription(q) {
   $('gearIn').innerHTML = `<span class="eyebrow">A carved chant · Esc to leave</span><h2>${esc(c.name)}</h2><p class="hand">“${esc(c.line)}”</p><p>${esc(c.what)}${c.offer ? ` Offering: ${esc(costText(c.offer))}.` : ''}</p>
     <div class="row">${soul.chants.has(c.id) ? '<span class="note">You already know this chant.</span>' : '<button class="btn" id="learnChant" type="button">Learn it</button>'}</div><p class="note">Press C during play, choose the chant, then speak the line (hold V if you use push to talk). With the mic off, hold C instead.</p>`;
   $('ovGear').hidden = false;
-  const b = $('learnChant'); if (b) b.addEventListener('click', () => { soul.chants.add(c.id); closePanel(); SFX.relic(); banner = { t: 3.6, top: `A NEW CHANT: ${c.name.toUpperCase()}`, sub: `“${c.line}”. Press C to chant it.` }; });
+  const b = $('learnChant'); if (b) b.addEventListener('click', () => { soul.chants.add(c.id); const room = P.prepared.size < P.chantSlots; if (room) P.prepared.add(c.id); closePanel(); SFX.relic(); banner = { t: 3.6, top: `A NEW CHANT: ${c.name.toUpperCase()}`, sub: `“${c.line}”. ${room ? 'Press C to chant it.' : `Your ${P.chantSlots} chant slots are full. Prepare it at a shrine (Tab, Chants).`}` }; });
 }
 function drawChantHUD() {
   if (!CHS) return;
@@ -1395,6 +1457,7 @@ function updateFoes(dt0) {
     if (!f.alive) continue;
     let dt = dt0; if (P.shaniT > 0 && Math.abs(f.x - P.x) < 460) dt *= f.boss ? 0.6 : 0.3; if (rainAt(f.x + 12)) dt *= 0.55;
     f.flash = Math.max(0, f.flash - dt);
+    if (f.pinT > 0) { f.pinT -= dt0; dt *= 0.5; }
     if (f.boss) { updateBoss(f, dt); continue; }
     if (f.calmT > 0 && f.state !== 'kneel') { f.calmT -= dt; f.vx = 0; if (f.state !== 'stun') f.state = 'idle'; else { f.t -= dt; if (f.t <= 0) f.state = 'idle'; } continue; }
     const dx = pcx() - (f.x + 12), adx = Math.abs(dx);
@@ -1465,7 +1528,7 @@ function bossHurt(B, dmg, heavy, o) {
   if (o.spell && o.spell === B.ar.gift && (soul.bossKills[B.boss] || 0) > 0) { dmg *= 3; floater(B.x + B.w / 2, B.y - 44, 'ITS OWN MOVE', RED); }
   B.hp -= dmg; B.flash = 0.12; B.sinceHit = 0; burst(B.x + B.w / 2, B.y + B.h / 2, 7); heavy ? SFX.heavy() : SFX.hit();
   if (B.state === 'stag') B.stag = 0;
-  else { B.poise -= ((heavy ? 26 : 10) + ((o.knock || 0) > 300 ? 8 : 0)) * (edge ? 2 : 1); if (B.poise <= 0 && B.state !== 'intro') bossStagger(B); }
+  else { B.poise -= ((heavy ? 26 : 10) + ((o.knock || 0) > 300 ? 8 : 0)) * (edge ? 2 : 1) * (o.poiseMul || 1); if (B.poise <= 0 && B.state !== 'intro') bossStagger(B); }
   if (B.hp <= 0) { B.hp = 0; B.state = 'dying'; B.t = 1.6; B.vx = 0; B.vy = 0; B.hidden = false; shake = 14; tone(200, 30, 1.4, 'sawtooth', 0.07);
     for (const f of foes) if (f.arena === B.ar.id && f.alive) { f.alive = false; for (let i = 0; i < 12; i++) fx.push({ k: 'ink', x: f.x + 12, y: f.y + rnd(0, f.h), vx: rnd(-20, 20), vy: -rnd(20, 70), life: 0.9 }); } }
 }
@@ -1607,7 +1670,7 @@ function updateShots(dt) {
     if (s.fire && (waterAt(s.x, s.y) || (s.hostile && rainAt(s.x)))) { s.life = 0; for (let i = 0; i < 8; i++) fx.push({ k: 'bub', x: s.x + rnd(-8, 8), y: s.y, vx: 0, vy: -rnd(40, 90), life: 0.6 }); continue; }
     if (s.hostile) { if (!P.dead && circle(s, P)) { if (P.noMana && P.parryT > 0) { s.hostile = false; s.reflected = true; s.vx = -s.vx * 1.15; s.vy = -Math.abs(s.vy) * 0.5 - 300; s.g = 500; s.dmg *= 2.5; s.life = 2.5; P.parryT = 0; SFX.parry(); floater(pcx(), P.y - 30, 'TURNED BACK'); hitstop = 0.06; for (let i = 0; i < 10; i++) fx.push({ k: 'spark', x: s.x, y: s.y, vx: rnd(-300, 300), vy: rnd(-300, 50), life: 0.25 }); continue; } if (hurtPlayer(s.dmg, s.src || { x: s.x, w: 0 }, false) !== 'dodge') { s.life = 0; burst(s.x, s.y, 10, RED); } } continue; }
     let done = false;
-    for (const t of foes) if (t.alive && t.state !== 'kneel' && !t.hidden && circle(s, t)) { hurtFoe(t, s.dmg, false); s.life = 0; burst(s.x, s.y, 12); if (s.knife) drops.push({ x: t.x + 12, y: t.gy - 4, a: s.vx > 0 ? 0.3 : Math.PI - 0.3 }); done = true; break; }
+    for (const t of foes) if (t.alive && t.state !== 'kneel' && !t.hidden && !(s.hit && s.hit.has(t)) && circle(s, t)) { if (s.arrow) arrowHit(s, t); else hurtFoe(t, s.dmg, false); burst(s.x, s.y, 12); if (s.pierce > 0) { s.pierce--; s.hit.add(t); continue; } s.life = 0; if (s.knife) drops.push({ x: t.x + 12, y: t.gy - 4, a: s.vx > 0 ? 0.3 : Math.PI - 0.3 }); done = true; break; }
     if (done) continue;
     for (const p of pots) if (!p.broken && circle(s, { x: p.x - 12, y: p.gy - 28, w: 24, h: 28 })) { breakPot(p); s.life = 0; if (s.knife) drops.push({ x: p.x, y: p.gy - 4, a: 0 }); break; }
   }
@@ -1676,7 +1739,7 @@ const CHESTS = [
   { x: 2400, gy: 810, kind: 'weapon', id: 3 }, { x: 3120, gy: 790, kind: 'weapon', id: 4 }, { x: 4220, gy: 1100, kind: 'weapon', id: 5 },
   { x: 4385, gy: 955, kind: 'garb', id: 'boots' }, { x: 4825, gy: 955, kind: 'garb', id: 'cleats' }, { x: 5790, gy: 1020, kind: 'garb', id: 'helm' },
   { x: 2200, gy: 720, kind: 'spell', id: 'gust' }, { x: 2050, gy: 1000, kind: 'spell', id: 'pillar' }, { x: 7178, gy: 560, kind: 'spell', id: 'monsoon' }, { x: 8700, gy: 760, kind: 'spell', id: 'embers' }, { x: 9670, gy: 760, kind: 'spell', id: 'starfall' },
-  { x: 11150, gy: 760, kind: 'weapon', id: 6, sealed: true },
+  { x: 11150, gy: 760, kind: 'weapon', id: 6, sealed: true }, { x: 12330, gy: 760, kind: 'weapon', id: 7, sealed: true },
   { x: 6330, gy: 560, kind: 'garb', id: 'band' }, { x: 7440, gy: 560, kind: 'garb', id: 'robe' }, { x: 9100, gy: 760, kind: 'garb', id: 'mail' },
 ];
 const chestOpen = c => !!c.opened;
@@ -1701,6 +1764,7 @@ function packWeight() {
   for (const id of P.relics) if (!P.equip.includes(id)) w += RELIC_W;
   for (const k in P.mats) w += P.mats[k] * MAT_W[k];
   for (const k in P.scrolls) w += P.scrolls[k] * SCROLL_W;
+  for (const k in P.arrows) w += P.arrows[k] * ARROW_W;
   return w;
 }
 const room = w => packWeight() + w <= P.packMax + 1e-9;
@@ -1769,6 +1833,7 @@ function openChest(c) {
   if (c.sealed && !P.noMana) { floater(c.x, c.gy - 50, 'SEALED · IT WILL NOT OPEN FOR ONE WHO HOLDS MANA', PENCIL); return; }
   if (c.kind === 'spell' && P.noMana) { if (!c.opened) { c.opened = true; if (!soul.spells.has(c.id)) learnSpell(c.id, 'A palm-leaf scroll lies in the chest.'); gainScroll(c.id, 2, c.x, c.gy - 50); } else floater(c.x, c.gy - 50, 'AN EMPTY CHEST', PENCIL); return; }
   if (c.kind === 'spell') { if (!c.opened) { c.opened = true; learnSpell(c.id, 'A palm-leaf scroll lies in the chest.'); } else floater(c.x, c.gy - 50, 'AN EMPTY CHEST', PENCIL); return; }
+  if (c.sealed && c.id === 7 && !c.opened) { P.arrows.iron += 5; P.arrows.ember += 5; P.arrows.ink += 5; floater(c.x, c.gy - 60, 'A QUIVER LIES WITH IT: 5 IRON, 5 EMBER, 5 INK ARROWS'); }
   c.opened = true; openContainer(c.inv, c.kind === 'weapon' ? 'A chest' : 'A chest'); }
 
 /* ---------- falling & true death ---------- */
@@ -1835,7 +1900,7 @@ toolBtn('tRelics', () => {
   P.equip = ['garuda', 'gecko', 'kite', 'bead'];
   banner = { t: 2.6, top: 'EVERY RELIC', sub: 'Test tool: you carry all seven. Feather, gecko, kite and bead are on. Swap in Tab.' };
 });
-toolBtn('tChants', () => { CHANTS.forEach(c => soul.chants.add(c.id)); P.mats.petal += 2; P.mats.ink += 4; P.mats.wood += 2; P.mats.ember += 2; P.seeds += 60; banner = { t: 2.6, top: 'EVERY CHANT', sub: 'Test tool: you know all ten chants and carry offerings for the summons. Press C to chant.' }; });
+toolBtn('tChants', () => { CHANTS.forEach(c => { soul.chants.add(c.id); P.prepared.add(c.id); }); P.mats.petal += 2; P.mats.ink += 4; P.mats.wood += 2; P.mats.ember += 2; P.seeds += 60; banner = { t: 2.6, top: 'EVERY CHANT', sub: 'Test tool: you know all ten chants, all are prepared (past the slot limit), and you carry offerings for the summons. Press C to chant.' }; });
 toolBtn('tSpells', () => { for (const w of WORDS) soul.spells.add(w.id); P.stats.foc = Math.max(P.stats.foc, 14); applyStats(false); banner = { t: 2.6, top: 'EVERY SPELL', sub: `Test tool: you know all ${WORDS.length} spells and your Focus is at least 14. Put them on keys 1 to 4 in Tab, on the Spells page.` }; });
 toolBtn('tEmpty', () => {
   if (P.noMana) return;
@@ -1886,16 +1951,19 @@ function closePanel() { $('ovGear').hidden = true; mode = 'play'; clearHeld(); }
 let gearView = 'gear';
 function renderChantBook() {
   const card = c => { const why = chantBlocked(c); return `<div class="item"><b>${c.name}</b><span class="hand">“${esc(c.line)}”</span><span>${esc(c.what)}</span><span class="m">${c.offer ? `Offering: ${esc(costText(c.offer))}` : 'No offering'}${c.needs === 'good' ? ' · needs karma not in debt' : c.needs === 'nomana' ? ' · only for a body born with no mana' : ''}${why ? ` · now: ${esc(why.toLowerCase())}` : ''}</span></div>`; };
-  const known = CHANTS.filter(c => soul.chants.has(c.id)), unknown = CHANTS.filter(c => !soul.chants.has(c.id));
-  return `<div class="gear"><div class="gcol"><span class="lbl">Chants you know · ${known.length} of ${CHANTS.length} · they need no mana, only your voice</span>
+  const known = CHANTS.filter(c => soul.chants.has(c.id)), unknown = CHANTS.filter(c => !soul.chants.has(c.id)), atS = nearShrine() >= 0;
+  const prep = c => `<div class="row">${P.prepared.has(c.id) ? `<span class="m">Prepared</span><button class="btn ghost sm" type="button" data-prep="${c.id}"${atS ? '' : ' disabled'}>Put away</button>` : `<button class="btn ghost sm" type="button" data-prep="${c.id}"${atS && P.prepared.size < P.chantSlots ? '' : ' disabled'}>Prepare</button>`}</div>`;
+  const card0 = card; const cardP = c => card0(c).replace(/<\/div>$/, prep(c) + '</div>');
+  return `<div class="gear"><div class="gcol"><span class="lbl">Chants you know · ${known.length} of ${CHANTS.length} · ${P.prepared.size} of ${P.chantSlots} prepared${P.noMana ? ' (a body with no mana holds five)' : ''}</span>
+      <div class="stats"><span>Only prepared chants come up when you press C. ${atS ? 'You are at a shrine: prepare or put away chants here.' : 'Change which chants are prepared while standing at a shrine.'}</span></div>
       <div class="stats"><span>Press C in play: first the weapon blessings, press C again for summons. Choose with a number, then speak the line.</span><span>Clean, steady words make it stronger. Chanting at a shrine makes it stronger and longer. A hit breaks the chant. With the mic off, hold C for four seconds (60% strength).</span><span>Summons answer once, then wait until you rest at a shrine.</span></div>
-      <div class="inv">${known.map(card).join('')}</div></div>
+      <div class="inv">${known.map(cardP).join('')}</div></div>
     <div class="gcol"><span class="lbl">Chants still carved somewhere</span><div class="inv">${unknown.length ? unknown.map(c => `<div class="item"><b>?</b><span class="hand">${esc(c.how)}</span></div>`).join('') : '<p class="note">You know every chant in the proving grounds.</p>'}</div></div></div>`;
 }
 function renderSpellBook() {
   const known = WORDS.filter(w => soul.spells.has(w.id)), unknown = WORDS.filter(w => !soul.spells.has(w.id));
-  const sc = WORDS.filter(w => (P.scrolls[w.id] || 0) > 0 || P.wordSlots.includes(w.id));
-  const keys = P.noMana ? `<p class="note">This body was born with no mana, so it cannot cast. It reads scrolls instead: one scroll, one cast, no mana and no Focus needed. Scrolls come from spell chests, bosses and the Grasping, and you can write them at a shrine with Grasping ink. What you learn stays with your soul for lives with mana.</p>` + P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}"><option value="">— empty —</option>${sc.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · scroll ×${P.scrolls[w.id] || 0}</option>`).join('')}</select></label>`).join('') : P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}"><option value="">— empty —</option>${known.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · ${spellCost(w)} mana</option>`).join('')}</select></label>`).join('') + (P.wordSlots.length < 4 ? `<p class="note">${4 - P.wordSlots.length} key${P.wordSlots.length === 3 ? '' : 's'} locked: this body's ${life.birth.tierName} mana opens ${P.wordSlots.length}.</p>` : '');
+  const sc = WORDS.filter(w => (P.scrolls[w.id] || 0) > 0 || P.wordSlots.includes(w.id)), atS = nearShrine() >= 0;
+  const keys = P.noMana ? `<p class="note">This body was born with no mana, so it cannot cast. It reads scrolls instead: one scroll, one cast, no mana and no Focus needed. Scrolls come from spell chests, bosses and the Grasping, and you can write them at a shrine with Grasping ink. What you learn stays with your soul for lives with mana.</p>` + P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}"><option value="">— empty —</option>${sc.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · scroll ×${P.scrolls[w.id] || 0}</option>`).join('')}</select></label>`).join('') : P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}"${atS ? '' : ' disabled'}><option value="">— empty —</option>${known.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · ${spellCost(w)} mana</option>`).join('')}</select></label>`).join('') + (P.wordSlots.length < 4 ? `<p class="note">${4 - P.wordSlots.length} key${P.wordSlots.length === 3 ? '' : 's'} locked: this body's ${life.birth.tierName} mana opens ${P.wordSlots.length}.</p>` : '');
   const card = w => { const miss = needsMissing(w), rk = rankOf(w.id), n = soul.ranks[w.id] || 0, next = rk === 1 ? 10 : rk === 2 ? 30 : null;
     const sch = w.school ? `${w.school}${P.school ? (w.school === P.school ? ' · your school, cheaper' : ' · another school, dearer') : ''}` : 'No school';
     const req = w.needs ? Object.entries(w.needs).map(([k, v]) => k === 'focus' ? `Focus ${v}` : k === 'night' ? 'night only' : 'a past life').join(', ') : '';
@@ -1903,7 +1971,8 @@ function renderSpellBook() {
   const m = moonLight();
   return `
     <div class="gear">
-      <div class="gcol"><span class="lbl">On your keys · say a spell aloud for 100%, press its key for 80%</span>${keys}
+      <div class="gcol"><span class="lbl">On your keys · say a spell aloud for 100%, press its key for 80%</span>${P.noMana ? '' : `<p class="note">${atS ? 'You are at a shrine: change which spells sit on your keys.' : 'Spells on your keys are changed at a shrine. Stand at one and open Tab.'}</p>`}${keys}
+        ${Object.keys(HEARD).length ? `<span class="lbl">Your voice · how the game has learned to hear you</span><div class="inv">${Object.keys(HEARD).filter(id => SPELL(id)).map(id => `<div class="item"><b>${SPELL(id).say}</b><span class="hand">${HEARD[id].map(h => `“${esc(h)}”`).join(', ')}</span><div class="row"><button class="btn ghost sm" type="button" data-forget="${id}">Forget these</button></div></div>`).join('')}</div>` : ''}
         <div class="stats"><span>${esc(skyText())}</span><span>Spells of your birth school cost less; spells of other schools cost more. Spells grow stronger the more you cast them.</span></div>
         <span class="lbl">Spells you know · ${known.length} of ${WORDS.length} · they stay with your soul</span><div class="inv">${known.map(card).join('')}</div></div>
       <div class="gcol"><span class="lbl">Spells still out there</span><div class="inv">${unknown.length ? unknown.map(w => `<div class="item"><b>?</b><span class="hand">${esc(w.how)}</span></div>`).join('') : '<p class="note">You know every spell in the proving grounds.</p>'}</div></div>
@@ -1949,7 +2018,9 @@ function renderGear() {
   q('[data-gon]').forEach(bt => bt.addEventListener('click', () => { const id = bt.dataset.gon; P.garb[GARB[id].slot] = id; renderGear(); }));
   q('[data-off]').forEach(bt => bt.addEventListener('click', () => { P.equip[+bt.dataset.off] = null; renderGear(); }));
   q('[data-on]').forEach(bt => bt.addEventListener('click', () => { const i = P.equip.indexOf(null); if (i >= 0) P.equip[i] = bt.dataset.on; renderGear(); }));
-  q('[data-ws]').forEach(se => se.addEventListener('change', () => { const i = +se.dataset.ws, v = se.value || null, j = v ? P.wordSlots.indexOf(v) : -1; if (j >= 0 && j !== i) P.wordSlots[j] = P.wordSlots[i]; P.wordSlots[i] = v; renderGear(); }));
+  q('[data-prep]').forEach(bt => bt.addEventListener('click', () => { if (nearShrine() < 0) return; const id = bt.dataset.prep; if (P.prepared.has(id)) P.prepared.delete(id); else if (P.prepared.size < P.chantSlots) P.prepared.add(id); renderGear(); }));
+  q('[data-forget]').forEach(bt => bt.addEventListener('click', () => { forgetHeard(bt.dataset.forget); renderGear(); }));
+  q('[data-ws]').forEach(se => se.addEventListener('change', () => { if (!P.noMana && nearShrine() < 0) { renderGear(); return; } const i = +se.dataset.ws, v = se.value || null, j = v ? P.wordSlots.indexOf(v) : -1; if (j >= 0 && j !== i) P.wordSlots[j] = P.wordSlots[i]; P.wordSlots[i] = v; renderGear(); }));
 }
 let mapHits = [], mapMsg = null;
 function danger() { return ARENAS.some(a => a.fight) || foes.some(f => f.alive && (f.state === 'chase' || f.state === 'wind' || f.state === 'swing') && Math.abs(f.x - P.x) < 520 && Math.abs(f.gy - (P.y + P.h)) < 160); }
@@ -2168,6 +2239,7 @@ function drawWorld() {
   for (const s of shots) {
     if (s.windcut) { ctx.strokeStyle = INK2; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x - Math.sign(s.vx) * 10, s.y, 14, -1.1, 1.1); if (s.vx < 0) { ctx.beginPath(); ctx.arc(s.x + 10, s.y, 14, Math.PI - 1.1, Math.PI + 1.1); } ctx.stroke(); continue; }
     if (s.arrow || s.knife) { const a = s.knife ? s.spin : Math.atan2(s.vy, s.vx); ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(a); ctx.strokeStyle = INK; ctx.lineWidth = s.knife ? 3 : 2.5; ctx.beginPath(); ctx.moveTo(s.knife ? -10 : -26, 0); ctx.lineTo(s.knife ? 8 : 0, 0); ctx.stroke(); ctx.fillStyle = INK; ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4); ctx.closePath(); ctx.fill(); ctx.restore(); }
+    if (s.arrow && s.kind && s.kind !== 'reed') { ctx.fillStyle = s.kind === 'ember' ? RED : INK; ctx.beginPath(); ctx.arc(s.x, s.y, s.kind === 'iron' ? 3.5 : 3, 0, Math.PI * 2); ctx.fill(); if (s.kind === 'ember' && Math.random() < 0.5) fx.push({ k: 'flame', x: s.x, y: s.y, vx: 0, vy: -30, life: 0.2 }); if (s.kind === 'ink' && Math.random() < 0.5) fx.push({ k: 'ink', x: s.x, y: s.y, vx: 0, vy: 20, life: 0.3 }); }
     else { const sp = Math.hypot(s.vx, s.vy) || 1; ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); for (let i = 1; i < 4; i++) { ctx.globalAlpha = 0.5 / i; ctx.beginPath(); ctx.arc(s.x - s.vx / sp * i * 12, s.y - s.vy / sp * i * 12, s.r * (1 - i * 0.18), 0, Math.PI * 2); ctx.fill(); } ctx.globalAlpha = 1; }
   }
   drawPlayer();
@@ -2375,11 +2447,11 @@ function drawWeapon(p, r) {
   else if (id === 'staff') { const a = p.atk && p.atk.spin && act ? p.atk.t * 24 : act ? 0.15 : ang + 0.3; ctx.save(); ctx.translate(hx, hy); ctx.scale(p.face, 1); ctx.rotate(a); ctx.strokeStyle = INK; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(-32, 0); ctx.lineTo(32, 0); ctx.stroke(); ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(-32, 0); ctx.lineTo(-27, 0); ctx.moveTo(27, 0); ctx.lineTo(32, 0); ctx.stroke(); ctx.restore(); }
   else if (id === 'empty') { const a = act ? 0 : ang; blade(hx, hy, 42, a, 4.5, true); ctx.save(); ctx.translate(hx, hy); ctx.scale(p.face, 1); ctx.rotate(a); ctx.strokeStyle = PAPER; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(36, 0); ctx.stroke(); ctx.restore(); }
   else if (id === 'daggers') { blade(hx, hy, 18, act ? 0.2 : ang + 0.6, 2.5, true); if (!p.torch.lit) blade(r.hB.x, r.hB.y, 16, act ? -0.4 : ang + 1.2, 2.5, true); }
-  else if (id === 'bow' && !p.glide) {
-    const ax = aimX() - hx, ayy = aimY() - hy, a = mouse.in ? Math.atan2(ayy, ax) : (p.face > 0 ? 0 : Math.PI), pull = p.charging ? p.charge / 0.7 : 0;
-    ctx.save(); ctx.translate(hx, hy); ctx.rotate(a); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(-4, 0, 22, -1.2, 1.2); ctx.stroke();
-    ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-4 + Math.cos(-1.2) * 22, Math.sin(-1.2) * 22); ctx.lineTo(-10 - pull * 14, 0); ctx.lineTo(-4 + Math.cos(1.2) * 22, Math.sin(1.2) * 22); ctx.stroke();
-    if (p.charging) { ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-10 - pull * 14, 0); ctx.lineTo(20, 0); ctx.stroke(); }
+  else if ((id === 'bow' || id === 'longbow') && !p.glide) {
+    const ax = aimX() - hx, ayy = aimY() - hy, a = mouse.in ? Math.atan2(ayy, ax) : (p.face > 0 ? 0 : Math.PI), LB = id === 'longbow', BR = LB ? 34 : 22, pull = p.charging ? p.charge / (LB ? 1 : 0.7) : 0;
+    ctx.save(); ctx.translate(hx, hy); ctx.rotate(a); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(-4, 0, BR, -1.2, 1.2); ctx.stroke();
+    ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-4 + Math.cos(-1.2) * BR, Math.sin(-1.2) * BR); ctx.lineTo(-10 - pull * 14, 0); ctx.lineTo(-4 + Math.cos(1.2) * BR, Math.sin(1.2) * BR); ctx.stroke();
+    if (p.charging) { ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-10 - pull * 14, 0); ctx.lineTo(LB ? 30 : 20, 0); ctx.stroke(); if (LB && p.charge >= 0.95) { ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(32, 0, 3.5, 0, Math.PI * 2); ctx.fill(); } }
     ctx.restore();
   }
   // swing marks
@@ -2495,6 +2567,7 @@ function drawHUD() {
     [`LOAD ${LD.full ? 'PACK FULL' : LD.cls.toUpperCase()} · PACK ${Math.round(LD.pack)}/${P.packMax}`, LD.cls === 'over' || LD.full ? RED : INK2],
     [`PROTECTION ${protNow()}% · ${isNight() ? 'NIGHT' : 'DAY'}`, INK2],
   ];
+  if (curW().long) RL.push([`ARROWS: ${ARROWS[p.arrowKind].name.toUpperCase()}${p.arrowKind === 'reed' ? '' : ' ×' + p.arrows[p.arrowKind]} · R CHANGES`, INK]);
   if (timers.length) RL.push([timers.join(' · '), INK]);
   RL.push(['TAB · M · C: CHANT', PENCIL]);
   ctx.font = `10px ${FD}`;
@@ -2547,7 +2620,9 @@ function loop(now) {
   for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false;
   requestAnimationFrame(loop);
 }
-$('btnBegin').addEventListener('click', () => {
+for (const id in HEARD) { const w = SPELL(id); if (w) for (const ph of HEARD[id]) if (!w.alias.includes(ph)) w.alias.push(ph); }
+$('btnMicCheck').addEventListener('click', e => { e.currentTarget.blur(); micCheck(); });
+$('btnBegin').addEventListener('click', () => { if (MC) { try { MC.stop(); } catch (_) {} MC = null; }
   setMicMode($('micStart').value);
   $('ovStart').hidden = true; newLife(makeBirth()); mode = 'play';
   if (micMode === 'always') startRec();
