@@ -161,11 +161,13 @@ const ZONES = [[0, 'THE VILLAGE', 'Rest, talk, and find your first relic'], [130
 function blocked(b) {
   for (const s of SOLIDS) if (overlap(b, s)) return s;
   for (const c of CRUMBLES) if (c.state !== 'gone' && overlap(b, c)) return c;
+  for (const t of TEMPS) if (overlap(b, { x: t.x, y: t.y + t.h * (1 - t.rise), w: t.w, h: t.h * t.rise })) return t;
   return null;
 }
 function pointSolid(x, y) {
   for (const s of SOLIDS) if (inR(x, y, s)) return s;
   for (const c of CRUMBLES) if (c.state !== 'gone' && inR(x, y, c)) return c;
+  for (const t of TEMPS) if (inR(x, y, t)) return t;
   return null;
 }
 const waterAt = (x, y) => WATERS.find(w => inR(x, y, w));
@@ -205,7 +207,7 @@ addEventListener('keydown', e => {
   if (e.code === 'Tab') { e.preventDefault(); if (mode === 'play') openGear(); else if (mode === 'gear') closePanel(); return; }
   if (mode === 'map' && /^Digit[1-9]$/.test(e.code)) { travelTo(+e.code.slice(5) - 1); return; }
   if (e.code === 'KeyM' && !e.repeat) { if (mode === 'play') { mode = 'map'; clearHeld(); } else if (mode === 'map') closePanel(); return; }
-  if (e.code === 'Escape') { if (mode === 'gear' || mode === 'map' || mode === 'shrine' || mode === 'forge' || mode === 'chest') { closePanel(); return; } if (mode === 'play') { mode = 'pause'; $('ovPause').hidden = false; } else if (mode === 'pause') resume(); return; }
+  if (e.code === 'Escape') { if (mode === 'gear' || mode === 'map' || mode === 'shrine' || mode === 'forge' || mode === 'chest' || mode === 'stone') { closePanel(); return; } if (mode === 'play') { mode = 'pause'; $('ovPause').hidden = false; } else if (mode === 'pause') resume(); return; }
   const a = KEYS[e.code]; if (!a) return;
   if (mode === 'play') e.preventDefault();
   if (e.repeat) return;
@@ -248,10 +250,22 @@ const SFX = { swing: () => tone(1400, 500, 0.07, 'triangle', 0.03), hit: () => t
 
 /* ---------- battle words & speech ---------- */
 const WORDS = [
-  { id: 'ignite', say: 'Ignite', cost: 20, alias: ['ignite', 'ignites', 'ignited', 'ignight', 'ignyte', 'agnite', 'in night', 'ignore it'] },
-  { id: 'shield', say: 'Shield', cost: 25, alias: ['shield', 'shields', 'sheild', 'sealed', 'shelled', 'she yield', 'shiel', 'shilled'] },
-  { id: 'restore', say: 'Restore', cost: 30, alias: ['restore', 'restores', 'restored', 'restoring', 're store', 'the store', 'we store', 'distore'] },
+  { id: 'ignite', say: 'Ignite', short: 'IGNITE', school: 'Agni', cost: 20, what: 'A fire bolt where you aim.', how: 'You were born knowing it.', alias: ['ignite', 'ignites', 'ignited', 'ignight', 'ignyte', 'agnite', 'in night', 'ignore it'] },
+  { id: 'shield', say: 'Shield', short: 'SHIELD', school: 'Prithvi', cost: 25, what: 'A stone guard that blocks the next hit.', how: 'You were born knowing it.', alias: ['shield', 'shields', 'sheild', 'sealed', 'shelled', 'she yield', 'shiel', 'shilled'] },
+  { id: 'restore', say: 'Restore', short: 'RESTORE', school: 'Jala', cost: 30, what: 'Heals you a little at once.', how: 'You were born knowing it.', alias: ['restore', 'restores', 'restored', 'restoring', 're store', 'the store', 'we store', 'distore'] },
+  { id: 'gust', say: 'Gust', short: 'GUST', school: 'Vayu', cost: 15, what: 'Wind throws foes back. Cast it in the air to lift yourself higher.', how: 'High up on the planks.', alias: ['gust', 'gusts', 'guest', 'gast', 'gusty', 'gassed'] },
+  { id: 'pillar', say: 'Pillar', short: 'PILLAR', school: 'Prithvi', cost: 30, what: 'Stone rises where you aim and stays for 8 seconds. Stand on it to reach higher places.', how: 'Below the planks, near the high wall.', alias: ['pillar', 'pillars', 'piller', 'pilla', 'peeler', 'pillow'] },
+  { id: 'monsoon', say: 'Monsoon', short: 'MONSOON', school: 'Jala', cost: 35, what: 'Rain falls where you aim for 6 seconds. Foes slow down, and burning ground under it is safe to cross.', how: 'At the mouth of the dark.', alias: ['monsoon', 'mon soon', 'monsun', 'man soon', 'monsoons', 'mansoon'] },
+  { id: 'unseen', say: 'Unseen', short: 'UNSEEN', school: 'Akasha', cost: 25, what: 'You turn to ink and foes lose you for 5 seconds, 8 at night. Attacking ends it.', how: 'Someone you helped may teach you.', alias: ['unseen', 'un seen', 'unscene', 'on seen', 'and seen', 'unsean'] },
+  { id: 'embers', say: 'Ember rain', short: 'EMBERS', school: 'Agni', cost: 30, what: 'Fire falls along the ground in front of you.', how: 'Past the crumbling bridge.', alias: ['ember rain', 'ember', 'embers', 'amber rain', 'member rain', 'amber'] },
+  { id: 'echo', say: 'Echo', short: 'ECHO', school: 'Akasha', cost: 40, needs: { life: 2 }, what: 'A shade of one of your past lives fights beside you for 10 seconds.', how: 'Find a body you once wore.', alias: ['echo', 'eco', 'echoes', 'ekko', 'akko', 'ecco'] },
+  { id: 'grasp', say: 'Grasp', short: 'GRASP', school: null, cost: 20, what: "Greed's own spell. Pull a foe to you and take some of its seeds. Using it weighs a little on karma.", how: 'The Grasping carry it. Defeat them.', alias: ['grasp', 'grasped', 'gasp', 'crasp', 'graps', 'grasps'] },
+  { id: 'shani', say: 'Shani', short: 'SHANI', school: null, cost: 45, needs: { focus: 14 }, what: 'The weight of Saturn: everything near you slows down for 6 seconds, and you slow a little too.', how: 'A speaking stone below the plateau asks a question.', alias: ['shani', 'shanni', 'sani', 'shaney', 'saturn', 'shanee'] },
+  { id: 'tide', say: 'Chandra', short: 'TIDE', school: null, cost: 30, what: "The Moon's tide heals you over 6 seconds. It is stronger the fuller the real Moon is tonight.", how: 'A stone above the wind gap wakes at night.', alias: ['chandra', 'chandr', 'candra', 'chandler', 'chander', 'tide'] },
+  { id: 'starfall', say: 'Starfall', short: 'STARFALL', school: 'Akasha', cost: 50, needs: { night: true, focus: 12 }, what: 'Starlight strikes every foe you can see. Only at night where you are.', how: 'Behind a wall that is not there.', alias: ['starfall', 'star fall', 'star full', 'starful', 'stall fall'] },
+  { id: 'firewind', say: 'Fire wind', short: 'FIREWIND', school: 'Agni', cost: 35, what: 'A blast of fire in front of you that throws foes back.', how: 'Join two spells you know at a shrine.', alias: ['fire wind', 'firewind', 'fire win', 'far wind', 'fire when'] },
 ];
+const SPELL = id => WORDS.find(w => w.id === id);
 function lev(a, b) { const m = a.length, n = b.length; if (!m) return n; if (!n) return m; let p = Array.from({ length: n + 1 }, (_, j) => j); for (let i = 1; i <= m; i++) { const c = [i]; for (let j = 1; j <= n; j++) c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); p = c; } return p[n]; }
 const phon = w => w.replace(/ph/g, 'f').replace(/th/g, 't').replace(/ck/g, 'k').replace(/v/g, 'w').replace(/z/g, 's').replace(/[aeiouy]+/g, 'a').replace(/(.)\1+/g, '$1');
 const sim = (a, b) => { const pa = phon(a), pb = phon(b); return 1 - lev(pa, pb) / Math.max(pa.length, pb.length, 1); };
@@ -286,6 +300,7 @@ function startRec() {
       const r = e.results[i];
       for (let a = 0; a < r.length; a++) {
         const toks = r[a].transcript.toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean);
+        if (P && nearStone() && nearStone().k === 'speak' && !soul.spells.has('shani') && answerStone(toks.join(' '))) { voiceLog(`heard “${r[a].transcript.trim()}” → the stone answers`, true); break; }
         let start = used.get(i) || 0; if (toks.length < start) start = 0; const found = findWord(toks.slice(start));
         if (found) {
           used.set(i, start + found.at + 1);
@@ -304,7 +319,7 @@ function startRec() {
 function stopRec() { try { rec && rec.stop(); } catch (_) {} }
 
 /* ---------- state ---------- */
-const soul = { home: null, karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set() };
+const soul = { spells: new Set(['ignite', 'shield', 'restore']), ranks: {}, kills: 0, home: null, karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set() };
 let life = null, P = null, foes = [], shots = [], fx = [], floaters = [], shades = [], drops = [], pots = [];
 let shake = 0, hitstop = 0, clock = 0, banner = null, pendingDeath = 0, zoneTag = null;
 const villager = { x: 560, gy: 1000, helped: false, talkT: 0, line: '' };
@@ -321,7 +336,7 @@ function newLife(birth) {
   const sr = [...soul.soulRelics];
   P = { x: SHRINES[0].x + 40, y: SHRINES[0].gy - PH, w: 22, h: PH, vx: 0, vy: 0, face: 1, onG: true, groundS: null, hp: 100, hpMax: 100, st: noMana ? 125 : 100, stMax: noMana ? 125 : 100, stDelay: 0,
     mana: manaMax, manaMax, prana: 3, pranaMax: 3, lotus: 3, lotusMax: 3, seeds: 0, slots: [0, 2], slotIdx: 0, swapT: 0, mT: 0, mDown: false, chargeSrc: null, bufLight: 0,
-    wordSlots: WORDS.slice(0, [0, 1, 2, 3, 3][b.tier]).map(w => w.id),
+    wordSlots: Array.from({ length: [0, 1, 2, 3, 4][b.tier] }, (_, i) => (WORDS.filter(w => soul.spells.has(w.id))[i] || {}).id || null),
     atk: null, charge: 0, charging: false, rollT: 0, rollIF: 0, parryT: 0, parryCd: 0, healT: 0, hitT: 0, inv: 0, shieldT: 0, riposte: 0, dead: false, deadT: 0,
     dmgMul: (noMana ? 1.15 : 1) * (b.style === 'Sovereign' ? 1.1 : 1), looks: b.looks, school: b.school, noMana, run: 0,
     stBase: noMana ? 125 : 100, visited: new Set([0]), weapons: new Set([0, 2]), stats: birthStats(b), stats0: birthStats(b), skills: new Set(), skillPending: null, wtier: {}, mats: { wood: 0, iron: 0, ink: 0, petal: 0, ember: 0 }, knivesMax: KNIVES, torchMax: TORCH, made: new Set(), manaTierMax: manaMax, garb: { head: null, body: 'wrap', feet: 'sandals' }, garbOwned: new Set(['wrap', 'sandals']), loadMax: 20, combo: 0, comboT: 0, rollV: 0, mount: false, trampleCd: 0,
@@ -332,6 +347,7 @@ function newLife(birth) {
   resetNodes();
   if (!soul.home) soul.home = emptyInv();
   newHorse(); resetChests();
+  TEMPS = []; RAINS = []; ALLY = null;
   pots = POT_SPOTS.map(([x, gy, seeds]) => ({ x, gy, seeds, broken: false }));
   FAKES.forEach(f => f.found = false);
   drops = []; shots = []; resetCrumbles(); spawnFoes();
@@ -421,6 +437,7 @@ function throwKnife() {
 }
 function spend(n) { if (P.st <= 0) return false; P.st -= n; P.stDelay = 0.7; return true; }
 function lightAttack(W8) {
+  P.unseenT = 0;
   spend(W8.light.st);
   if (W8.bow) { shootArrow(W8.light, 1); P.atk = { t: 0, dur: W8.light.dur, a0: 99, a1: 99, bow: true, hit: new Set() }; }
   else {
@@ -536,7 +553,7 @@ function updatePlayer(dt) {
     const letGo = P.chargeSrc === 'mouse' ? !held.mouseL : !held.heavy;
     if (letGo || P.hitT > 0) {
       P.charging = false;
-      if (P.hitT <= 0 && spend(W8.heavy.st)) {
+      if (P.hitT <= 0 && spend(W8.heavy.st)) { P.unseenT = 0;
         const m = 1 + P.charge / 0.7 * 0.5;
         if (W8.bow) { shootArrow(W8.heavy, m); P.atk = { t: 0, dur: W8.heavy.dur, a0: 99, a1: 99, bow: true, heavy: true, hit: new Set() }; }
         else { P.atk = Object.assign({ t: 0, hit: new Set(), heavy: true }, W8.heavy, { dmg: W8.heavy.dmg * m * wMul(W8), daggers: W8.id === 'daggers' }); if (P.mount) delete P.atk.lunge; SFX.swing(); }
@@ -549,7 +566,7 @@ function updatePlayer(dt) {
   // horizontal
   const surf = P.onG && P.groundS ? P.groundS.surf : null;
   const LD = loadNow();
-  let tgt = mx * 250 * LD.walk;
+  let tgt = mx * 250 * LD.walk * (P.shaniT > 0 ? 0.7 : 1);
   if (P.charging) tgt = mx * 90;
   if (P.crouch) tgt = mx * 110;
   if (surf === 'mud') tgt *= wears('boots') ? 0.8 : 0.45;
@@ -627,8 +644,8 @@ function afterMove(dt, mx, onLadder) {
   } else P.breath = Math.min(BREATH, P.breath + 4 * dt);
   if (P.headUnder && Math.random() < dt * 2) fx.push({ k: 'bub', x: cx + P.face * 6, y: P.y + 6, vx: 0, vy: -50, life: 1 });
   // burning ground
-  if (P.onG && P.groundS && P.groundS.surf === 'hot' && P.mount && !has('ember')) { horse.hp -= 25 * dt; if (Math.random() < dt * 4) burst(cx, P.y + P.h, 3, RED, 120); if (horse.hp <= 0) { dismount(true); floater(cx, P.y - 30, 'THE HORSE IS BURNED AND BOLTS', RED); } }
-  else if (P.onG && P.groundS && P.groundS.surf === 'hot' && !has('ember') && P.school !== 'Agni') {
+  if (P.onG && P.groundS && P.groundS.surf === 'hot' && P.mount && !has('ember') && !rainAt(cx)) { horse.hp -= 25 * dt; if (Math.random() < dt * 4) burst(cx, P.y + P.h, 3, RED, 120); if (horse.hp <= 0) { dismount(true); floater(cx, P.y - 30, 'THE HORSE IS BURNED AND BOLTS', RED); } }
+  else if (P.onG && P.groundS && P.groundS.surf === 'hot' && !has('ember') && P.school !== 'Agni' && !rainAt(cx)) {
     P.hp -= 25 * dt; P.burnT += dt;
     if (P.burnT > 0.25) { P.burnT = 0; burst(cx, P.y + P.h, 3, RED, 120); }
     if (P.hp <= 0) { P.hp = 0; fall('The burning ground took you.'); return; }
@@ -641,7 +658,7 @@ function afterMove(dt, mx, onLadder) {
   // pickups
   const fy = P.y + P.h;
   for (const s of shades) if (!s.taken && Math.abs(cx - s.x) < 30 && Math.abs(fy - s.y) < 70) { s.taken = true; P.seeds += s.seeds; floater(s.x, s.y - 80, `+${s.seeds} seeds recovered`); tone(500, 1000, 0.2, 'sine', 0.04); }
-  for (const b of soul.bodies) if (!b.taken && b.life !== life.n && Math.abs(cx - b.x) < 30 && Math.abs(fy - b.y) < 70) { b.taken = true; floater(b.x, b.y - 90, `A body you wore in life ${b.life}.`); tone(300, 600, 0.6, 'sine', 0.04); }
+  for (const b of soul.bodies) if (!b.taken && b.life !== life.n && Math.abs(cx - b.x) < 30 && Math.abs(fy - b.y) < 70) { b.taken = true; learnSpell('echo', 'A memory returns: you have fought beside yourself before.'); floater(b.x, b.y - 90, `A body you wore in life ${b.life}.`); tone(300, 600, 0.6, 'sine', 0.04); }
   for (const [id, x, gy] of RELIC_SPOTS) if (!P.relics.has(id) && !relicStored(id) && Math.abs(cx - x) < 28 && Math.abs(fy - gy) < 50) pickRelic(id);
   for (const d of drops) if (!d.taken && Math.abs(cx - d.x) < 26 && d.y > P.y - 10 && d.y < fy + 24) { d.taken = true; P.knives = Math.min(P.knivesMax, P.knives + 1); tone(1300, 1600, 0.05, 'triangle', 0.02); }
   drops = drops.filter(d => !d.taken);
@@ -699,6 +716,39 @@ function drawNode(n) {
 }
 
 /* ---------- forges, the shrine panel and the forge panel ---------- */
+const STONES = [{ k: 'speak', x: 3570, gy: 1100 }, { k: 'moon', x: 6550, gy: 560 }];
+const nearStone = () => STONES.find(st => Math.abs(pcx() - st.x) < 50 && Math.abs(P.y + P.h - st.gy) < 40);
+const SHANI_ANSWERS = ['shani', 'sani', 'saturn', 'shanaishchara', 'shanaischara', 'shanidev', 'shani dev', 'sanidev'];
+function answerStone(text) {
+  const t = String(text).toLowerCase().replace(/[^a-z ]/g, ' ');
+  if (SHANI_ANSWERS.some(a => t.split(/\s+/).includes(a) || t.replace(/ /g, '').includes(a.replace(/ /g, '')))) { closePanel(); learnSpell('shani', 'The stone hears its name and gives up its weight.'); return true; }
+  return false;
+}
+function useStone(st) {
+  if (st.k === 'moon') {
+    if (soul.spells.has('tide')) { floater(st.x, st.gy - 60, 'THE STONE HAS GIVEN WHAT IT HAD', PENCIL); return; }
+    if (!isNight()) { floater(st.x, st.gy - 60, 'THE STONE IS COLD BY DAY · COME BACK WHEN IT IS NIGHT WHERE YOU ARE', PENCIL); return; }
+    learnSpell('tide', 'Under the night sky the stone glows with moonlight.'); return;
+  }
+  if (soul.spells.has('shani')) { floater(st.x, st.gy - 60, 'THE STONE IS SILENT NOW', PENCIL); return; }
+  banner = null; mode = 'stone'; clearHeld();
+  $('gearIn').innerHTML = `<span class="eyebrow">A speaking stone · Esc to leave</span><h2>The stone asks</h2>
+    <p class="hand">“I am the slowest wanderer of the sky. I carry the weight of every deed and give each its due, in time. Say my name.”</p>
+    <div class="row"><input id="stoneIn" type="text" autocomplete="off" placeholder="Type the name" style="font:16px var(--f-mono);padding:10px;border:1.5px solid var(--ink);background:var(--paper)"><button class="btn" id="stoneGo" type="button">Answer</button></div>
+    <p class="note">Or close this, stand by the stone, hold V and say it aloud.</p><p class="note" id="stoneMsg"></p>`;
+  $('ovGear').hidden = false;
+  const go = () => { if (!answerStone($('stoneIn').value)) $('stoneMsg').textContent = 'The stone stays silent. That is not its name.'; };
+  $('stoneGo').addEventListener('click', go); $('stoneIn').addEventListener('keydown', e => { if (e.key === 'Enter') go(); e.stopPropagation(); });
+  setTimeout(() => $('stoneIn').focus(), 30);
+}
+function drawStone(st) {
+  const x = st.x, g = st.gy, night = isNight();
+  ctx.fillStyle = st.k === 'moon' && night && !soul.spells.has('tide') ? '#f3f0e7' : PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x - 18, g); ctx.lineTo(x - 15, g - 48); ctx.quadraticCurveTo(x, g - 62, x + 15, g - 48); ctx.lineTo(x + 18, g); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.lineWidth = 1.6; ctx.beginPath();
+  if (st.k === 'moon') { ctx.arc(x, g - 34, 9, 0.6, Math.PI * 2 - 0.6); ctx.stroke(); if (night && !soul.spells.has('tide')) { ctx.strokeStyle = PENCIL; ctx.beginPath(); ctx.arc(x, g - 34, 22 + Math.sin(clock * 3) * 3, 0, Math.PI * 2); ctx.stroke(); } }
+  else { for (let i = 0; i < 4; i++) { ctx.moveTo(x - 9, g - 42 + i * 8); ctx.lineTo(x + 9 - (i % 2) * 6, g - 42 + i * 8); } ctx.stroke(); }
+}
 const FORGES = [{ x: 70, gy: 1000 }, { x: 9290, gy: 760 }];
 const nearForge = () => FORGES.findIndex(f => Math.abs(pcx() - f.x) < 60 && Math.abs(P.y + P.h - f.gy) < 40);
 const costText = c => Object.keys(c).map(k => k === 'seeds' ? `${c[k]} seeds` : `${c[k]} ${MATS[k].toLowerCase()}`).join(' · ');
@@ -730,6 +780,7 @@ function renderShrine(i) {
         <div class="stats"><span>Health ${P.hpMax} · Stamina ${P.stBase} · Mana ${P.manaMax} · Load ${P.loadMax}</span><span>${esc(W8.name)} ${TIER_NAME[tierOf(P.slots[P.slotIdx])]}: ${Math.round((wMul(W8) - 1) * 100)}% extra damage from stats and tier</span></div></div>
       <div class="gcol"><span class="lbl">Skills</span><div class="stats"><span>${skills}</span></div>
         <span class="lbl">Shrine offering</span><div class="inv">${makeHTML('shrine')}</div>
+        <span class="lbl">Join spells</span><div class="inv"><div class="item"><b>Ignite + Gust → Fire wind</b><span>${SPELL('firewind').what}</span><span class="m">${soul.spells.has('firewind') ? 'Already joined' : `Needs Ignite and Gust · ${costText({ ember: 1, seeds: 40 })}`}</span><div class="row"><button class="btn ghost sm" type="button" id="joinFW"${!soul.spells.has('firewind') && soul.spells.has('ignite') && soul.spells.has('gust') && canPay({ ember: 1, seeds: 40 }) ? '' : ' disabled'}>Join</button></div></div></div>
         <span class="lbl">Materials</span><div class="stats">${matsLine()}</div>
         <p class="note">Weapons are tempered at a forge: one in the village, one in the arena. Levels, skills and materials belong to this body; a new life starts again from its birth.</p></div>
     </div>`;
@@ -741,6 +792,7 @@ function renderShrine(i) {
   }));
   $('gearIn').querySelectorAll('[data-skill]').forEach(bt => bt.addEventListener('click', () => { P.skills.add(bt.dataset.skill); P.skillPending = null; applyStats(false); SFX.relic(); renderShrine(i); }));
   bindMakes(() => renderShrine(i));
+  const jf = $('joinFW'); if (jf) jf.addEventListener('click', () => { if (!canPay({ ember: 1, seeds: 40 })) return; pay({ ember: 1, seeds: 40 }); closePanel(); learnSpell('firewind', 'At the shrine, fire and wind become one.'); });
 }
 function openForge() { banner = null; mode = 'forge'; clearHeld(); renderForge(); $('ovGear').hidden = false; }
 function renderForge() {
@@ -789,7 +841,7 @@ function hurtFoe(t, dmg, heavy, o = {}) {
   t.vx = (t.x + t.w / 2 > pcx() ? 1 : -1) * (o.knock || (heavy ? 260 : 120)); t.state = 'stun'; t.t = o.stun || (heavy ? 0.6 : 0.3);
   if (t.hp <= 0) {
     if (t.hp > -10 && Math.random() < 0.55) { t.hp = 1; t.state = 'kneel'; t.kneelT = 0; t.awayT = 0; t.vx = 0; floater(t.x + 12, t.y - 20, 'IT BEGS', INK2); }
-    else { t.alive = false; burst(t.x + 12, t.y + 20, 22); P.seeds += 25; floater(t.x + 12, t.y - 10, '+25 seeds'); gain('ink', 1, t.x + 12, t.y - 28); }
+    else { t.alive = false; burst(t.x + 12, t.y + 20, 22); P.seeds += 25; floater(t.x + 12, t.y - 10, '+25 seeds'); gain('ink', 1, t.x + 12, t.y - 28); soul.kills++; if (!soul.spells.has('grasp') && (Math.random() < 0.15 || soul.kills >= 6)) learnSpell('grasp', 'The Grasping you struck down let go of something it was holding.'); }
   }
 }
 function hurtPlayer(d, src, melee) {
@@ -808,24 +860,118 @@ function hurtPlayer(d, src, melee) {
   if (P.hp <= 0) fall('The Grasping struck you down.');
   return 'hit';
 }
+let nightOverride = null;
+function isNight() { if (nightOverride !== null) return nightOverride; const h = new Date().getHours(); return h >= 19 || h < 6; }
+function moonLight() { try { const ph = window.Astronomy.MoonPhase(new Date()) * Math.PI / 180; return { illum: (1 - Math.cos(ph)) / 2, waxing: ph < Math.PI }; } catch (_) { return { illum: 0.5, waxing: true }; } }
+const spellCost = w => Math.round(w.cost * (w.school && P.school ? (w.school === P.school ? 0.8 : 1.25) : 1));
+const rankOf = id => { const n = soul.ranks[id] || 0; return n >= 30 ? 3 : n >= 10 ? 2 : 1; };
+function needsMissing(w) {
+  const n = w.needs || {};
+  if (n.focus && P.stats.foc < n.focus) return `NEEDS FOCUS ${n.focus}`;
+  if (n.night && !isNight()) return 'ONLY AT NIGHT';
+  if (n.life && life.n < n.life) return 'NEEDS A PAST LIFE';
+  return null;
+}
+function learnSpell(id, how) {
+  if (soul.spells.has(id)) return false;
+  soul.spells.add(id); const w = SPELL(id), free = P.wordSlots.indexOf(null);
+  if (free >= 0) P.wordSlots[free] = id;
+  SFX.relic(); for (let i = 0; i < 24; i++) fx.push({ k: 'ink', x: pcx() + rnd(-30, 30), y: P.y + rnd(-20, P.h), vx: rnd(-30, 30), vy: -rnd(30, 90), life: rnd(0.5, 1.1) });
+  banner = { t: 4.2, top: `A NEW SPELL: ${w.say.toUpperCase()}`, sub: `${how ? how + ' ' : ''}${w.what} Say "${w.say}" aloud, or put it on keys 1 to 4 in Tab.${free >= 0 ? ` It is on key ${free + 1}.` : ''}` };
+  return true;
+}
+function groundBelow(x, y0) { for (let y = Math.max(0, y0); y < y0 + 520 && y < LH; y += 4) if (pointSolid(x, y)) return y; return null; }
+function graspTarget() { let best = null, bd = 1e9; for (const f of foes) { if (!f.alive || f.state === 'kneel') continue; const dx = (f.x + 12 - pcx()) * P.face; if (dx < 0 || dx > 340 || Math.abs(f.gy - (P.y + P.h)) > 110) continue; if (dx < bd) { bd = dx; best = f; } } return best; }
 function castWord(w, power) {
   if (P.dead || mode !== 'play') return;
   if (P.noMana) { floater(pcx(), P.y - 30, 'NO MANA IN THIS LIFE', PENCIL); return; }
-  if (!P.wordSlots.includes(w.id)) { floater(pcx(), P.y - 30, `${w.say.toUpperCase()} IS NOT ON YOUR HOTBAR (TAB)`, PENCIL); return; }
-  if (P.mana < w.cost) { floater(pcx(), P.y - 30, 'NOT ENOUGH MANA', PENCIL); return; }
+  if (!soul.spells.has(w.id)) { floater(pcx(), P.y - 30, `YOU DO NOT KNOW ${w.say.toUpperCase()} YET`, PENCIL); return; }
+  if (!P.wordSlots.includes(w.id)) { floater(pcx(), P.y - 30, `${w.say.toUpperCase()} IS NOT ON YOUR KEYS (TAB)`, PENCIL); return; }
+  const why = needsMissing(w); if (why) { floater(pcx(), P.y - 30, why, PENCIL); return; }
+  const cost = spellCost(w);
+  if (P.mana < cost) { floater(pcx(), P.y - 30, 'NOT ENOUGH MANA', PENCIL); return; }
   faceAim();
   if (P.hitT > 0 || P.rollT > 0) return;
-  P.mana -= w.cost; SFX.word(); shake = 5; power *= 1 + 0.04 * (P.stats.foc - 10);
+  let ax = mouse.in ? aimX() : pcx() + P.face * 160, ay = mouse.in ? aimY() : P.y;
+  let pillarY = null, gt = null;
+  if (w.id === 'pillar') { pillarY = groundBelow(ax, ay); if (pillarY === null || TEMPS.filter(t => t.pillar).length >= 2 && false) { floater(pcx(), P.y - 30, 'NO GROUND THERE', PENCIL); return; } }
+  if (w.id === 'grasp') { gt = graspTarget(); if (!gt) { floater(pcx(), P.y - 30, 'NOTHING TO GRASP', PENCIL); return; } }
+  P.mana -= cost; SFX.word(); shake = 5;
+  const rk = rankOf(w.id); power *= (1 + 0.04 * (P.stats.foc - 10)) * [1, 1, 1.2, 1.4][rk];
+  soul.ranks[w.id] = (soul.ranks[w.id] || 0) + 1; if (rankOf(w.id) > rk) floater(pcx(), P.y - 52, `${w.say.toUpperCase()} GROWS STRONGER`, INK2);
+  if (w.id !== 'unseen') P.unseenT = 0;
   floater(pcx(), P.y - 34, `${w.say.toUpperCase()} · ${Math.round(power * 100)}%`);
-  if (w.id === 'ignite') { const dmg = 28 * power * (P.school === 'Agni' ? 1.25 : 1) * P.dmgMul; const sx = pcx() + P.face * 20, sy = P.y + Math.min(18, P.h * 0.45), [ux, uy] = aimVec(sx, sy); shots.push({ fire: true, x: sx, y: sy, vx: ux * 640, vy: uy * 640, life: 1.2, dmg, r: 10 }); }
+  const cx = pcx(), dmgMul = P.dmgMul;
+  if (w.id === 'ignite') { const dmg = 28 * power * (P.school === 'Agni' ? 1.25 : 1) * dmgMul; const sx = cx + P.face * 20, sy = P.y + Math.min(18, P.h * 0.45), [ux, uy] = aimVec(sx, sy); shots.push({ fire: true, x: sx, y: sy, vx: ux * 640, vy: uy * 640, life: 1.2, dmg, r: 10 }); }
   if (w.id === 'shield') { P.shieldT = (P.school === 'Prithvi' ? 6 : 3) * (power >= 1 ? 1 : 0.85); }
-  if (w.id === 'restore') { const h = Math.round(26 * power * (P.school === 'Jala' ? 1.4 : 1)); P.hp = Math.min(P.hpMax, P.hp + h); floater(pcx(), P.y - 14, `+${h}`); for (let i = 0; i < 12; i++) fx.push({ k: 'leaf', x: P.x + rnd(-10, 30), y: P.y + rnd(0, P.h), vx: 0, vy: -rnd(40, 90), life: 0.8 }); }
+  if (w.id === 'restore') { const h = Math.round(26 * power * (P.school === 'Jala' ? 1.4 : 1)); P.hp = Math.min(P.hpMax, P.hp + h); floater(cx, P.y - 14, `+${h}`); for (let i = 0; i < 12; i++) fx.push({ k: 'leaf', x: P.x + rnd(-10, 30), y: P.y + rnd(0, P.h), vx: 0, vy: -rnd(40, 90), life: 0.8 }); }
+  if (w.id === 'gust') {
+    for (const f of foes) if (f.alive && f.state !== 'kneel') { const dx = (f.x + 12 - cx) * P.face; if (dx > -10 && dx < 180 && Math.abs(f.gy - (P.y + P.h)) < 100) hurtFoe(f, 6 * power * dmgMul, false, { knock: 560, stun: 0.9 }); }
+    if (!P.onG && !P.inWater) { P.vy = Math.min(P.vy, -600); P.vx += P.face * 140; }
+    for (let i = 0; i < 14; i++) fx.push({ k: 'wind', x: cx + P.face * rnd(10, 60), y: P.y + rnd(0, P.h), vx: P.face * rnd(300, 520), vy: rnd(-30, 30), life: rnd(0.25, 0.45) });
+  }
+  if (w.id === 'pillar') {
+    if (TEMPS.length >= 2) TEMPS.shift();
+    const t = { pillar: true, x: ax - 28, y: pillarY - 110, w: 56, h: 110, t: 8 * power, rise: 0 };
+    TEMPS.push(t); burst(ax, pillarY, 16, INK2, 200); tone(80, 160, 0.5, 'sawtooth', 0.05);
+    if (overlap(P, t)) { P.y = t.y - P.h; P.vy = 0; }
+  }
+  if (w.id === 'monsoon') { RAINS.push({ x: ax - 190, w: 380, t: 6 * power }); tone(2000, 400, 1.2, 'sawtooth', 0.01); }
+  if (w.id === 'unseen') { P.unseenT = (isNight() ? 8 : 5) * power; for (const f of foes) if (f.alive && (f.state === 'chase' || f.state === 'wind')) { f.state = 'idle'; f.vx = 0; } }
+  if (w.id === 'embers') { for (let i = 0; i < 7; i++) shots.push({ fire: true, ember: true, x: cx + P.face * (70 + i * 46), y: P.y - 240 - i * 38, vx: P.face * 30, vy: 620, life: 1.8, dmg: 16 * power * dmgMul, r: 9 }); }
+  if (w.id === 'echo') { const past = soul.bodies.filter(b => b.life !== life.n).pop(); ALLY = { x: cx - P.face * 30, y: P.y + P.h - 26, t: 10 * power, cd: 0, looks: past ? past.looks : P.looks, power }; for (let i = 0; i < 20; i++) fx.push({ k: 'ink', x: ALLY.x + rnd(-15, 15), y: ALLY.y + rnd(-30, 20), vx: rnd(-20, 20), vy: -rnd(10, 60), life: 0.8 }); }
+  if (w.id === 'grasp') {
+    gt.x = clamp(cx + P.face * 34 - 12, gt.l, gt.r - gt.w); gt.state = 'stun'; gt.t = 1.1; gt.vx = 0; gt.flash = 0.2;
+    P.seeds += 10; floater(gt.x + 12, gt.y - 24, '+10 SEEDS TAKEN', RED);
+    for (let i = 0; i < 10; i++) fx.push({ k: 'ink', x: gt.x + 12 + rnd(-10, 10), y: gt.y + rnd(0, 40), vx: -P.face * rnd(100, 240), vy: rnd(-40, 40), life: 0.4 });
+    if (!life.grasped) { life.grasped = true; deed('You used greed’s own spell.', -1); }
+  }
+  if (w.id === 'shani') { P.shaniT = 6 * power; tone(60, 40, 1.5, 'sine', 0.12); shake = 10; }
+  if (w.id === 'tide') { const m = moonLight(), mul = 0.5 + 2 * m.illum; P.tideT = 6; P.tideRate = 32 * mul * power / 6; floater(cx, P.y - 52, `THE MOON IS ${Math.round(m.illum * 100)}% FULL`, INK2); }
+  if (w.id === 'starfall') { let n = 0; for (const f of foes) if (f.alive && f.state !== 'kneel' && visible(f, 0)) { hurtFoe(f, 30 * power * dmgMul, true); n++; for (let i = 0; i < 6; i++) fx.push({ k: 'star', x: f.x + 12 + rnd(-6, 6), y: f.y - 200 + i * 30, vx: 0, vy: 900, life: 0.25 }); } if (!n) floater(cx, P.y - 52, 'NO FOE IN SIGHT', PENCIL); shake = 12; }
+  if (w.id === 'firewind') {
+    for (const f of foes) if (f.alive && f.state !== 'kneel') { const dx = (f.x + 12 - cx) * P.face; if (dx > -10 && dx < 210 && Math.abs(f.gy - (P.y + P.h)) < 110) hurtFoe(f, 20 * power * dmgMul, true, { knock: 440, stun: 0.8 }); }
+    for (let i = 0; i < 26; i++) fx.push({ k: 'flame', x: cx + P.face * rnd(10, 40), y: P.y + rnd(5, P.h - 5), vx: P.face * rnd(260, 520), vy: rnd(-80, 40), life: rnd(0.3, 0.5) });
+  }
+}
+let TEMPS = [], RAINS = [], ALLY = null;
+const rainAt = x => RAINS.some(r => x > r.x && x < r.x + r.w);
+function updateMagic(dt) {
+  for (const t of TEMPS) { t.t -= dt; t.rise = Math.min(1, t.rise + dt * 6); }
+  TEMPS = TEMPS.filter(t => { if (t.t <= 0) { burst(t.x + 28, t.y + 20, 14, INK2, 160); return false; } return true; });
+  for (const r of RAINS) r.t -= dt; RAINS = RAINS.filter(r => r.t > 0);
+  if (P.unseenT > 0) P.unseenT -= dt;
+  if (P.shaniT > 0) P.shaniT -= dt;
+  if (P.tideT > 0) { P.tideT -= dt; P.hp = Math.min(P.hpMax, P.hp + P.tideRate * dt); if (Math.random() < dt * 8) fx.push({ k: 'bub', x: pcx() + rnd(-12, 12), y: P.y + P.h, vx: 0, vy: -70, life: 0.8 }); }
+  if (ALLY) {
+    const a = ALLY; a.t -= dt; a.cd -= dt;
+    let tg = null, bd = 1e9; for (const f of foes) if (f.alive && f.state !== 'kneel') { const d = Math.hypot(f.x + 12 - a.x, f.y + 26 - a.y); if (d < 420 && d < bd) { bd = d; tg = f; } }
+    const tx = tg ? tg.x + 12 - Math.sign(tg.x + 12 - a.x || 1) * 26 : pcx() - P.face * 34, ty = tg ? tg.y + 26 : P.y + P.h - 30 + Math.sin(clock * 3) * 4;
+    a.face = (tg ? tg.x + 12 : pcx()) > a.x ? 1 : -1;
+    const dx = tx - a.x, dy = ty - a.y, d = Math.hypot(dx, dy) || 1, sp = Math.min(260, d * 6);
+    a.x += dx / d * sp * dt; a.y += dy / d * sp * dt;
+    if (tg && bd < 46 && a.cd <= 0) { a.cd = 0.6; a.swing = 0.18; hurtFoe(tg, 10 * a.power * P.dmgMul, false); }
+    if (a.swing > 0) a.swing -= dt;
+    if (a.t <= 0) { for (let i = 0; i < 16; i++) fx.push({ k: 'ink', x: a.x + rnd(-12, 12), y: a.y + rnd(-30, 20), vx: rnd(-20, 20), vy: -rnd(20, 60), life: 0.8 }); ALLY = null; }
+  }
+}
+function drawMagic() {
+  for (const t of TEMPS) { if (!visible(t)) continue; const h = t.h * t.rise, y = t.y + t.h - h, fade = t.t < 1.5 && Math.floor(t.t * 8) % 2 === 0;
+    ctx.globalAlpha = fade ? 0.5 : 1; ctx.fillStyle = PAPER; ctx.fillRect(t.x, y, t.w, h); hatch(t.x, y, t.w, h, 7, INK2, 1); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(t.x + 1.5, y + 1.5, t.w - 3, h - 3);
+    ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(t.x + 14, y + 20); ctx.lineTo(t.x + 24, y + 44); ctx.lineTo(t.x + 18, y + 70); ctx.stroke(); ctx.globalAlpha = 1; }
+  for (const r of RAINS) { if (!visible({ x: r.x, y: camY, w: r.w, h: H })) continue; ctx.strokeStyle = PENCIL; ctx.lineWidth = 1.4; ctx.globalAlpha = Math.min(1, r.t); ctx.beginPath();
+    for (let i = 0; i < 60; i++) { const x = r.x + ((i * 53 + clock * 40) % r.w), y = camY + ((i * 97 + clock * 900) % (H + 40)) - 20; ctx.moveTo(x, y); ctx.lineTo(x - 4, y + 16); } ctx.stroke();
+    ctx.fillStyle = 'rgba(140,137,127,0.12)'; ctx.fillRect(r.x, camY, r.w, H); ctx.globalAlpha = 1; }
+  if (ALLY) { const a = ALLY; ctx.save(); ctx.globalAlpha = 0.55 + 0.15 * Math.sin(clock * 6); const pose = a.swing > 0 ? POSE.strike() : POSE.idle(clock); const r = stick(a.x, a.y + 26, pose, a.face, PENCIL, a.looks.build, { hair: a.looks.hair });
+    ctx.strokeStyle = PENCIL; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(r.hF.x, r.hF.y); ctx.lineTo(r.hF.x + a.face * 30, r.hF.y - (a.swing > 0 ? 0 : 24)); ctx.stroke(); ctx.restore(); }
+  if (P.shaniT > 0) { ctx.strokeStyle = INK2; ctx.lineWidth = 1.5; for (let i = 0; i < 3; i++) { const rr = 60 + ((clock * 60 + i * 80) % 240); ctx.globalAlpha = 0.5 * (1 - (rr - 60) / 240); ctx.beginPath(); ctx.arc(pcx(), P.y + P.h / 2, rr, 0, Math.PI * 2); ctx.stroke(); } ctx.globalAlpha = 1; }
 }
 function nearShrine() { const cx = P.x + P.w / 2, fy = P.y + P.h; return SHRINES.findIndex(s => Math.abs(cx - s.x) < 70 && Math.abs(fy - s.gy) < 40); }
 function use() {
   const sh = nearShrine();
   if (sh >= 0) { if (P.mount) dismount(false); rest(sh); openShrine(sh); return; }
   if (nearForge() >= 0 && !P.mount) { openForge(); return; }
+  { const st = nearStone(); if (st && !P.mount) { useStone(st); return; } }
   const cx = pcx(), fy = P.y + P.h;
   if (P.mount) { if (P.onG) dismount(false); return; }
   if (horse.state !== 'away' && horse.state !== 'fled' && Math.abs(cx - horse.x) < 56 && Math.abs(fy - horse.gy) < 40 && P.onG) {
@@ -853,6 +999,7 @@ function talkVillager() {
     if (m.slain) lines.push('They say a cruel one cut down those who begged for mercy. Be careful out there.');
   }
   lines.push('There is a feather on the plank by the hut. My grandmother said it fell from Garuda himself.');
+  if ((villager.helped || soul.memories.gift) && !soul.spells.has('unseen')) { villager.line = 'You gave when you had little. Let me give you something back: my mother taught me how to go unseen.'; villager.talkT = 5; learnSpell('unseen', 'The villager teaches you.'); return; }
   lines.push('That horse has grazed by my hut for years. It only trusts someone who gives it something.');
   lines.push('The road east is a proving ground. Planks, ledges, a pool, a chimney, and the dark at the end.');
   if (!villager.helped && life.n === 1) lines.unshift('Please… a lotus… I am hurt. (Press E to give one)');
@@ -870,9 +1017,10 @@ function foeHitbox(f) {
   if (f.high) return { x: f.face > 0 ? f.x + f.w - 6 : f.x - 58, y: f.gy - 60, w: 64, h: 22 };
   return { x: f.face > 0 ? f.x + f.w : f.x - 44, y: f.y + 8, w: 44, h: 30 };
 }
-function updateFoes(dt) {
+function updateFoes(dt0) {
   for (const f of foes) {
     if (!f.alive) continue;
+    let dt = dt0; if (P.shaniT > 0 && Math.abs(f.x - P.x) < 460) dt *= 0.3; if (rainAt(f.x + 12)) dt *= 0.55;
     f.flash = Math.max(0, f.flash - dt);
     const dx = pcx() - (f.x + 12), adx = Math.abs(dx);
     switch (f.state) {
@@ -890,12 +1038,13 @@ function updateFoes(dt) {
       }
       case 'cool': f.t -= dt; f.vx *= 0.85; if (f.t <= 0) f.state = 'chase'; break;
       default:
-        if (!P.dead && adx < 420 && Math.abs(P.y + P.h - f.gy) < 110) {
+        if (!P.dead && !(P.unseenT > 0) && adx < 420 && Math.abs(P.y + P.h - f.gy) < 110) {
           f.state = 'chase'; f.face = Math.sign(dx) || f.face;
           if (adx < (f.high ? 64 : 52)) { f.state = 'wind'; f.t = f.high ? 0.6 : 0.5; SFX.warn(); } else f.vx = f.face * 95;
         } else { f.vx = 0; f.state = 'idle'; }
     }
     f.x = clamp(f.x + f.vx * dt * (f.mud ? 0.5 : 1), f.l, f.r - f.w);
+    for (const t of TEMPS) if (overlap(f, t)) { f.x = f.x + 12 < t.x + t.w / 2 ? t.x - f.w : t.x + t.w; f.vx = 0; }
   }
 }
 function updateCrumbles(dt) {
@@ -990,6 +1139,7 @@ const CHESTS = [
   { x: 380, gy: 1000, kind: 'garb', id: 'hat' }, { x: 925, gy: 900, kind: 'garb', id: 'leather' }, { x: 990, gy: 1000, kind: 'weapon', id: 1 },
   { x: 2400, gy: 810, kind: 'weapon', id: 3 }, { x: 3120, gy: 790, kind: 'weapon', id: 4 }, { x: 4220, gy: 1100, kind: 'weapon', id: 5 },
   { x: 4385, gy: 955, kind: 'garb', id: 'boots' }, { x: 4825, gy: 955, kind: 'garb', id: 'cleats' }, { x: 5790, gy: 1020, kind: 'garb', id: 'helm' },
+  { x: 2200, gy: 720, kind: 'spell', id: 'gust' }, { x: 2050, gy: 1000, kind: 'spell', id: 'pillar' }, { x: 7178, gy: 560, kind: 'spell', id: 'monsoon' }, { x: 8700, gy: 760, kind: 'spell', id: 'embers' }, { x: 9670, gy: 760, kind: 'spell', id: 'starfall' },
   { x: 6330, gy: 560, kind: 'garb', id: 'band' }, { x: 7440, gy: 560, kind: 'garb', id: 'robe' }, { x: 9100, gy: 760, kind: 'garb', id: 'mail' },
 ];
 const chestOpen = c => !!c.opened;
@@ -1001,6 +1151,7 @@ const invEmpty = v => !v.weapons.size && !v.garb.size && !v.relics.size && !Obje
 const relicStored = id => soul.home.relics.has(id) || CHESTS.some(c => c.inv && c.inv.relics.has(id));
 function resetChests() {
   for (const c of CHESTS) {
+    if (c.kind === 'spell') { c.inv = emptyInv(); c.opened = soul.spells.has(c.id); continue; }
     c.inv = emptyInv(); c.opened = false;
     const atHome = c.kind === 'weapon' ? soul.home.weapons.has(c.id) : soul.home.garb.has(c.id);
     if (!atHome) (c.kind === 'weapon' ? c.inv.weapons : c.inv.garb).add(c.id);
@@ -1076,7 +1227,9 @@ function drawHome() {
   ctx.strokeStyle = PAPER; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 10, g - 14); for (let i = 1; i <= 4; i++) ctx.lineTo(x - 10 + i * 5, g - 14 + (i % 2 ? 3 : -2)); ctx.stroke();
   ctx.font = `11px ${FD}`; ctx.fillStyle = PENCIL; ctx.textAlign = 'center'; ctx.fillText('YOUR CHEST', x, g - 50);
 }
-function openChest(c) { c.opened = true; openContainer(c.inv, c.kind === 'weapon' ? 'A chest' : 'A chest'); }
+function openChest(c) {
+  if (c.kind === 'spell') { if (!c.opened) { c.opened = true; learnSpell(c.id, 'A palm-leaf scroll lies in the chest.'); } else floater(c.x, c.gy - 50, 'AN EMPTY CHEST', PENCIL); return; }
+  c.opened = true; openContainer(c.inv, c.kind === 'weapon' ? 'A chest' : 'A chest'); }
 
 /* ---------- falling & true death ---------- */
 function fall(why, useSafe) {
@@ -1099,7 +1252,7 @@ function wakeAtShrine() {
   const s = SHRINES[P.shrine];
   Object.assign(P, { x: s.x + 40, y: s.gy - PH, h: PH, w: 22, mount: false, vx: 0, vy: 0, hp: P.hpMax, st: P.stMax, mana: P.manaMax, lotus: P.lotusMax, breath: BREATH, dead: false, deadT: 0, atk: null, charging: false, rollT: 0, healT: 0, hitT: 0, inv: 1, shieldT: 0,
     hang: null, climbT: 0, ladder: null, glide: false, plunge: false, cling: 0, inWater: false, headUnder: false, knives: P.knivesMax, torch: { fuel: P.torchMax, lit: false } });
-  drops = []; spawnFoes(); shots = []; resetCrumbles(); snapCam();
+  drops = []; spawnFoes(); shots = []; resetCrumbles(); snapCam(); TEMPS = []; RAINS = []; ALLY = null; P.unseenT = 0; P.shaniT = 0; P.tideT = 0;
 }
 function trueDeath(spot) {
   mode = 'death'; stopRec(); banner = null; zoneTag = null;
@@ -1141,6 +1294,8 @@ toolBtn('tRelics', () => {
   P.equip = ['garuda', 'gecko', 'kite', 'bead'];
   banner = { t: 2.6, top: 'EVERY RELIC', sub: 'Test tool: you carry all seven. Feather, gecko, kite and bead are on. Swap in Tab.' };
 });
+toolBtn('tSpells', () => { for (const w of WORDS) soul.spells.add(w.id); P.stats.foc = Math.max(P.stats.foc, 14); applyStats(false); banner = { t: 2.6, top: 'EVERY SPELL', sub: 'Test tool: you know all fourteen spells and your Focus is at least 14. Put them on keys 1 to 4 in Tab, on the Spells page.' }; });
+toolBtn('tNight', () => { nightOverride = nightOverride === null ? !isNight() : nightOverride ? false : null; banner = { t: 2, top: nightOverride === null ? 'REAL CLOCK' : nightOverride ? 'NIGHT' : 'DAY', sub: nightOverride === null ? 'Day and night follow your own clock again.' : 'Test tool: day and night are forced until you press it again.' }; });
 toolBtn('tRich', () => {
   P.seeds += 1000; Object.keys(P.mats).forEach(k => P.mats[k] += 6);
   banner = { t: 2.6, top: 'SEEDS AND MATERIALS', sub: 'Test tool: 1000 seeds and 6 of every material. Rest at a shrine to level up; use a forge to temper.' };
@@ -1171,6 +1326,23 @@ function renderLives() {
 /* ---------- gear (Tab) & map (M) ---------- */
 function openGear() { mode = 'gear'; clearHeld(); renderGear(); $('ovGear').hidden = false; }
 function closePanel() { $('ovGear').hidden = true; mode = 'play'; clearHeld(); }
+let gearView = 'gear';
+function renderSpellBook() {
+  const known = WORDS.filter(w => soul.spells.has(w.id)), unknown = WORDS.filter(w => !soul.spells.has(w.id));
+  const keys = P.noMana ? '<p class="note">This body was born with no mana, so it cannot cast. What you have learned stays with your soul for the next life.</p>' : P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}"><option value="">— empty —</option>${known.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · ${spellCost(w)} mana</option>`).join('')}</select></label>`).join('') + (P.wordSlots.length < 4 ? `<p class="note">${4 - P.wordSlots.length} key${P.wordSlots.length === 3 ? '' : 's'} locked: this body's ${life.birth.tierName} mana opens ${P.wordSlots.length}.</p>` : '');
+  const card = w => { const miss = needsMissing(w), rk = rankOf(w.id), n = soul.ranks[w.id] || 0, next = rk === 1 ? 10 : rk === 2 ? 30 : null;
+    const sch = w.school ? `${w.school}${P.school ? (w.school === P.school ? ' · your school, cheaper' : ' · another school, dearer') : ''}` : 'No school';
+    const req = w.needs ? Object.entries(w.needs).map(([k, v]) => k === 'focus' ? `Focus ${v}` : k === 'night' ? 'night only' : 'a past life').join(', ') : '';
+    return `<div class="item"><b>${w.say} · rank ${rk}</b><span>${w.what}</span><span class="m">${sch} · ${spellCost(w)} mana${req ? ` · needs ${req}` : ''}${miss ? ` · ${miss.toLowerCase()}` : ''}</span><span class="m">Cast ${n} time${n === 1 ? '' : 's'}${next ? ` · rank ${rk + 1} at ${next}` : ' · full strength'}</span></div>`; };
+  const m = moonLight();
+  return `
+    <div class="gear">
+      <div class="gcol"><span class="lbl">On your keys · say a spell aloud for 100%, press its key for 80%</span>${keys}
+        <div class="stats"><span>It is ${isNight() ? 'night' : 'day'} where you are${nightOverride !== null ? ' (test tool)' : ''}. The real Moon is ${Math.round(m.illum * 100)}% full and ${m.waxing ? 'growing' : 'shrinking'}.</span><span>Spells of your birth school cost less; spells of other schools cost more. Spells grow stronger the more you cast them.</span></div>
+        <span class="lbl">Spells you know · ${known.length} of ${WORDS.length} · they stay with your soul</span><div class="inv">${known.map(card).join('')}</div></div>
+      <div class="gcol"><span class="lbl">Spells still out there</span><div class="inv">${unknown.length ? unknown.map(w => `<div class="item"><b>?</b><span class="hand">${esc(w.how)}</span></div>`).join('') : '<p class="note">You know every spell in the proving grounds.</p>'}</div></div>
+    </div>`;
+}
 function renderGear() {
   const b = life.birth, full = !P.equip.includes(null), LD = loadNow();
   const slot = i => { const w = WEAPONS[P.slots[i]]; return `<div class="slot${P.slotIdx === i ? ' cur' : ''}"><span class="lbl">Hand ${i + 1}${P.slotIdx === i ? ' · in use' : ''}</span><b>${w.name}</b><span>${w.perk}</span><span class="m">Weight ${w.weight}</span></div>`; };
@@ -1185,8 +1357,9 @@ function renderGear() {
   const words = P.noMana ? '<p class="note">This body has no mana, so keys 1 to 4 stay empty.</p>' : P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}">${WORDS.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · ${w.cost} mana</option>`).join('')}</select></label>`).join('');
   const hs = horse.state, horseLine = hs === 'wild' ? 'No mount yet. A wild horse grazes by the hut.' : hs === 'ridden' ? `Riding · horse health ${Math.round(horse.hp)}/${horse.hpMax}` : hs === 'fled' ? 'Your horse is hurt and ran off. Rest at a shrine.' : `Befriended · horse health ${Math.round(horse.hp)}/${horse.hpMax}`;
   $('gearIn').innerHTML = `
-    <span class="eyebrow">Life ${life.n} · Tab or Esc to close</span><h2>Gear</h2>
-    <div class="gear">
+    <span class="eyebrow">Life ${life.n} · Tab or Esc to close</span><h2>${gearView === 'spells' ? 'Spells' : 'Gear'}</h2>
+    <div class="row"><button class="btn sm${gearView === 'gear' ? '' : ' ghost'}" type="button" data-view="gear">Gear</button><button class="btn sm${gearView === 'spells' ? '' : ' ghost'}" type="button" data-view="spells">Spells</button></div>
+    ${gearView === 'spells' ? renderSpellBook() : `<div class="gear">
       <div class="gcol">
         <span class="lbl">Load · what you carry in your hands and wear</span>
         <div class="stats"><span>${LD.w.toFixed(1)} of ${P.loadMax} · ${LD.cls.toUpperCase()}</span><span class="meter"><i style="width:${Math.min(100, LD.r * 100)}%"></i><b style="left:35%"></b><b style="left:70%"></b></span><span>${LD.say}</span><span>Pack ${LD.pack.toFixed(1)} of ${P.packMax}: weapons you are not holding, garments you are not wearing, spare relics and materials.</span></div>
@@ -1197,19 +1370,20 @@ function renderGear() {
       <div class="gcol"><span class="lbl">Relics · 4 slots</span><div class="slots">${rslots}</div>
         <span class="lbl">Carried relics</span><div class="inv">${rinv}</div>
         <span class="lbl">Hotbar</span>
-        <div class="stats"><span>1 to 4 · battle words (${P.noMana ? 'none in this body' : `${b.tierName} mana opens ${P.wordSlots.length}`})</span><span>5 · torch (${Math.ceil(P.torch.fuel)}s of fuel)</span><span>6 · ink knife (${P.knives}/${P.knivesMax})</span><span>7 · lotus (${P.lotus}/${P.lotusMax})</span><span>8 · mount bell: ${esc(horseLine)}</span></div>
-        ${words}
+        <div class="stats"><span>1 to 4 · spells (${P.noMana ? 'none in this body' : `${b.tierName} mana opens ${P.wordSlots.length}`})</span><span>5 · torch (${Math.ceil(P.torch.fuel)}s of fuel)</span><span>6 · ink knife (${P.knives}/${P.knivesMax})</span><span>7 · lotus (${P.lotus}/${P.lotusMax})</span><span>8 · mount bell: ${esc(horseLine)}</span></div>
+        <p class="note">Spells are on the Spells page.</p>
         <span class="lbl">This body</span>
         <div class="stats"><span>Born ${esc(b.local)}, ${esc(b.place)}</span><span>${esc(b.lagna)} lagna · Moon ${esc(b.moon)}</span><span>${esc(b.region)} · ${esc(b.people)}</span><span>${perks(b).map(esc).join(' · ')}</span>
         <span>Health ${Math.round(P.hp)}/${P.hpMax} · Stamina ${P.stMax} · Mana ${P.manaMax} · Prana ${P.prana}/${P.pranaMax}</span><span>Lotus ${P.lotus}/${P.lotusMax} · Seeds ${P.seeds}</span></div></div>
-    </div>`;
+    </div>`}`;
+  $('gearIn').querySelectorAll('[data-view]').forEach(bt => bt.addEventListener('click', () => { gearView = bt.dataset.view; renderGear(); }));
   const q = sel => $('gearIn').querySelectorAll(sel);
   q('[data-w]').forEach(bt => bt.addEventListener('click', () => { const wi = +bt.dataset.w, s = +bt.dataset.s, other = 1 - s; if (P.slots[other] === wi) P.slots[other] = P.slots[s]; P.slots[s] = wi; renderGear(); }));
   q('[data-goff]').forEach(bt => bt.addEventListener('click', () => { P.garb[bt.dataset.goff] = null; renderGear(); }));
   q('[data-gon]').forEach(bt => bt.addEventListener('click', () => { const id = bt.dataset.gon; P.garb[GARB[id].slot] = id; renderGear(); }));
   q('[data-off]').forEach(bt => bt.addEventListener('click', () => { P.equip[+bt.dataset.off] = null; renderGear(); }));
   q('[data-on]').forEach(bt => bt.addEventListener('click', () => { const i = P.equip.indexOf(null); if (i >= 0) P.equip[i] = bt.dataset.on; renderGear(); }));
-  q('[data-ws]').forEach(se => se.addEventListener('change', () => { const i = +se.dataset.ws, v = se.value, j = P.wordSlots.indexOf(v); if (j >= 0 && j !== i) P.wordSlots[j] = P.wordSlots[i]; P.wordSlots[i] = v; renderGear(); }));
+  q('[data-ws]').forEach(se => se.addEventListener('change', () => { const i = +se.dataset.ws, v = se.value || null, j = v ? P.wordSlots.indexOf(v) : -1; if (j >= 0 && j !== i) P.wordSlots[j] = P.wordSlots[i]; P.wordSlots[i] = v; renderGear(); }));
 }
 let mapHits = [], mapMsg = null;
 function danger() { return foes.some(f => f.alive && (f.state === 'chase' || f.state === 'wind' || f.state === 'swing') && Math.abs(f.x - P.x) < 520 && Math.abs(f.gy - (P.y + P.h)) < 160); }
@@ -1271,7 +1445,7 @@ function update(dt) {
     if (pressed.talk) { pttHeld = true; startRec(); }
     if (released.talk) { pttHeld = false; pttRelease = performance.now(); setTimeout(() => { if (!pttHeld && micMode === 'ptt') stopRec(); }, 500); }
   }
-  updatePlayer(dt); updateFoes(dt); updateShots(dt); updateCrumbles(dt); updateHorse(dt);
+  updatePlayer(dt); updateFoes(dt); updateShots(dt); updateCrumbles(dt); updateHorse(dt); updateMagic(dt);
   for (const f of fx) { f.life -= dt; f.x += (f.vx || 0) * dt; f.y += (f.vy || 0) * dt; if (f.k === 'dot') f.vy += 900 * dt; }
   fx = fx.filter(f => f.life > 0);
   for (const f of floaters) { f.life -= dt; f.y -= 34 * dt; } floaters = floaters.filter(f => f.life > 0);
@@ -1403,8 +1577,10 @@ function drawWorld() {
   stick(villager.x, villager.gy, POSE.sit(), -1, INK2, 3, { hollow: true, s: 0.95 });
   if (!villager.helped && life.n === 1) { ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(villager.x + 4, villager.gy - 26, 4, 0, Math.PI * 2); ctx.fill(); }
   if (villager.talkT > 0) speech(villager.x, villager.gy - 110, villager.line);
+  drawMagic();
   for (const n of NODES) if (n.k !== 'petal' && visible({ x: n.x - 40, y: n.gy - 120, w: 80, h: 120 })) drawNode(n);
   for (const f of FORGES) if (visible({ x: f.x - 40, y: f.gy - 80, w: 80, h: 80 })) drawForge(f);
+  for (const st of STONES) if (visible({ x: st.x - 30, y: st.gy - 70, w: 60, h: 70 })) drawStone(st);
   if (visible({ x: HOME.x - 40, y: HOME.gy - 60, w: 80, h: 60 })) drawHome();
   for (const c of CHESTS) if (visible({ x: c.x - 24, y: c.gy - 40, w: 48, h: 40 })) {
     const open = chestOpen(c); ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
@@ -1442,6 +1618,9 @@ function drawWorld() {
     else if (f.k === 'stuck') { ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.a); ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(4, 0); ctx.stroke(); ctx.restore(); }
     else if (f.k === 'leaf') { ctx.strokeStyle = INK2; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(f.x, f.y, 4, 2, clock * 3, 0, Math.PI * 2); ctx.stroke(); }
     else if (f.k === 'ring') { const k = 1 - f.life / 0.35, r = (f.big ? 20 : 8) + k * (f.big ? 90 : 30); ctx.strokeStyle = INK2; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(f.x, f.y, r, r * 0.3, 0, 0, Math.PI * 2); ctx.stroke(); }
+    else if (f.k === 'wind') { ctx.strokeStyle = PENCIL; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x - f.vx * 0.05, f.y); ctx.stroke(); }
+    else if (f.k === 'flame') { ctx.fillStyle = Math.random() < 0.3 ? RED : INK; ctx.beginPath(); ctx.arc(f.x, f.y, 3 + f.life * 6, 0, Math.PI * 2); ctx.fill(); }
+    else if (f.k === 'star') { ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x, f.y - 40); ctx.stroke(); }
     else if (f.k === 'bub') { ctx.strokeStyle = INK2; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(f.x + Math.sin(f.life * 9) * 3, f.y, 3, 0, Math.PI * 2); ctx.stroke(); }
     else { ctx.fillStyle = f.c || INK; ctx.beginPath(); ctx.arc(f.x, f.y, f.k === 'ink' ? 4 : 3, 0, Math.PI * 2); ctx.fill(); }
   }
@@ -1457,6 +1636,7 @@ function drawOverDark() {
   const sh = nearShrine(); if (sh >= 0 && !P.dead) { ctx.fillStyle = darkAt(SHRINES[sh].x, SHRINES[sh].gy - 170) ? '#b9b6ac' : INK2; ctx.fillText('E: rest and level up', SHRINES[sh].x, SHRINES[sh].gy - 170); }
   if (!P.mount && horse && (horse.state === 'wild' || horse.state === 'idle') && Math.abs(pcx() - horse.x) < 70 && Math.abs(P.y + P.h - horse.gy) < 50) { ctx.fillStyle = INK2; ctx.fillText(horse.state === 'wild' ? 'E: offer the horse a lotus' : 'E: ride', horse.x, horse.gy - 96); }
   else if (P.mount && P.onG && Math.abs(P.vx) < 40) { ctx.fillStyle = INK2; ctx.fillText('E: get down · Shift: gallop', pcx(), P.y - 26); }
+  { const st = nearStone(); if (st) { ctx.fillStyle = INK2; ctx.fillText(st.k === 'moon' ? 'E: touch the moon stone' : 'E: listen to the stone', st.x, st.gy - 80); } }
   if (nearForge() >= 0 && !P.mount) { const f = FORGES[nearForge()]; ctx.fillStyle = INK2; ctx.fillText('E: use the forge', f.x + 4, f.gy - 92); }
   if (Math.abs(pcx() - HOME.x) < 60 && Math.abs(P.y + P.h - HOME.gy) < 50) { ctx.fillStyle = INK2; ctx.fillText('E: your chest · it keeps things across lives', HOME.x, HOME.gy - 70); }
   for (const c of CHESTS) if (Math.abs(pcx() - c.x) < 60 && Math.abs(P.y + P.h - c.gy) < 50) { ctx.fillStyle = darkAt(c.x, c.gy - 50) ? '#b9b6ac' : INK2; ctx.fillText(chestOpen(c) ? (invEmpty(c.inv) ? 'E: an empty chest' : 'E: look inside') : 'E: open', c.x, c.gy - 40); }
@@ -1464,6 +1644,15 @@ function drawOverDark() {
   if (P.breath < BREATH && !P.dead) { const n = 8, left = Math.ceil(P.breath / BREATH * n); for (let i = 0; i < n; i++) { const bx = pcx() - (n - 1) * 5 + i * 10, by = P.y - 16; ctx.strokeStyle = left <= 2 ? RED : INK; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(bx, by, 3.5, 0, Math.PI * 2); if (i < left) { ctx.fillStyle = PAPER; ctx.fill(); } ctx.stroke(); } }
   for (const f of floaters) { ctx.globalAlpha = Math.min(1, f.life * 2); ctx.font = `13px ${FD}`; ctx.fillStyle = darkAt(f.x, f.y) && f.c !== RED ? '#d8d5cb' : f.c; ctx.textAlign = 'center'; const hw = ctx.measureText(f.t).width / 2 + 12; ctx.fillText(f.t, clamp(f.x, camX + hw, camX + W - hw), f.y); }
   ctx.globalAlpha = 1; ctx.restore();
+}
+function drawNight() {
+  ctx.save(); ctx.fillStyle = 'rgba(21,21,19,0.22)'; ctx.fillRect(0, 0, W, H);
+  const m = moonLight(), mx = 690, my = 128 - camY * 0.05, r = 16;
+  ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // the dark part of the Moon: a half disc plus an ellipse whose width follows the phase
+  const k = 1 - 2 * m.illum, side = m.waxing ? -1 : 1; ctx.fillStyle = INK2; ctx.beginPath(); ctx.arc(mx, my, r - 1, Math.PI / 2, Math.PI * 1.5, side > 0); ctx.ellipse(mx, my, Math.abs(k) * (r - 1), r - 1, 0, Math.PI * 1.5, Math.PI / 2, (k > 0) === (side > 0)); ctx.fill();
+  ctx.fillStyle = PAPER; for (let i = 0; i < 18; i++) { const sx = (i * 173 - camX * 0.05) % W, sy = 30 + (i * 61) % 160; ctx.globalAlpha = 0.4 + 0.4 * Math.sin(clock * 2 + i); ctx.fillRect((sx + W) % W, sy, 2, 2); }
+  ctx.restore();
 }
 function lightR() { return 80 + (P.torch.lit ? 170 : 0) + (has('bead') ? 60 : 0); }
 function drawDark() {
@@ -1590,6 +1779,10 @@ function drawGarb(p, r) {
 function drawPlayer() {
   const p = P; if (!p) return;
   if (p.inv > 0 && !p.dead && Math.floor(p.inv * 16) % 2 === 0) return;
+  if (p.unseenT > 0) { ctx.save(); ctx.globalAlpha = 0.28; drawPlayerBody(p); ctx.restore(); if (Math.random() < 0.3) fx.push({ k: 'ink', x: (p.x + p.w / 2) + rnd(-10, 10), y: p.y + rnd(0, p.h), vx: rnd(-10, 10), vy: -rnd(10, 40), life: 0.6 }); return; }
+  drawPlayerBody(p);
+}
+function drawPlayerBody(p) {
   const cx = (p.x + p.w / 2), feet = p.y + p.h;
   let pose, ay = feet;
   if (p.dead || p.hitT > 0) pose = POSE.hurt();
@@ -1634,7 +1827,7 @@ function hotbarInfo(i) {
   if (i < 4) {
     if (P.noMana) return { label: '—', on: false };
     const id = P.wordSlots[i]; if (!id) return { label: i < P.wordSlots.length ? 'EMPTY' : 'LOCKED', on: false };
-    const w = WORDS.find(x => x.id === id); return { label: w.say.toUpperCase(), sub: `${w.cost} mana`, on: P.mana >= w.cost };
+    const w = SPELL(id), miss = needsMissing(w); return { label: w.short, sub: miss ? 'not now' : `${spellCost(w)} mana`, on: !miss && P.mana >= spellCost(w) };
   }
   if (i === 4) return { label: 'TORCH', sub: P.torch.lit ? `lit · ${Math.ceil(P.torch.fuel)}s` : `${Math.ceil(P.torch.fuel)}s`, on: P.torch.fuel > 0, lit: P.torch.lit };
   if (i === 5) return { label: 'KNIFE', sub: `× ${P.knives}`, on: P.knives > 0 };
@@ -1657,7 +1850,7 @@ function drawHUD() {
   ctx.fillStyle = PENCIL; ctx.fillText(`${p.relics.size}/7 FOUND`, 156, 128);
   ctx.textAlign = 'right'; ctx.fillStyle = INK; ctx.fillText(`LIFE ${life.n} · LV ${levelOf()} · ${curW().name.toUpperCase()} ${TIER_NAME[tierOf(p.slots[p.slotIdx])]} (Q: ${WEAPONS[p.slots[1 - p.slotIdx]].name.toUpperCase()})`, W - 20, 22);
   ctx.fillStyle = PENCIL; ctx.fillText(micMode === 'off' ? 'MIC OFF · KEYS 1 TO 4' : micMode === 'ptt' ? (pttHeld ? (micReady ? 'LISTENING' : 'MIC STARTING…') : 'HOLD V TO SPEAK') : (recOn ? 'MIC ON · SPEAK A WORD' : 'MIC STARTING…'), W - 20, 40);
-  ctx.fillText('TAB: GEAR · M: MAP', W - 20, 56);
+  ctx.fillText(`TAB: GEAR · M: MAP · ${isNight() ? 'NIGHT' : 'DAY'}`, W - 20, 56);
   const LD = loadNow(); ctx.fillStyle = LD.cls === 'over' ? RED : INK2; ctx.fillText(`LOAD ${LD.full ? 'PACK FULL' : LD.cls.toUpperCase()} · PACK ${Math.round(LD.pack)}/${P.packMax} · PROTECTION ${protNow()}%`, W - 20, 72);
   if (p.mount) { ctx.textAlign = 'left'; bar(W - 220, 84, 200, horse.hp, horse.hpMax, '', INK2); ctx.textAlign = 'right'; ctx.fillStyle = INK; ctx.fillText('HORSE', W - 226, 93); }
   // hotbar
@@ -1674,7 +1867,7 @@ function drawHUD() {
   if (zoneTag) { const a = clamp(Math.min(zoneTag.t * 1.5, (3.2 - zoneTag.t) * 4, 1), 0, 1); ctx.globalAlpha = a; ctx.textAlign = 'center'; const zx = 509; plate(zx - 115, 6, 230, 56); ctx.fillStyle = INK; ctx.font = `13px ${FD}`; ctx.fillText(zoneTag.name, zx, 28); ctx.font = `14px ${FH}`; ctx.fillStyle = INK2; ctx.fillText(zoneTag.sub, zx, 50); ctx.globalAlpha = 1; }
   if (banner) {
     const a = clamp(Math.min(banner.t * 2, 1), 0, 1); ctx.globalAlpha = a;
-    ctx.font = `18px ${FH}`; const lines = wrapText(banner.sub, W - 120), bh = 70 + lines.length * 24, by = 274 - bh / 2;
+    ctx.font = `18px ${FH}`; const lines = wrapText(banner.sub, W - 120), bh = 70 + lines.length * 24, by = 196 - bh / 2;
     ctx.fillStyle = INK; ctx.fillRect(0, by, W, bh); ctx.fillStyle = PAPER; ctx.textAlign = 'center';
     let fs = 28; ctx.font = `${fs}px ${FD}`; while (ctx.measureText(banner.top).width > W - 80 && fs > 14) { fs -= 2; ctx.font = `${fs}px ${FD}`; }
     ctx.fillText(banner.top, W / 2, by + 44); ctx.font = `18px ${FH}`; lines.forEach((l, i) => ctx.fillText(l, W / 2, by + 74 + i * 24)); ctx.globalAlpha = 1;
@@ -1688,6 +1881,7 @@ function render() {
   if (mode === 'map') { drawMap(); cv.style.cursor = mapHits.some(m => P.visited.has(m.i) && Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18) ? 'pointer' : 'default'; return; }
   const sx = shake ? rnd(-shake, shake) : 0, sy = shake ? rnd(-shake, shake) * 0.6 : 0;
   ctx.save(); ctx.translate(sx, sy); drawWorld(); ctx.restore();
+  if (isNight()) drawNight();
   drawDark(); drawOverDark();
   drawHUD();
   cv.style.cursor = mode === 'play' && mouse.in ? 'none' : mode === 'map' && mapHits.some(m => P.visited.has(m.i) && Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18) ? 'pointer' : 'default';
@@ -1713,7 +1907,7 @@ window.__life = {
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };

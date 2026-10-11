@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Samsara Build 7</title>
+<title>Samsara Build 8</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&family=Kalam:wght@400;700&display=swap">
@@ -94,7 +94,7 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
 <body>
 <div class="wrap">
   <header>
-    <div><span class="eyebrow">Samsara · test build 7</span><h1>Pack and Road</h1></div>
+    <div><span class="eyebrow">Samsara · test build 8</span><h1>The Spell Book</h1></div>
     <span class="lbl" id="lifeLabel">Life 1</span>
   </header>
 
@@ -102,9 +102,9 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
     <canvas id="cv" aria-label="Samsara test: a long proving ground of planks, ledges, water, walls, wind and darkness"></canvas>
 
     <div class="ov" id="ovStart"><div class="ov-in">
-      <span class="eyebrow">Pack weight, chests, your own chest and fast travel</span>
-      <h2>Pack and road</h2>
-      <p>Everything you carry now has weight, and your pack has a limit. Chests open both ways: take what you want and leave what you do not need. Your own chest by the village shrine keeps what you put in it across lives. Open the map and click a shrine you have rested at to travel there.</p>
+      <span class="eyebrow">Spells, and the many ways to find them</span>
+      <h2>The spell book</h2>
+      <p>Eleven new spells are hidden in the proving grounds. Some lie in chests, one is carried by the Grasping, one is taught by someone you help, one answers a riddle spoken aloud, one wakes only at night where you really are, one is a memory from a past life, and one is made by joining two spells at a shrine. What you learn stays with your soul.</p>
       <div class="row">
         <label class="lbl" for="micStart">Mic</label>
         <select id="micStart">
@@ -141,12 +141,12 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
         <span><kbd>E</kbd> rest and level up, forge, talk, give, open, ride</span>
         <span>Strike trees and ore to gather · swim into lotus flowers</span>
         <span>Riding: hold <kbd>Shift</kbd> to gallop · <kbd>8</kbd> calls the horse</span>
-        <span><kbd>1</kbd>–<kbd>4</kbd> battle words · <kbd>5</kbd> torch · <kbd>6</kbd> ink knife · <kbd>7</kbd> lotus · <kbd>8</kbd> mount bell</span>
+        <span><kbd>1</kbd>–<kbd>4</kbd> spells (Tab, then Spells, to choose them) · <kbd>5</kbd> torch · <kbd>6</kbd> ink knife · <kbd>7</kbd> lotus · <kbd>8</kbd> mount bell</span>
         <span><kbd>Tab</kbd> gear and relics · <kbd>M</kbd> map, then click a shrine (or press its number) to travel</span>
         <span><kbd>V</kbd> hold to speak · <kbd>Esc</kbd> pause</span>
         <span class="note">The mouse aims the bow, knives and Ignite.</span>
       </div>
-      <div class="sechead"><h2>Battle words</h2><span class="note">Say them out loud for 100%</span></div>
+      <div class="sechead"><h2>Spells</h2><span class="note">Say them out loud for 100%</span></div>
       <div class="mic">
         <label class="lbl" for="micMode">Mic</label>
         <select id="micMode">
@@ -154,7 +154,7 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
           <option value="always">Always listening</option>
           <option value="off">Off: buttons only</option>
         </select>
-        <span class="note">“Ignite” fire bolt · “Shield” stone guard · “Restore” heal</span>
+        <span class="note">Say a spell's name, for example “Ignite”, “Gust” or “Pillar”</span>
       </div>
       <div class="voice" id="voiceLog"><span class="miss">Nothing heard yet.</span></div>
     </div>
@@ -166,6 +166,8 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
         <button class="btn ghost" id="tEnd" type="button">End this life now</button>
         <button class="btn ghost" id="tRelics" type="button">Give me every relic</button>
         <button class="btn ghost" id="tShrine" type="button">Jump to the next shrine</button>
+        <button class="btn ghost" id="tSpells" type="button">Teach me every spell</button>
+        <button class="btn ghost" id="tNight" type="button">Switch day and night</button>
         <button class="btn ghost" id="tRich" type="button">Give me seeds and materials</button>
         <button class="btn ghost" id="tGear" type="button">Give me all weapons and garments</button>
         <button class="btn ghost" id="tHorse" type="button">Give me the horse</button>

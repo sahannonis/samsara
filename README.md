@@ -34,7 +34,9 @@ and go to `http://localhost:8000/dist/samsara.html`.
 
 `dist/` is made by `build.py` and is not kept in git.
 
-## Test builds so far (Phase 1: core mechanics)
+## Test builds so far
+
+### Phase 1: core mechanics
 
 1. **Star Panel**: real birth charts, checked against Swiss Ephemeris on 300 charts (planets within 20 arcseconds, lagna within 33).
 2. **Chant Test**: spoken incantations with accent-tolerant matching.
@@ -44,6 +46,10 @@ and go to `http://localhost:8000/dist/samsara.html`.
 6. **Growth and the Forge**: starting stats from the chart, leveling at shrines, skills, gathering, weapon tiers and crafting.
 7. **Pack and Road**: pack weight, two-way chests, your own chest that keeps things across lives, fast travel from the map.
 
+### Phase 2: voice and magic
+
+8. **The Spell Book**: eleven new spells (Gust, Pillar, Monsoon, Unseen, Ember rain, Echo, Grasp, Shani, Chandra's tide, Starfall, Fire wind) with requirements (Focus, birth school, night where the player really is, a past life) and many ways to find them: chests, an enemy drop, a teacher, a spoken riddle, a stone that wakes at night, a past body, and joining spells at a shrine. Spells grow stronger with use and stay with the soul.
+
 ## Running the tests
 
 ```
@@ -52,6 +58,7 @@ playwright install chromium
 python build.py
 python tests/test_growth.py
 python tests/test_pack_and_travel.py
+python tests/test_spells.py
 ```
 
 ## Credits
