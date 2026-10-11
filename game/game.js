@@ -287,7 +287,7 @@ const WORDS = [
   { id: 'starfall', say: 'Starfall', short: 'STARFALL', school: 'Akasha', cost: 50, needs: { night: true, focus: 12 }, what: 'Starlight strikes every foe you can see. Only at night where you are.', how: 'Behind a wall that is not there.', alias: ['starfall', 'star fall', 'star full', 'starful', 'stall fall'] },
   { id: 'quake', say: 'Quake', short: 'QUAKE', school: 'Prithvi', cost: 35, boss: 'chief', what: 'Slam the ground: two waves of stone run out along the floor both ways and knock foes off their feet. Only on the ground.', how: 'Won from the Grasping Chief on the trial road. It is its own move.', alias: ['quake', 'quakes', 'kweak', 'earthquake', 'quaked', 'quaker', 'qwake'] },
   { id: 'wisps', say: 'Wisps', short: 'WISPS', school: 'Agni', cost: 40, boss: 'wraith', what: 'Three wisps of fire circle you for 12 seconds and fly at foes that come near, setting them burning.', how: 'Won from the Ember Wraith on the trial road. It is its own fire.', alias: ['wisps', 'wisp', 'whisps', 'whisp', 'wasps', 'lisps', 'wispy'] },
-  { id: 'inkstep', say: 'Ink step', short: 'STEP', school: 'Akasha', cost: 20, boss: 'masked', what: 'Melt into ink and step up to 200 paces toward where you aim, through foes but not through walls. Nothing touches you as you go.', how: 'Won from the Masked One at the end of the trial road. It is how it moved.', alias: ['ink step', 'inkstep', 'in step', 'ink steps', 'inc step', 'ink stop', 'inks step', 'instep'] },
+  { id: 'inkstep', say: 'Ink step', short: 'STEP', school: 'Akasha', cost: 20, boss: 'masked', what: 'Melt into ink and step up to 200 paces toward where you aim, through foes but not through walls. Nothing touches you as you go. Stepping through the Masked One cuts it.', how: 'Won from the Masked One at the end of the trial road. It is how it moved.', alias: ['ink step', 'inkstep', 'in step', 'ink steps', 'inc step', 'ink stop', 'inks step', 'instep'] },
   { id: 'surya', say: 'Surya', short: 'SURYA', school: null, cost: 45, needs: { day: true }, what: 'Sunlight strikes down where you aim. The higher the real Sun stands where you are, the harder it burns. Only while the Sun is up.', how: 'A stone on the plateau wakes when the real Sun stands high.', alias: ['surya', 'suriya', 'soorya', 'sorry a', 'suria', 'surya dev', 'sooriya'] },
   { id: 'karuna', say: 'Karuna', short: 'KARUNA', school: null, cost: 25, what: 'Compassion: the foe in front of you lowers its weapon for 8 seconds. A boss only hesitates. Striking one you calmed weighs on karma.', how: 'Spare three who beg for mercy in one life.', alias: ['karuna', 'caruna', 'karoona', 'corona', 'karina', 'car una', 'karunaa'] },
   { id: 'vajra', say: 'Vajra', short: 'VAJRA', school: 'Vayu', cost: 40, what: "Indra's lightning strikes the nearest foe in front of you and jumps to two more.", how: 'Beat a boss without being hit once.', alias: ['vajra', 'vajara', 'vadra', 'vazra', 'vajrah', 'vachra', 'bajra'] },
@@ -365,7 +365,7 @@ function newLife(birth) {
   const sr = [...soul.soulRelics];
   P = { x: SHRINES[0].x + 40, y: SHRINES[0].gy - PH, w: 22, h: PH, vx: 0, vy: 0, face: 1, onG: true, groundS: null, hp: 100, hpMax: 100, st: noMana ? 125 : 100, stMax: noMana ? 125 : 100, stDelay: 0,
     mana: manaMax, manaMax, prana: 3, pranaMax: 3, lotus: 3, lotusMax: 3, seeds: 0, slots: [0, 2], slotIdx: 0, swapT: 0, mT: 0, mDown: false, chargeSrc: null, bufLight: 0,
-    wordSlots: Array.from({ length: [0, 1, 2, 3, 4][b.tier] }, (_, i) => (WORDS.filter(w => soul.spells.has(w.id))[i] || {}).id || null),
+    scrolls: {}, wordSlots: noMana ? [null, null, null, null] : Array.from({ length: [0, 1, 2, 3, 4][b.tier] }, (_, i) => (WORDS.filter(w => soul.spells.has(w.id))[i] || {}).id || null),
     atk: null, charge: 0, charging: false, rollT: 0, rollIF: 0, parryT: 0, parryCd: 0, healT: 0, hitT: 0, inv: 0, shieldT: 0, riposte: 0, dead: false, deadT: 0,
     dmgMul: (noMana ? 1.15 : 1) * (b.style === 'Sovereign' ? 1.1 : 1), looks: b.looks, school: b.school, noMana, run: 0,
     stBase: noMana ? 125 : 100, visited: new Set([0]), weapons: new Set([0, 2]), stats: birthStats(b), stats0: birthStats(b), skills: new Set(), skillPending: null, wtier: {}, mats: { wood: 0, iron: 0, ink: 0, petal: 0, ember: 0 }, knivesMax: KNIVES, torchMax: TORCH, made: new Set(), manaTierMax: manaMax, garb: { head: null, body: 'wrap', feet: 'sandals' }, garbOwned: new Set(['wrap', 'sandals']), loadMax: 20, combo: 0, comboT: 0, rollV: 0, mount: false, trampleCd: 0,
@@ -418,6 +418,7 @@ const WEAPONS = [
   { id: 'spear', name: 'Spear', weight: 4, perk: 'The longest reach. The heavy thrust lunges forward. From a galloping horse it hits far harder.', light: { dmg: 15, st: 16, dur: 0.38, a0: 0.12, a1: 0.2, reach: 86, thrust: true }, heavy: { dmg: 34, st: 32, dur: 0.6, a0: 0.22, a1: 0.36, reach: 96, thrust: true, lunge: 420 } },
   { id: 'staff', name: 'Staff', weight: 2, perk: 'Hits in front and behind. The heavy spin throws foes away. Mana returns 50% faster while you hold it.', light: { dmg: 10, st: 12, dur: 0.34, a0: 0.1, a1: 0.2, reach: 60, both: true }, heavy: { dmg: 22, st: 26, dur: 0.62, a0: 0.16, a1: 0.46, reach: 72, both: true, spin: true, knock: 460 } },
   { id: 'daggers', name: 'Twin daggers', weight: 1.5, perk: 'Very fast. Every third cut hits twice as hard. Hits from behind do 2.5 times the damage. Rolls cost less.', light: { dmg: 7, st: 8, dur: 0.2, a0: 0.04, a1: 0.11, reach: 42 }, heavy: { dmg: 7, st: 24, dur: 0.55, a0: 0.08, a1: 0.48, reach: 46, multi: 0.1 } },
+  { id: 'empty', name: 'Empty edge', nomana: true, weight: 3, perk: 'Only a body born with no mana can hold it. Against bosses it cuts 40% deeper and breaks their poise twice as fast. Chant blessings on it last half as long again.', light: { dmg: 13, st: 13, dur: 0.30, a0: 0.08, a1: 0.17, reach: 54 }, heavy: { dmg: 32, st: 30, dur: 0.5, a0: 0.18, a1: 0.3, reach: 64 } },
 ];
 const GARB = {
   hat: { slot: 'head', name: 'Straw hat', prot: 2, weight: 0.5, what: 'Light. Keeps the sun off.' },
@@ -447,7 +448,7 @@ function applyStats(fill) {
   if (fill) { P.hp = P.hpMax; P.mana = P.manaMax; P.st = P.stBase; P.stMax = P.stBase; }
   else { P.hp += Math.max(0, P.hpMax - oldHp); P.mana += Math.max(0, P.manaMax - oldMana); }
 }
-const SCALE = { blade: { str: 0.5, agi: 0.5 }, mace: { str: 1 }, bow: { agi: 1 }, spear: { str: 0.8, agi: 0.2 }, staff: { agi: 0.4, foc: 0.6 }, daggers: { agi: 1 }, knife: { agi: 1 } };
+const SCALE = { blade: { str: 0.5, agi: 0.5 }, mace: { str: 1 }, bow: { agi: 1 }, spear: { str: 0.8, agi: 0.2 }, staff: { agi: 0.4, foc: 0.6 }, daggers: { agi: 1 }, empty: { end: 0.6, agi: 0.4 }, knife: { agi: 1 } };
 const TIER_MUL = [1, 1, 1.15, 1.35], TIER_NAME = ['', 'I', 'II', 'III'];
 const tierOf = wi => P.wtier[wi] || 1;
 function statMul(id) { const sc = SCALE[id] || {}; let m = 1; for (const k in sc) m += 0.04 * sc[k] * (P.stats[k] - 10); return m; }
@@ -572,8 +573,8 @@ function updatePlayer(dt) {
     else if (pressed.use) use();
     for (let i = 0; i < 4; i++) if (pressed['h' + (i + 1)]) {
       const id = P.wordSlots[i];
-      if (P.noMana) floater(pcx(), P.y - 30, 'NO MANA IN THIS LIFE', PENCIL);
-      else if (id) castWord(WORDS.find(w => w.id === id), 0.8);
+      if (id) castWord(WORDS.find(w => w.id === id), 0.8);
+      else if (P.noMana) floater(pcx(), P.y - 30, 'NO SCROLL ON THIS KEY', PENCIL);
       else floater(pcx(), P.y - 30, i < P.wordSlots.length ? 'EMPTY SLOT' : 'MORE MANA OPENS THIS SLOT', PENCIL);
     }
     if (pressed.h5) { if (P.torch.fuel > 0) { P.torch.lit = !P.torch.lit; tone(P.torch.lit ? 400 : 300, P.torch.lit ? 800 : 150, 0.15, 'triangle', 0.03); } else floater(pcx(), P.y - 24, 'NO FUEL · REST TO REFILL', PENCIL); }
@@ -821,6 +822,7 @@ function renderShrine(i) {
       <div class="gcol"><span class="lbl">Skills</span><div class="stats"><span>${skills}</span></div>
         <span class="lbl">Shrine offering</span><div class="inv">${makeHTML('shrine')}</div>
         <span class="lbl">Join spells</span><div class="inv"><div class="item"><b>Ignite + Gust → Fire wind</b><span>${SPELL('firewind').what}</span><span class="m">${soul.spells.has('firewind') ? 'Already joined' : `Needs Ignite and Gust · ${costText({ ember: 1, seeds: 40 })}`}</span><div class="row"><button class="btn ghost sm" type="button" id="joinFW"${!soul.spells.has('firewind') && soul.spells.has('ignite') && soul.spells.has('gust') && canPay({ ember: 1, seeds: 40 }) ? '' : ' disabled'}>Join</button></div></div></div>
+        ${P.noMana ? `<span class="lbl">Write a scroll · ${costText(SCRIBE_COST)} each · only a body with no mana has the stillness for it</span><div class="inv">${[...soul.spells].map(id => `<div class="item"><b>${SPELL(id).say}</b><span class="m">You carry ${P.scrolls[id] || 0}</span><div class="row"><button class="btn ghost sm" type="button" data-scribe="${id}"${canPay(SCRIBE_COST) ? '' : ' disabled'}>Write one</button></div></div>`).join('')}</div>` : ''}
         <span class="lbl">Materials</span><div class="stats">${matsLine()}</div>
         <p class="note">Weapons are tempered at a forge: one in the village, one in the arena. Levels, skills and materials belong to this body; a new life starts again from its birth.</p></div>
     </div>`;
@@ -832,6 +834,7 @@ function renderShrine(i) {
   }));
   $('gearIn').querySelectorAll('[data-skill]').forEach(bt => bt.addEventListener('click', () => { P.skills.add(bt.dataset.skill); P.skillPending = null; applyStats(false); SFX.relic(); renderShrine(i); }));
   bindMakes(() => renderShrine(i));
+  $('gearIn').querySelectorAll('[data-scribe]').forEach(bt => bt.addEventListener('click', () => { if (!canPay(SCRIBE_COST)) return; pay(SCRIBE_COST); P.scrolls[bt.dataset.scribe] = (P.scrolls[bt.dataset.scribe] || 0) + 1; if (!P.wordSlots.includes(bt.dataset.scribe)) { const f = P.wordSlots.indexOf(null); if (f >= 0) P.wordSlots[f] = bt.dataset.scribe; } tone(600, 900, 0.2, 'triangle', 0.04); renderShrine(i); }));
   const jf = $('joinFW'); if (jf) jf.addEventListener('click', () => { if (!canPay({ ember: 1, seeds: 40 })) return; pay({ ember: 1, seeds: 40 }); closePanel(); learnSpell('firewind', 'At the shrine, fire and wind become one.'); });
 }
 function openForge() { banner = null; mode = 'forge'; clearHeld(); renderForge(); $('ovGear').hidden = false; }
@@ -870,7 +873,7 @@ function doHits(A) {
     if (A.daggers && t.face === P.face && t.state !== 'kneel') { dmg *= 2.5; floater(t.x + t.w / 2, t.y - 20, 'FROM BEHIND'); }
     if (A.thrust && P.mount && Math.abs(P.vx) > 250) { dmg *= 1 + Math.abs(P.vx) / 430; floater(t.x + t.w / 2, t.y - 20, 'CHARGE'); }
     if (P.bless) dmg = blessHit(t, dmg, A.heavy);
-    hurtFoe(t, dmg, A.heavy, { stun: (A.stun || (A.heavy ? 0.6 : 0.3)) * (P.bless && P.bless.el === 'prithvi' ? 1.8 : 1), knock: (A.knock || (A.heavy ? 260 : 120)) * (P.bless && P.bless.el === 'prithvi' ? 1.6 : 1) });
+    hurtFoe(t, dmg, A.heavy, { stun: (A.stun || (A.heavy ? 0.6 : 0.3)) * (P.bless && P.bless.el === 'prithvi' ? 1.8 : 1), knock: (A.knock || (A.heavy ? 260 : 120)) * (P.bless && P.bless.el === 'prithvi' ? 1.6 : 1), melee: true });
     hitstop = A.heavy ? 0.09 : 0.05; shake = A.heavy ? 8 : 4;
   }
   for (const p of pots) if (!p.broken && overlap(box, { x: p.x - 12, y: p.gy - 28, w: 24, h: 28 })) breakPot(p);
@@ -892,7 +895,7 @@ function hurtFoe(t, dmg, heavy, o = {}) {
   t.vx = (t.x + t.w / 2 > pcx() ? 1 : -1) * (o.knock || (heavy ? 260 : 120)); t.state = 'stun'; t.t = o.stun || (heavy ? 0.6 : 0.3);
   if (t.hp <= 0) {
     if (t.hp > -10 && Math.random() < 0.55) { t.hp = 1; t.state = 'kneel'; t.kneelT = 0; t.awayT = 0; t.vx = 0; floater(t.x + 12, t.y - 20, 'IT BEGS', INK2); }
-    else { t.alive = false; burst(t.x + 12, t.y + 20, 22); P.seeds += 25; floater(t.x + 12, t.y - 10, '+25 seeds'); gain('ink', 1, t.x + 12, t.y - 28); soul.kills++; if (!soul.spells.has('grasp') && (Math.random() < 0.15 || soul.kills >= 6)) learnSpell('grasp', 'The Grasping you struck down let go of something it was holding.'); }
+    else { t.alive = false; burst(t.x + 12, t.y + 20, 22); P.seeds += 25; floater(t.x + 12, t.y - 10, '+25 seeds'); gain('ink', 1, t.x + 12, t.y - 28); soul.kills++; if (P.noMana && Math.random() < 0.08) { const known = [...soul.spells]; gainScroll(known[Math.floor(Math.random() * known.length)], 1, t.x + 12, t.y - 46); } if (!soul.spells.has('grasp') && (Math.random() < 0.15 || soul.kills >= 6)) learnSpell('grasp', 'The Grasping you struck down let go of something it was holding.'); }
   }
 }
 function hurtPlayer(d, src, melee) {
@@ -1012,9 +1015,10 @@ function bindSkyPanel() {
 bindSkyPanel();
 const spellCost = w => Math.round(w.cost * (w.school && P.school ? (w.school === P.school ? 0.8 : 1.25) : 1));
 const rankOf = id => { const n = soul.ranks[id] || 0; return n >= 30 ? 3 : n >= 10 ? 2 : 1; };
-function needsMissing(w) {
+function needsMissing(w, scroll) {
   const n = w.needs || {};
-  if (n.focus && P.stats.foc < n.focus) return `NEEDS FOCUS ${n.focus}`;
+  if (scroll === undefined) scroll = P.noMana;
+  if (n.focus && !scroll && P.stats.foc < n.focus) return `NEEDS FOCUS ${n.focus}`;
   if (n.night && !isNight()) return 'ONLY AT NIGHT';
   if (n.day && sunAlt() <= 0) return 'ONLY WHILE THE SUN IS UP';
   if (n.life && life.n < n.life) return 'NEEDS A PAST LIFE';
@@ -1022,25 +1026,33 @@ function needsMissing(w) {
 }
 function learnSpell(id, how) {
   if (soul.spells.has(id)) return false;
-  soul.spells.add(id); const w = SPELL(id), free = P.wordSlots.indexOf(null);
+  soul.spells.add(id); const w = SPELL(id), free = P.noMana ? -1 : P.wordSlots.indexOf(null);
   if (free >= 0) P.wordSlots[free] = id;
   SFX.relic(); for (let i = 0; i < 24; i++) fx.push({ k: 'ink', x: pcx() + rnd(-30, 30), y: P.y + rnd(-20, P.h), vx: rnd(-30, 30), vy: -rnd(30, 90), life: rnd(0.5, 1.1) });
-  showBanner({ t: 4.2, top: `A NEW SPELL: ${w.say.toUpperCase()}`, sub: `${how ? how + ' ' : ''}${w.what} Say "${w.say}" aloud, or put it on keys 1 to 4 in Tab.${free >= 0 ? ` It is on key ${free + 1}.` : ''}` });
+  showBanner({ t: 4.2, top: `A NEW SPELL: ${w.say.toUpperCase()}`, sub: `${how ? how + ' ' : ''}${w.what} ${P.noMana ? 'This body has no mana, but your soul keeps it for lives that do. Scrolls of it can be read in this one.' : `Say "${w.say}" aloud, or put it on keys 1 to 4 in Tab.${free >= 0 ? ` It is on key ${free + 1}.` : ''}`}` });
   return true;
 }
 let BQ = [];
+const SCROLL_W = 0.1, SCRIBE_COST = { ink: 3, seeds: 20 };
+function gainScroll(id, n, x, y) {
+  P.scrolls[id] = (P.scrolls[id] || 0) + n;
+  if (!P.wordSlots.includes(id)) { const free = P.wordSlots.indexOf(null); if (free >= 0) P.wordSlots[free] = id; }
+  floater(x ?? pcx(), y ?? P.y - 40, `+${n} SCROLL${n > 1 ? 'S' : ''} OF ${SPELL(id).say.toUpperCase()}`, INK);
+  if (!soul.memories.scroll) { soul.memories.scroll = 1; showBanner({ t: 4.4, top: 'A SCROLL', sub: `A body born with no mana cannot cast, but it can read. A scroll is one cast of ${SPELL(id).say} with no mana needed. Press its key (1 to 4) or say "${SPELL(id).say}" aloud. Write more at a shrine with Grasping ink.` }); }
+}
 function showBanner(b) { if (banner && banner.t > 0.6 && !banner.minor) BQ.push(b); else banner = b; }
 function frontFoe(range, dyMax, skipBoss) { let best = null, bd = 1e9; for (const f of foes) { if (!f.alive || f.state === 'kneel' || f.hidden || (skipBoss && f.boss)) continue; const dx = (f.x + f.w / 2 - pcx()) * P.face; if (dx < -20 || dx > range || Math.abs(f.y + f.h / 2 - (P.y + P.h / 2)) > dyMax) continue; if (dx < bd) { bd = dx; best = f; } } return best; }
 function groundBelow(x, y0) { for (let y = Math.max(0, y0); y < y0 + 520 && y < LH; y += 4) if (pointSolid(x, y)) return y; return null; }
 function graspTarget() { let best = null, bd = 1e9; for (const f of foes) { if (!f.alive || f.state === 'kneel' || f.boss) continue; const dx = (f.x + 12 - pcx()) * P.face; if (dx < 0 || dx > 340 || Math.abs(f.gy - (P.y + P.h)) > 110) continue; if (dx < bd) { bd = dx; best = f; } } return best; }
 function castWord(w, power) {
   if (P.dead || mode !== 'play') return;
-  if (P.noMana) { floater(pcx(), P.y - 30, 'NO MANA IN THIS LIFE', PENCIL); return; }
-  if (!soul.spells.has(w.id)) { floater(pcx(), P.y - 30, `YOU DO NOT KNOW ${w.say.toUpperCase()} YET`, PENCIL); return; }
-  if (!P.wordSlots.includes(w.id)) { floater(pcx(), P.y - 30, `${w.say.toUpperCase()} IS NOT ON YOUR KEYS (TAB)`, PENCIL); return; }
-  const why = needsMissing(w); if (why) { floater(pcx(), P.y - 30, why, PENCIL); return; }
-  const cost = spellCost(w);
-  if (P.mana < cost) { floater(pcx(), P.y - 30, 'NOT ENOUGH MANA', PENCIL); return; }
+  const scroll = P.noMana;
+  if (scroll && !(P.scrolls[w.id] > 0)) { floater(pcx(), P.y - 30, `NO SCROLL OF ${w.say.toUpperCase()}`, PENCIL); return; }
+  if (!scroll && !soul.spells.has(w.id)) { floater(pcx(), P.y - 30, `YOU DO NOT KNOW ${w.say.toUpperCase()} YET`, PENCIL); return; }
+  if (!scroll && !P.wordSlots.includes(w.id)) { floater(pcx(), P.y - 30, `${w.say.toUpperCase()} IS NOT ON YOUR KEYS (TAB)`, PENCIL); return; }
+  const why = needsMissing(w, scroll); if (why) { floater(pcx(), P.y - 30, why, PENCIL); return; }
+  const cost = scroll ? 0 : spellCost(w);
+  if (!scroll && P.mana < cost) { floater(pcx(), P.y - 30, 'NOT ENOUGH MANA', PENCIL); return; }
   faceAim();
   if (P.hitT > 0 || P.rollT > 0) return;
   let ax = mouse.in ? aimX() : pcx() + P.face * 160, ay = mouse.in ? aimY() : P.y;
@@ -1051,10 +1063,12 @@ function castWord(w, power) {
   if (w.id === 'karuna') { gt = frontFoe(320, 120); if (!gt) { floater(pcx(), P.y - 30, 'NO ONE IN FRONT OF YOU TO CALM', PENCIL); return; } }
   if (w.id === 'vajra') { gt = frontFoe(380, 170); if (!gt) { floater(pcx(), P.y - 30, 'NO FOE IN REACH', PENCIL); return; } }
   P.mana -= cost; SFX.word(); shake = 5;
-  const rk = rankOf(w.id); power *= (1 + 0.04 * (P.stats.foc - 10)) * [1, 1, 1.2, 1.4][rk];
-  soul.ranks[w.id] = (soul.ranks[w.id] || 0) + 1; if (rankOf(w.id) > rk) floater(pcx(), P.y - 52, `${w.say.toUpperCase()} GROWS STRONGER`, INK2);
+  const rk = rankOf(w.id);
+  if (scroll) { P.scrolls[w.id]--; power *= 1.15; for (let i = 0; i < 10; i++) fx.push({ k: 'leaf', x: pcx() + P.face * 14 + rnd(-8, 8), y: P.y + 14 + rnd(-6, 6), vx: rnd(-40, 40), vy: -rnd(30, 80), life: 0.7 }); }
+  else { power *= (1 + 0.04 * (P.stats.foc - 10)) * [1, 1, 1.2, 1.4][rk];
+    soul.ranks[w.id] = (soul.ranks[w.id] || 0) + 1; if (rankOf(w.id) > rk) floater(pcx(), P.y - 52, `${w.say.toUpperCase()} GROWS STRONGER`, INK2); }
   if (w.id !== 'unseen') P.unseenT = 0;
-  floater(pcx(), P.y - 34, `${w.say.toUpperCase()} · ${Math.round(power * 100)}%`);
+  floater(pcx(), P.y - 34, scroll ? `SCROLL · ${w.say.toUpperCase()} · ${P.scrolls[w.id]} LEFT` : `${w.say.toUpperCase()} · ${Math.round(power * 100)}%`);
   const cx = pcx(), dmgMul = P.dmgMul;
   if (w.id === 'ignite') { const dmg = 28 * power * (P.school === 'Agni' ? 1.25 : 1) * dmgMul; const sx = cx + P.face * 20, sy = P.y + Math.min(18, P.h * 0.45), [ux, uy] = aimVec(sx, sy); shots.push({ fire: true, x: sx, y: sy, vx: ux * 640, vy: uy * 640, life: 1.2, dmg, r: 10 }); }
   if (w.id === 'shield') { P.shieldT = (P.school === 'Prithvi' ? 6 : 3) * (power >= 1 ? 1 : 0.85); }
@@ -1090,7 +1104,8 @@ function castWord(w, power) {
   if (w.id === 'wisps') { WISPS = [0, 1, 2].map(i => ({ a: i * 2.094, t: 12 * power, x: cx, y: P.y + 18, tg: null, dmg: 14 * power * dmgMul })); tone(500, 900, 0.3, 'triangle', 0.04); }
   if (w.id === 'inkstep') {
     const [ux, uy] = mouse.in ? aimVec(cx, P.y + P.h / 2) : [P.face, 0], dist = 200 * clamp(power, 0.8, 1.4), ox = P.x, oy = P.y;
-    let nx = P.x, ny = P.y; for (let d = 8; d <= dist; d += 8) { const tx = P.x + ux * d, ty = P.y + uy * d; if (tx < 0 || tx > LW - P.w || ty < 0 || blocked({ x: tx, y: ty, w: P.w, h: P.h })) break; nx = tx; ny = ty; }
+    let nx = P.x, ny = P.y; const cut = new Set(); for (let d = 8; d <= dist; d += 8) { const tx = P.x + ux * d, ty = P.y + uy * d; if (tx < 0 || tx > LW - P.w || ty < 0 || blocked({ x: tx, y: ty, w: P.w, h: P.h })) break; nx = tx; ny = ty; for (const f of foes) if (f.boss && f.ar.gift === 'inkstep' && f.alive && !f.hidden && overlap({ x: tx, y: ty, w: P.w, h: P.h }, f)) cut.add(f); }
+    for (const f of cut) hurtFoe(f, 30 * power * dmgMul, true, { spell: 'inkstep' });
     for (let i = 0; i < 14; i++) { const k = i / 13; fx.push({ k: 'ink', x: ox + P.w / 2 + (nx - ox) * k + rnd(-6, 6), y: oy + P.h / 2 + (ny - oy) * k + rnd(-14, 14), vx: rnd(-20, 20), vy: -rnd(10, 50), life: rnd(0.4, 0.8) }); }
     P.x = nx; P.y = ny; P.vy = Math.min(0, P.vy) * 0.3; P.vx = ux * 120; P.inv = Math.max(P.inv, 0.35); P.inkT = 0.35; P.hang = null; P.ladder = null; P.cling = 0; P.glide = false; P.grabbed = 0;
     tone(900, 200, 0.18, 'sine', 0.05);
@@ -1191,7 +1206,7 @@ function finishChant(clean, pace) {
   SFX.word(); shake = 6; for (let i = 0; i < 26; i++) fx.push({ k: 'ink', x: pcx() + rnd(-30, 30), y: P.y + rnd(-10, P.h), vx: rnd(-40, 40), vy: -rnd(30, 110), life: rnd(0.5, 1.2) });
   floater(pcx(), P.y - 44, `${c.name.toUpperCase()} · ${Math.round(pw * 100)}%`);
   voiceLog(`chant: ${c.name} at ${Math.round(pw * 100)}%`, true);
-  if (c.kind === 'bless') { P.bless = { el: c.id, t: (30 + 60 * clamp(pw, 0, 1.2)) * (shrine ? 1.5 : 1), pow: pw }; return; }
+  if (c.kind === 'bless') { P.bless = { el: c.id, t: (30 + 60 * clamp(pw, 0, 1.2)) * (shrine ? 1.5 : 1) * (inHand('empty') ? 1.5 : 1), pow: pw }; return; }
   P.summoned = P.summoned || new Set(); P.summoned.add(c.id);
   const sm = { id: c.id, x: pcx() - P.face * 40, y: P.y + 10, t: c.id === 'naraka' ? 5 : 20, cd: 0.5, pow: pw, face: P.face, swing: 0 };
   SUMMONS.push(sm); tone(110, 330, 1.2, 'sine', 0.06);
@@ -1281,15 +1296,15 @@ function updateMagic(dt) {
   for (const v of WAVES) {
     const st = v.sp * dt; v.x += v.dir * st; v.left -= st;
     if (v.left <= 0 || pointSolid(v.x + v.dir * 6, v.gy - 12) || !pointSolid(v.x, v.gy + 4)) { v.left = 0; continue; }
-    if (v.hostile) { if (!v.hitP && !P.dead && P.y + P.h > v.gy - v.h && P.y < v.gy && Math.abs(pcx() - v.x) < 16) { v.hitP = true; hurtPlayer(v.dmg, { x: v.x - v.dir * 30, w: 0, who: v.who }, false); } }
-    else for (const f of foes) if (f.alive && !v.hit.has(f) && f.state !== 'kneel' && !f.hidden && Math.abs(f.x + f.w / 2 - v.x) < f.w / 2 + 12 && f.y + f.h > v.gy - v.h && f.y + f.h < v.gy + 30) { v.hit.add(f); hurtFoe(f, v.dmg, true, { stun: 0.8, knock: 60 }); }
+    if (v.hostile) { if (!v.hitP && !P.dead && P.y + P.h > v.gy - v.h && P.y < v.gy && Math.abs(pcx() - v.x) < 16) { v.hitP = true; if (P.noMana && P.parryT > 0) { v.left = 0; P.parryT = 0; SFX.parry(); floater(pcx(), P.y - 30, 'BROKEN'); burst(v.x, v.gy, 14, v.fire ? RED : INK2, 200); continue; } hurtPlayer(v.dmg, { x: v.x - v.dir * 30, w: 0, who: v.who }, false); } }
+    else for (const f of foes) if (f.alive && !v.hit.has(f) && f.state !== 'kneel' && !f.hidden && Math.abs(f.x + f.w / 2 - v.x) < f.w / 2 + 12 && f.y + f.h > v.gy - v.h && f.y + f.h < v.gy + 30) { v.hit.add(f); hurtFoe(f, v.dmg, true, { stun: 0.8, knock: 60, spell: 'quake' }); }
   }
   WAVES = WAVES.filter(v => v.left > 0);
   for (const w of WISPS) {
     w.t -= dt;
     if (w.tg && (!w.tg.alive || w.tg.hidden || w.tg.calmT > 0)) w.tg = null;
     if (!w.tg) { let bd = 260; for (const f of foes) if (f.alive && f.state !== 'kneel' && !f.hidden && !(f.calmT > 0) && f.state !== 'wait') { const d = Math.hypot(f.x + f.w / 2 - w.x, f.y + f.h / 2 - w.y); if (d < bd) { bd = d; w.tg = f; } } }
-    if (w.tg) { const f = w.tg, dx = f.x + f.w / 2 - w.x, dy = f.y + f.h / 2 - w.y, d = Math.hypot(dx, dy) || 1; w.x += dx / d * 470 * dt; w.y += dy / d * 470 * dt; if (d < 14 + f.w / 2) { hurtFoe(f, w.dmg, false); f.burnT = 2; w.t = 0; burst(w.x, w.y, 8, RED, 160); } }
+    if (w.tg) { const f = w.tg, dx = f.x + f.w / 2 - w.x, dy = f.y + f.h / 2 - w.y, d = Math.hypot(dx, dy) || 1; w.x += dx / d * 470 * dt; w.y += dy / d * 470 * dt; if (d < 14 + f.w / 2) { hurtFoe(f, w.dmg, false, { spell: 'wisps' }); f.burnT = 2; w.t = 0; burst(w.x, w.y, 8, RED, 160); } }
     else { w.a += dt * 3.2; const tx = pcx() + Math.cos(w.a) * 34, ty = P.y + 18 + Math.sin(w.a) * 16; w.x += (tx - w.x) * Math.min(1, dt * 10); w.y += (ty - w.y) * Math.min(1, dt * 10); }
   }
   WISPS = WISPS.filter(w => w.t > 0);
@@ -1446,18 +1461,23 @@ function bossHurt(B, dmg, heavy, o) {
     return;
   }
   if (B.calmT > 0) { B.calmT = 0; if (!life.brokeCalm) { life.brokeCalm = true; deed('You struck one you had calmed.', -1); } }
+  const edge = o.melee && inHand('empty'); if (edge) dmg *= 1.4;
+  if (o.spell && o.spell === B.ar.gift && (soul.bossKills[B.boss] || 0) > 0) { dmg *= 3; floater(B.x + B.w / 2, B.y - 44, 'ITS OWN MOVE', RED); }
   B.hp -= dmg; B.flash = 0.12; B.sinceHit = 0; burst(B.x + B.w / 2, B.y + B.h / 2, 7); heavy ? SFX.heavy() : SFX.hit();
   if (B.state === 'stag') B.stag = 0;
-  else { B.poise -= (heavy ? 26 : 10) + ((o.knock || 0) > 300 ? 8 : 0); if (B.poise <= 0 && B.state !== 'intro') bossStagger(B); }
+  else { B.poise -= ((heavy ? 26 : 10) + ((o.knock || 0) > 300 ? 8 : 0)) * (edge ? 2 : 1); if (B.poise <= 0 && B.state !== 'intro') bossStagger(B); }
   if (B.hp <= 0) { B.hp = 0; B.state = 'dying'; B.t = 1.6; B.vx = 0; B.vy = 0; B.hidden = false; shake = 14; tone(200, 30, 1.4, 'sawtooth', 0.07);
     for (const f of foes) if (f.arena === B.ar.id && f.alive) { f.alive = false; for (let i = 0; i < 12; i++) fx.push({ k: 'ink', x: f.x + 12, y: f.y + rnd(0, f.h), vx: rnd(-20, 20), vy: -rnd(20, 70), life: 0.9 }); } }
 }
 function bossGone(B) {
-  B.alive = false; const a = B.ar; a.fight = false; life.bossDown.add(a.id); soul.bossKills[a.id] = (soul.bossKills[a.id] || 0) + 1;
+  B.alive = false; const a = B.ar, again = (soul.bossKills[a.id] || 0) > 0; a.fight = false; life.bossDown.add(a.id); soul.bossKills[a.id] = (soul.bossKills[a.id] || 0) + 1;
   for (let i = 0; i < 60; i++) fx.push({ k: 'ink', x: B.x + rnd(0, B.w), y: B.y + rnd(0, B.h), vx: rnd(-90, 90), vy: -rnd(30, 160), life: rnd(0.6, 1.4) });
-  const seeds = a.seeds + B.stolen; P.seeds += seeds; floater(B.x + B.w / 2, B.y - 20, `+${seeds} seeds`);
-  banner = null; showBanner({ t: 3.4, top: `${a.name} FALLS`, sub: `+${seeds} seeds${B.stolen ? ', with what it took from you' : ''}. The way opens. In your next life it waits here again.` });
-  if (!soul.spells.has(a.gift)) learnSpell(a.gift, a.giftHow); else floater(pcx(), P.y - 50, 'YOU ALREADY CARRY ITS GIFT', PENCIL);
+  const seeds = (again ? 0 : a.seeds) + B.stolen; P.seeds += seeds; if (seeds) floater(B.x + B.w / 2, B.y - 20, `+${seeds} seeds`);
+  banner = null;
+  if (again) showBanner({ t: 3.4, top: `${a.name} FALLS AGAIN`, sub: `You beat it in a past life, and it has nothing left to give you${B.stolen ? `. You take back the ${B.stolen} seeds it took` : ''}. The way opens.` });
+  else showBanner({ t: 3.4, top: `${a.name} FALLS`, sub: `+${seeds} seeds${B.stolen ? ', with what it took from you' : ''}. The way opens. In your next life it waits here again, with nothing more to give.` });
+  if (!soul.spells.has(a.gift)) learnSpell(a.gift, a.giftHow);
+  if (P.noMana) gainScroll(a.gift, 3, pcx(), P.y - 60);
   if (!a.hit) { if (!soul.spells.has('vajra')) learnSpell('vajra', 'Not one blow touched you. The sky noticed.'); else floater(pcx(), P.y - 66, 'NOT ONE BLOW TOUCHED YOU', INK2); }
 }
 function bossPhys(B, dt) {
@@ -1585,7 +1605,7 @@ function updateShots(dt) {
       continue;
     }
     if (s.fire && (waterAt(s.x, s.y) || (s.hostile && rainAt(s.x)))) { s.life = 0; for (let i = 0; i < 8; i++) fx.push({ k: 'bub', x: s.x + rnd(-8, 8), y: s.y, vx: 0, vy: -rnd(40, 90), life: 0.6 }); continue; }
-    if (s.hostile) { if (!P.dead && circle(s, P)) { if (hurtPlayer(s.dmg, s.src || { x: s.x, w: 0 }, false) !== 'dodge') { s.life = 0; burst(s.x, s.y, 10, RED); } } continue; }
+    if (s.hostile) { if (!P.dead && circle(s, P)) { if (P.noMana && P.parryT > 0) { s.hostile = false; s.reflected = true; s.vx = -s.vx * 1.15; s.vy = -Math.abs(s.vy) * 0.5 - 300; s.g = 500; s.dmg *= 2.5; s.life = 2.5; P.parryT = 0; SFX.parry(); floater(pcx(), P.y - 30, 'TURNED BACK'); hitstop = 0.06; for (let i = 0; i < 10; i++) fx.push({ k: 'spark', x: s.x, y: s.y, vx: rnd(-300, 300), vy: rnd(-300, 50), life: 0.25 }); continue; } if (hurtPlayer(s.dmg, s.src || { x: s.x, w: 0 }, false) !== 'dodge') { s.life = 0; burst(s.x, s.y, 10, RED); } } continue; }
     let done = false;
     for (const t of foes) if (t.alive && t.state !== 'kneel' && !t.hidden && circle(s, t)) { hurtFoe(t, s.dmg, false); s.life = 0; burst(s.x, s.y, 12); if (s.knife) drops.push({ x: t.x + 12, y: t.gy - 4, a: s.vx > 0 ? 0.3 : Math.PI - 0.3 }); done = true; break; }
     if (done) continue;
@@ -1656,6 +1676,7 @@ const CHESTS = [
   { x: 2400, gy: 810, kind: 'weapon', id: 3 }, { x: 3120, gy: 790, kind: 'weapon', id: 4 }, { x: 4220, gy: 1100, kind: 'weapon', id: 5 },
   { x: 4385, gy: 955, kind: 'garb', id: 'boots' }, { x: 4825, gy: 955, kind: 'garb', id: 'cleats' }, { x: 5790, gy: 1020, kind: 'garb', id: 'helm' },
   { x: 2200, gy: 720, kind: 'spell', id: 'gust' }, { x: 2050, gy: 1000, kind: 'spell', id: 'pillar' }, { x: 7178, gy: 560, kind: 'spell', id: 'monsoon' }, { x: 8700, gy: 760, kind: 'spell', id: 'embers' }, { x: 9670, gy: 760, kind: 'spell', id: 'starfall' },
+  { x: 11150, gy: 760, kind: 'weapon', id: 6, sealed: true },
   { x: 6330, gy: 560, kind: 'garb', id: 'band' }, { x: 7440, gy: 560, kind: 'garb', id: 'robe' }, { x: 9100, gy: 760, kind: 'garb', id: 'mail' },
 ];
 const chestOpen = c => !!c.opened;
@@ -1667,7 +1688,7 @@ const invEmpty = v => !v.weapons.size && !v.garb.size && !v.relics.size && !Obje
 const relicStored = id => soul.home.relics.has(id) || CHESTS.some(c => c.inv && c.inv.relics.has(id));
 function resetChests() {
   for (const c of CHESTS) {
-    if (c.kind === 'spell') { c.inv = emptyInv(); c.opened = soul.spells.has(c.id); continue; }
+    if (c.kind === 'spell') { c.inv = emptyInv(); c.opened = soul.spells.has(c.id) && !P.noMana; continue; }
     c.inv = emptyInv(); c.opened = false;
     const atHome = c.kind === 'weapon' ? soul.home.weapons.has(c.id) : soul.home.garb.has(c.id);
     if (!atHome) (c.kind === 'weapon' ? c.inv.weapons : c.inv.garb).add(c.id);
@@ -1679,6 +1700,7 @@ function packWeight() {
   for (const id of P.garbOwned) if (P.garb[GARB[id].slot] !== id) w += GARB[id].weight;
   for (const id of P.relics) if (!P.equip.includes(id)) w += RELIC_W;
   for (const k in P.mats) w += P.mats[k] * MAT_W[k];
+  for (const k in P.scrolls) w += P.scrolls[k] * SCROLL_W;
   return w;
 }
 const room = w => packWeight() + w <= P.packMax + 1e-9;
@@ -1744,6 +1766,8 @@ function drawHome() {
   ctx.font = `11px ${FD}`; ctx.fillStyle = PENCIL; ctx.textAlign = 'center'; ctx.fillText('YOUR CHEST', x, g - 50);
 }
 function openChest(c) {
+  if (c.sealed && !P.noMana) { floater(c.x, c.gy - 50, 'SEALED · IT WILL NOT OPEN FOR ONE WHO HOLDS MANA', PENCIL); return; }
+  if (c.kind === 'spell' && P.noMana) { if (!c.opened) { c.opened = true; if (!soul.spells.has(c.id)) learnSpell(c.id, 'A palm-leaf scroll lies in the chest.'); gainScroll(c.id, 2, c.x, c.gy - 50); } else floater(c.x, c.gy - 50, 'AN EMPTY CHEST', PENCIL); return; }
   if (c.kind === 'spell') { if (!c.opened) { c.opened = true; learnSpell(c.id, 'A palm-leaf scroll lies in the chest.'); } else floater(c.x, c.gy - 50, 'AN EMPTY CHEST', PENCIL); return; }
   c.opened = true; openContainer(c.inv, c.kind === 'weapon' ? 'A chest' : 'A chest'); }
 
@@ -1813,6 +1837,13 @@ toolBtn('tRelics', () => {
 });
 toolBtn('tChants', () => { CHANTS.forEach(c => soul.chants.add(c.id)); P.mats.petal += 2; P.mats.ink += 4; P.mats.wood += 2; P.mats.ember += 2; P.seeds += 60; banner = { t: 2.6, top: 'EVERY CHANT', sub: 'Test tool: you know all ten chants and carry offerings for the summons. Press C to chant.' }; });
 toolBtn('tSpells', () => { for (const w of WORDS) soul.spells.add(w.id); P.stats.foc = Math.max(P.stats.foc, 14); applyStats(false); banner = { t: 2.6, top: 'EVERY SPELL', sub: `Test tool: you know all ${WORDS.length} spells and your Focus is at least 14. Put them on keys 1 to 4 in Tab, on the Spells page.` }; });
+toolBtn('tEmpty', () => {
+  if (P.noMana) return;
+  P.noMana = true; P.manaTierMax = 0; P.mana = 0; P.school = null; P.dmgMul *= 1.15; P.wordSlots = [null, null, null, null];
+  life.birth = Object.assign({}, life.birth, { tier: 0, tierName: 'None', school: null }); applyStats(false); P.stMax = P.stBase;
+  for (const c of CHESTS) if (c.kind === 'spell') c.opened = false;
+  banner = { t: 3, top: 'NO MANA IN THIS BODY', sub: 'Test tool: this body now has no mana. Spell chests hold scrolls for it, bosses leave scrolls of their move, it can turn magic back with a parry, and the sealed chest on the trial road opens for it.' };
+});
 toolBtn('tBoss', () => {
   if (ARENAS.some(a => a.fight)) return;
   if (P.mount) dismount(false);
@@ -1863,7 +1894,8 @@ function renderChantBook() {
 }
 function renderSpellBook() {
   const known = WORDS.filter(w => soul.spells.has(w.id)), unknown = WORDS.filter(w => !soul.spells.has(w.id));
-  const keys = P.noMana ? '<p class="note">This body was born with no mana, so it cannot cast. What you have learned stays with your soul for the next life.</p>' : P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}"><option value="">— empty —</option>${known.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · ${spellCost(w)} mana</option>`).join('')}</select></label>`).join('') + (P.wordSlots.length < 4 ? `<p class="note">${4 - P.wordSlots.length} key${P.wordSlots.length === 3 ? '' : 's'} locked: this body's ${life.birth.tierName} mana opens ${P.wordSlots.length}.</p>` : '');
+  const sc = WORDS.filter(w => (P.scrolls[w.id] || 0) > 0 || P.wordSlots.includes(w.id));
+  const keys = P.noMana ? `<p class="note">This body was born with no mana, so it cannot cast. It reads scrolls instead: one scroll, one cast, no mana and no Focus needed. Scrolls come from spell chests, bosses and the Grasping, and you can write them at a shrine with Grasping ink. What you learn stays with your soul for lives with mana.</p>` + P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}"><option value="">— empty —</option>${sc.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · scroll ×${P.scrolls[w.id] || 0}</option>`).join('')}</select></label>`).join('') : P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}"><option value="">— empty —</option>${known.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · ${spellCost(w)} mana</option>`).join('')}</select></label>`).join('') + (P.wordSlots.length < 4 ? `<p class="note">${4 - P.wordSlots.length} key${P.wordSlots.length === 3 ? '' : 's'} locked: this body's ${life.birth.tierName} mana opens ${P.wordSlots.length}.</p>` : '');
   const card = w => { const miss = needsMissing(w), rk = rankOf(w.id), n = soul.ranks[w.id] || 0, next = rk === 1 ? 10 : rk === 2 ? 30 : null;
     const sch = w.school ? `${w.school}${P.school ? (w.school === P.school ? ' · your school, cheaper' : ' · another school, dearer') : ''}` : 'No school';
     const req = w.needs ? Object.entries(w.needs).map(([k, v]) => k === 'focus' ? `Focus ${v}` : k === 'night' ? 'night only' : 'a past life').join(', ') : '';
@@ -1881,14 +1913,14 @@ function renderGear() {
   const b = life.birth, full = !P.equip.includes(null), LD = loadNow();
   const slot = i => { const w = WEAPONS[P.slots[i]]; return `<div class="slot${P.slotIdx === i ? ' cur' : ''}"><span class="lbl">Hand ${i + 1}${P.slotIdx === i ? ' · in use' : ''}</span><b>${w.name}</b><span>${w.perk}</span><span class="m">Weight ${w.weight}</span></div>`; };
   const owned = [...P.weapons].sort((x, y) => x - y);
-  const inv = owned.map(wi => { const w = WEAPONS[wi]; return `<div class="item"><b>${w.name}</b><span class="m">Light ${w.light.dmg} · Heavy ${w.heavy.dmg} · Stamina ${w.light.st}/${w.heavy.st} · Weight ${w.weight} · Tier I</span><div class="row"><button class="btn ghost sm" type="button" data-w="${wi}" data-s="0">Hand 1</button><button class="btn ghost sm" type="button" data-w="${wi}" data-s="1">Hand 2</button></div></div>`; }).join('') + (owned.length < WEAPONS.length ? `<p class="note">${WEAPONS.length - owned.length} more weapon${WEAPONS.length - owned.length === 1 ? '' : 's'} hidden in chests on the road.</p>` : '');
+  const inv = owned.map(wi => { const w = WEAPONS[wi]; return `<div class="item"><b>${w.name}</b><span class="m">Light ${w.light.dmg} · Heavy ${w.heavy.dmg} · Stamina ${w.light.st}/${w.heavy.st} · Weight ${w.weight} · Tier I</span><div class="row"><button class="btn ghost sm" type="button" data-w="${wi}" data-s="0"${w.nomana && !P.noMana ? ' disabled' : ''}>Hand 1</button><button class="btn ghost sm" type="button" data-w="${wi}" data-s="1"${w.nomana && !P.noMana ? ' disabled' : ''}>Hand 2</button>${w.nomana && !P.noMana ? '<span class="m">It slips from hands that hold mana.</span>' : ''}</div></div>`; }).join('') + (owned.length < WEAPONS.length ? `<p class="note">${WEAPONS.length - owned.length} more weapon${WEAPONS.length - owned.length === 1 ? '' : 's'} hidden in chests on the road.</p>` : '');
   const gslots = ['head', 'body', 'feet'].map(k => { const id = P.garb[k], g = id && GARB[id]; return `<div class="slot"><span class="lbl">${SLOT_NAMES[k]}</span>${g ? `<b>${g.name}</b><span>${g.what}</span><span class="m">Protection ${g.prot}% · Weight ${g.weight}</span><div class="row"><button class="btn ghost sm" type="button" data-goff="${k}">Take off</button></div>` : '<span class="note">Nothing</span>'}</div>`; }).join('');
   const gcar = [...P.garbOwned].filter(id => P.garb[GARB[id].slot] !== id);
   const ginv = gcar.length ? gcar.map(id => { const g = GARB[id]; return `<div class="item"><b>${g.name}</b><span>${SLOT_NAMES[g.slot]} · ${g.what}</span><span class="m">Protection ${g.prot}% · Weight ${g.weight}</span><div class="row"><button class="btn ghost sm" type="button" data-gon="${id}">Wear</button></div></div>`; }).join('') : `<p class="note">Garments you find but do not wear wait here. Found ${P.garbOwned.size} of ${Object.keys(GARB).length}.</p>`;
   const rslots = [0, 1, 2, 3].map(i => { const id = P.equip[i]; return `<div class="slot"><span class="lbl">Relic ${i + 1}</span>${id ? `<b>${RELICS[id].name}</b><span>${RELICS[id].what}</span><div class="row"><button class="btn ghost sm" type="button" data-off="${i}">Take off</button></div>` : '<span class="note">Empty</span>'}</div>`; }).join('');
   const carried = [...P.relics].filter(id => !P.equip.includes(id));
   const rinv = carried.length ? carried.map(id => `<div class="item"><b>${RELICS[id].name}</b><span>${RELICS[id].what}</span><div class="row"><button class="btn ghost sm" type="button" data-on="${id}"${full ? ' disabled' : ''}>${full ? 'Slots full' : 'Put on'}</button></div></div>`).join('') : `<p class="note">Relics you find but do not wear wait here. Found ${P.relics.size} of ${Object.keys(RELICS).length}.</p>`;
-  const words = P.noMana ? '<p class="note">This body has no mana, so keys 1 to 4 stay empty.</p>' : P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}">${WORDS.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · ${w.cost} mana</option>`).join('')}</select></label>`).join('');
+  const words = P.noMana ? '<p class="note">This body has no mana: keys 1 to 4 hold scrolls (Spells page).</p>' : P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}">${WORDS.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · ${w.cost} mana</option>`).join('')}</select></label>`).join('');
   const hs = horse.state, horseLine = hs === 'wild' ? 'No mount yet. A wild horse grazes by the hut.' : hs === 'ridden' ? `Riding · horse health ${Math.round(horse.hp)}/${horse.hpMax}` : hs === 'fled' ? 'Your horse is hurt and ran off. Rest at a shrine.' : `Befriended · horse health ${Math.round(horse.hp)}/${horse.hpMax}`;
   $('gearIn').innerHTML = `
     <span class="eyebrow">Life ${life.n} · Tab or Esc to close</span><h2>${gearView === 'spells' ? 'Spells' : gearView === 'chants' ? 'Chants' : 'Gear'}</h2>
@@ -1904,7 +1936,7 @@ function renderGear() {
       <div class="gcol"><span class="lbl">Relics · 4 slots</span><div class="slots">${rslots}</div>
         <span class="lbl">Carried relics</span><div class="inv">${rinv}</div>
         <span class="lbl">Hotbar</span>
-        <div class="stats"><span>1 to 4 · spells (${P.noMana ? 'none in this body' : `${b.tierName} mana opens ${P.wordSlots.length}`})</span><span>5 · torch (${Math.ceil(P.torch.fuel)}s of fuel)</span><span>6 · ink knife (${P.knives}/${P.knivesMax})</span><span>7 · lotus (${P.lotus}/${P.lotusMax})</span><span>8 · mount bell: ${esc(horseLine)}</span></div>
+        <div class="stats"><span>1 to 4 · ${P.noMana ? 'scrolls (this body has no mana)' : 'spells'} (${P.noMana ? `${Object.values(P.scrolls).reduce((a, n) => a + n, 0)} carried` : `${b.tierName} mana opens ${P.wordSlots.length}`})</span><span>5 · torch (${Math.ceil(P.torch.fuel)}s of fuel)</span><span>6 · ink knife (${P.knives}/${P.knivesMax})</span><span>7 · lotus (${P.lotus}/${P.lotusMax})</span><span>8 · mount bell: ${esc(horseLine)}</span></div>
         <p class="note">Spells are on the Spells page.</p>
         <span class="lbl">This body</span>
         <div class="stats"><span>Born ${esc(b.local)}, ${esc(b.place)}</span><span>${esc(b.lagna)} lagna · Moon ${esc(b.moon)}</span><span>${esc(b.region)} · ${esc(b.people)}</span><span>${perks(b).map(esc).join(' · ')}</span>
@@ -1912,7 +1944,7 @@ function renderGear() {
     </div>`}`;
   $('gearIn').querySelectorAll('[data-view]').forEach(bt => bt.addEventListener('click', () => { gearView = bt.dataset.view; renderGear(); }));
   const q = sel => $('gearIn').querySelectorAll(sel);
-  q('[data-w]').forEach(bt => bt.addEventListener('click', () => { const wi = +bt.dataset.w, s = +bt.dataset.s, other = 1 - s; if (P.slots[other] === wi) P.slots[other] = P.slots[s]; P.slots[s] = wi; renderGear(); }));
+  q('[data-w]').forEach(bt => bt.addEventListener('click', () => { const wi = +bt.dataset.w, s = +bt.dataset.s, other = 1 - s; if (WEAPONS[wi].nomana && !P.noMana) return; if (P.slots[other] === wi) P.slots[other] = P.slots[s]; P.slots[s] = wi; renderGear(); }));
   q('[data-goff]').forEach(bt => bt.addEventListener('click', () => { P.garb[bt.dataset.goff] = null; renderGear(); }));
   q('[data-gon]').forEach(bt => bt.addEventListener('click', () => { const id = bt.dataset.gon; P.garb[GARB[id].slot] = id; renderGear(); }));
   q('[data-off]').forEach(bt => bt.addEventListener('click', () => { P.equip[+bt.dataset.off] = null; renderGear(); }));
@@ -2120,6 +2152,7 @@ function drawWorld() {
     ctx.fillRect(c.x - 17, c.gy - 20, 34, 20); hatch(c.x - 17, c.gy - 20, 34, 20, 6); ctx.strokeRect(c.x - 17, c.gy - 20, 34, 20);
     ctx.save(); ctx.translate(c.x - 17, c.gy - 20); if (open) ctx.rotate(-1.1); ctx.fillStyle = PAPER; ctx.fillRect(0, -8, 34, 8); ctx.strokeRect(0, -8, 34, 8); ctx.restore();
     if (!open) { ctx.fillStyle = INK; ctx.fillRect(c.x - 3, c.gy - 16, 6, 7); }
+    if (c.sealed && !open) { ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(c.x, c.gy - 44, 9, 0, Math.PI * 2); ctx.stroke(); }
   }
   const nightUnits = skyState().dark > 0.25;
   if (nightUnits) { if (uLayer.width !== cv.width || uLayer.height !== cv.height) { uLayer.width = cv.width; uLayer.height = cv.height; } const m = ctx.getTransform(); uctx.setTransform(1, 0, 0, 1, 0, 0); uctx.clearRect(0, 0, uLayer.width, uLayer.height); uctx.setTransform(m); ctx = uctx; }
@@ -2183,7 +2216,7 @@ function drawOverDark() {
   { const st = nearStone(); if (st) { ctx.fillStyle = INK2; ctx.fillText(st.k === 'moon' ? 'E: touch the moon stone' : st.k === 'sun' ? 'E: touch the sun stone' : 'E: listen to the stone', st.x, st.gy - 80); } }
   if (nearForge() >= 0 && !P.mount) { const f = FORGES[nearForge()]; ctx.fillStyle = INK2; ctx.fillText('E: use the forge', f.x + 4, f.gy - 92); }
   if (Math.abs(pcx() - HOME.x) < 60 && Math.abs(P.y + P.h - HOME.gy) < 50) { ctx.fillStyle = INK2; ctx.fillText('E: your chest · it keeps things across lives', HOME.x, HOME.gy - 70); }
-  for (const c of CHESTS) if (Math.abs(pcx() - c.x) < 60 && Math.abs(P.y + P.h - c.gy) < 50) { ctx.fillStyle = darkAt(c.x, c.gy - 50) ? '#b9b6ac' : INK2; ctx.fillText(chestOpen(c) ? (invEmpty(c.inv) ? 'E: an empty chest' : 'E: look inside') : 'E: open', c.x, c.gy - 40); }
+  for (const c of CHESTS) if (Math.abs(pcx() - c.x) < 60 && Math.abs(P.y + P.h - c.gy) < 50) { ctx.fillStyle = darkAt(c.x, c.gy - 50) ? '#b9b6ac' : INK2; ctx.fillText(c.sealed && !P.noMana && !chestOpen(c) ? 'Sealed: it opens only for a body born with no mana' : chestOpen(c) ? (invEmpty(c.inv) ? 'E: an empty chest' : 'E: look inside') : 'E: open', c.x, c.gy - 40); }
   if (Math.abs(P.x - villager.x) < 90 && Math.abs(P.y + P.h - villager.gy) < 60) { ctx.fillStyle = INK2; ctx.fillText('E: talk', villager.x, villager.gy - 92); }
   if (P.breath < BREATH && !P.dead) { const n = 8, left = Math.ceil(P.breath / BREATH * n); for (let i = 0; i < n; i++) { const bx = pcx() - (n - 1) * 5 + i * 10, by = P.y - 16; ctx.strokeStyle = left <= 2 ? RED : INK; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(bx, by, 3.5, 0, Math.PI * 2); if (i < left) { ctx.fillStyle = PAPER; ctx.fill(); } ctx.stroke(); } }
   for (const f of floaters) { ctx.globalAlpha = Math.min(1, f.life * 2); ctx.font = `13px ${FD}`; ctx.fillStyle = darkAt(f.x, f.y) && f.c !== RED ? '#d8d5cb' : f.c; ctx.textAlign = 'center'; const hw = ctx.measureText(f.t).width / 2 + 12; ctx.fillText(f.t, clamp(f.x, camX + hw, camX + W - hw), f.y); }
@@ -2340,6 +2373,7 @@ function drawWeapon(p, r) {
   else if (id === 'mace') { ctx.save(); ctx.translate(hx, hy); ctx.scale(p.face, 1); ctx.rotate(ang); ctx.strokeStyle = INK; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(30, 0); ctx.stroke(); ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(32, 0, 9, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
   else if (id === 'spear') { const push = act ? 16 : 0, a = act ? 0 : p.charging ? -0.2 : ang; ctx.save(); ctx.translate(hx, hy); ctx.scale(p.face, 1); ctx.rotate(a); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-16 + push - (p.charging ? 10 : 0), 0); ctx.lineTo(56 + push, 0); ctx.stroke(); ctx.fillStyle = INK; ctx.beginPath(); ctx.moveTo(68 + push, 0); ctx.lineTo(54 + push, -5); ctx.lineTo(54 + push, 5); ctx.closePath(); ctx.fill(); ctx.restore(); }
   else if (id === 'staff') { const a = p.atk && p.atk.spin && act ? p.atk.t * 24 : act ? 0.15 : ang + 0.3; ctx.save(); ctx.translate(hx, hy); ctx.scale(p.face, 1); ctx.rotate(a); ctx.strokeStyle = INK; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(-32, 0); ctx.lineTo(32, 0); ctx.stroke(); ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(-32, 0); ctx.lineTo(-27, 0); ctx.moveTo(27, 0); ctx.lineTo(32, 0); ctx.stroke(); ctx.restore(); }
+  else if (id === 'empty') { const a = act ? 0 : ang; blade(hx, hy, 42, a, 4.5, true); ctx.save(); ctx.translate(hx, hy); ctx.scale(p.face, 1); ctx.rotate(a); ctx.strokeStyle = PAPER; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(36, 0); ctx.stroke(); ctx.restore(); }
   else if (id === 'daggers') { blade(hx, hy, 18, act ? 0.2 : ang + 0.6, 2.5, true); if (!p.torch.lit) blade(r.hB.x, r.hB.y, 16, act ? -0.4 : ang + 1.2, 2.5, true); }
   else if (id === 'bow' && !p.glide) {
     const ax = aimX() - hx, ayy = aimY() - hy, a = mouse.in ? Math.atan2(ayy, ax) : (p.face > 0 ? 0 : Math.PI), pull = p.charging ? p.charge / 0.7 : 0;
@@ -2428,7 +2462,7 @@ function drawPlayerBody(p) {
 }
 function hotbarInfo(i) {
   if (i < 4) {
-    if (P.noMana) return { label: '—', on: false };
+    if (P.noMana) { const id = P.wordSlots[i]; if (!id) return { label: 'EMPTY', on: false }; const n = P.scrolls[id] || 0, w = SPELL(id); return { label: w.short, sub: `scroll ×${n}`, on: n > 0 && !needsMissing(w, true) }; }
     const id = P.wordSlots[i]; if (!id) return { label: i < P.wordSlots.length ? 'EMPTY' : 'LOCKED', on: false };
     const w = SPELL(id), miss = needsMissing(w); return { label: w.short, sub: miss ? 'not now' : `${spellCost(w)} mana`, on: !miss && P.mana >= spellCost(w) };
   }
@@ -2444,7 +2478,7 @@ function drawHUD() {
   plate(10, 6, 378, 136);
   bar(20, 26, 200, p.hp, p.hpMax, 'HEALTH');
   bar(20, 52, 200 * p.stMax / 100, p.st, p.stMax, 'STAMINA', INK2);
-  if (p.manaMax) bar(20, 78, 200 * p.manaMax / 100, p.mana, p.manaMax, `MANA · ${life.birth.school || ''}`, PENCIL); else { ctx.font = `10px ${FD}`; ctx.fillStyle = PENCIL; ctx.fillText('NO MANA IN THIS LIFE', 20, 84); }
+  if (p.manaMax) bar(20, 78, 200 * p.manaMax / 100, p.mana, p.manaMax, `MANA · ${life.birth.school || ''}`, PENCIL); else { ctx.font = `10px ${FD}`; ctx.fillStyle = PENCIL; ctx.fillText(`NO MANA · ${Object.values(p.scrolls).reduce((a, n) => a + n, 0)} SCROLLS`, 20, 84); }
   ctx.font = `10px ${FD}`; ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.fillText('PRANA', 300, 22);
   for (let i = 0; i < p.pranaMax; i++) { ctx.beginPath(); ctx.arc(308 + i * 22, 34, 7, 0, Math.PI * 2); ctx.lineWidth = 2; ctx.strokeStyle = INK; if (i < p.prana) { ctx.fillStyle = INK; ctx.fill(); } else ctx.stroke(); }
   ctx.fillStyle = INK; ctx.fillText(`LOTUS ${p.lotus}/${p.lotusMax}`, 300, 62); ctx.fillText(`SEEDS ${p.seeds}`, 300, 80);
@@ -2526,7 +2560,7 @@ window.__life = {
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };

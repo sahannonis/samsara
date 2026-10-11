@@ -52,6 +52,7 @@ and go to `http://localhost:8000/dist/samsara.html`.
 9. **The Real Sky**: the real Sun and Moon (with its phase) for the player's chosen place and time, drawn in ink; the sky darkens with the Sun's real height, stars turn with sidereal time, dawn and dusk glow on the Sun's side, and night-only spells follow the real Sun. A Sky panel picks the place (city list, your location, or coordinates) and moves time.
 10. **Chants and Callings**: longer spoken chants. Press C, pick a chant and speak its line; the cleaner and steadier you say it, the stronger it is, and a hit breaks it. Five weapon blessings (Agni, Jala, Vayu, Prithvi, Akasha) and five summons from the six realms (Deva, Asura, Preta, Forest kin, Naraka), each with an offering and a condition. Chants are learned from inscriptions in the world. Living things also get a moonlit edge at night so they stay visible.
 11. **The Trial Road**: past the false wall at the end, three test bosses behind gates that close when the fight starts: the Grasping Chief (combo, slam with ground waves, a grab that steals seeds, calls its kin), the Ember Wraith (flies, fire orbs, dives, a ring of fire; rain puts out its fire) and the Masked One (cuts, lunges, steps through ink, guards and counters, shows you your own face). Bosses have poise, open up when it breaks, reset if you fall, and come back each new life. Each one's own move becomes your spell: Quake, Wisps and Ink step. Three more spells come in new ways: Surya (a stone that wakes under the real midday Sun), Karuna (spare three in one life) and Vajra (beat a boss without being hit). The top-right box now grows to fit its text.
+12. **Born Empty**: what a body born with no mana gets instead of spells. It reads scrolls (one scroll, one cast, no mana or Focus needed) that wait in spell chests, are left by bosses and the Grasping, or are written at a shrine with Grasping ink. A timed parry turns magic back: fire orbs fly home at 2.5 times the damage and ground waves break. A sealed chest on the trial road holds the Empty edge, a blade only such a body can hold (40% more against bosses, twice the poise damage, longer blessings). A boss beaten in a past life gives nothing the second time, but its own move hits it three times as hard.
 
 ## Running the tests
 
@@ -65,6 +66,7 @@ python tests/test_spells.py
 python tests/test_sky.py
 python tests/test_chants.py
 python tests/test_bosses.py
+python tests/test_born_empty.py
 ```
 
 ## Credits
