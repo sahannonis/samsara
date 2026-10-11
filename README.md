@@ -28,7 +28,7 @@ and go to `http://localhost:8000/dist/samsara.html`.
 | `chant-test/` | The voice test for spoken incantations |
 | `history/` | Source of each earlier test build, so any of them can be rebuilt |
 | `ink-tower/` | The first stickman platformer this all grew from |
-| `tests/` | Headless browser tests (Playwright) for movement, mounts and gear, and growth |
+| `tests/` | Headless browser tests (Playwright), one per test build |
 | `tools/` | A checker that compares the star engine with Swiss Ephemeris |
 | `vendor/` | A copy of Astronomy Engine for offline tests |
 
@@ -49,6 +49,7 @@ and go to `http://localhost:8000/dist/samsara.html`.
 ### Phase 2: voice and magic
 
 8. **The Spell Book**: eleven new spells (Gust, Pillar, Monsoon, Unseen, Ember rain, Echo, Grasp, Shani, Chandra's tide, Starfall, Fire wind) with requirements (Focus, birth school, night where the player really is, a past life) and many ways to find them: chests, an enemy drop, a teacher, a spoken riddle, a stone that wakes at night, a past body, and joining spells at a shrine. Spells grow stronger with use and stay with the soul.
+9. **The Real Sky**: the real Sun and Moon (with its phase) for the player's chosen place and time, drawn in ink; the sky darkens with the Sun's real height, stars turn with sidereal time, dawn and dusk glow on the Sun's side, and night-only spells follow the real Sun. A Sky panel picks the place (city list, your location, or coordinates) and moves time.
 
 ## Running the tests
 
@@ -59,6 +60,7 @@ python build.py
 python tests/test_growth.py
 python tests/test_pack_and_travel.py
 python tests/test_spells.py
+python tests/test_sky.py
 ```
 
 ## Credits

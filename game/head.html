@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Samsara Build 8</title>
+<title>Samsara Build 9</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&family=Kalam:wght@400;700&display=swap">
@@ -81,6 +81,7 @@ select{font-family:var(--f-mono);font-size:14px;padding:8px;border:1.5px solid v
 .wslot{display:flex;flex-direction:column;gap:5px}
 .stats{display:flex;flex-direction:column;gap:3px;font-family:var(--f-mono);font-size:12px;border:1.5px solid var(--ink);padding:10px 12px}
 .btn:disabled{opacity:.4;cursor:default}
+input.num{font-family:var(--f-mono);font-size:14px;padding:8px;width:110px;border:1.5px solid var(--ink);background:var(--paper);color:var(--ink)}
 .slots.three{grid-template-columns:1fr 1fr 1fr}
 .statrow{flex-direction:row!important;justify-content:space-between;align-items:center;gap:12px}
 .statrow>div{display:flex;flex-direction:column;gap:2px}
@@ -94,7 +95,7 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
 <body>
 <div class="wrap">
   <header>
-    <div><span class="eyebrow">Samsara · test build 8</span><h1>The Spell Book</h1></div>
+    <div><span class="eyebrow">Samsara · test build 9</span><h1>The Real Sky</h1></div>
     <span class="lbl" id="lifeLabel">Life 1</span>
   </header>
 
@@ -102,9 +103,9 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
     <canvas id="cv" aria-label="Samsara test: a long proving ground of planks, ledges, water, walls, wind and darkness"></canvas>
 
     <div class="ov" id="ovStart"><div class="ov-in">
-      <span class="eyebrow">Spells, and the many ways to find them</span>
-      <h2>The spell book</h2>
-      <p>Eleven new spells are hidden in the proving grounds. Some lie in chests, one is carried by the Grasping, one is taught by someone you help, one answers a riddle spoken aloud, one wakes only at night where you really are, one is a memory from a past life, and one is made by joining two spells at a shrine. What you learn stays with your soul.</p>
+      <span class="eyebrow">Day and night from your own place and time</span>
+      <h2>The real sky</h2>
+      <p>The Sun, the Moon and its phase are where they really are right now, for the place you choose under the game. Night comes when the real Sun goes down, and night-only spells follow it. Use the Sky buttons to move time or watch a whole day pass in two minutes.</p>
       <div class="row">
         <label class="lbl" for="micStart">Mic</label>
         <select id="micStart">
@@ -161,6 +162,24 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
     <div class="panel">
       <div class="sechead"><h2>The soul's record</h2><span class="note">Kept across lives</span></div>
       <div class="lives" id="lives"><p class="note">Your lives will be listed here.</p></div>
+      <div class="sechead"><h2>Sky</h2><span class="note">Stays on this device</span></div>
+      <p class="note" id="skyNow" aria-live="off">The sky is loading.</p>
+      <div class="mic">
+        <label class="lbl" for="skyPlace">Place</label><select id="skyPlace"></select>
+        <button class="btn ghost sm" id="skyGeo" type="button">Use my location</button>
+      </div>
+      <div class="mic">
+        <label class="lbl" for="skyLat">Latitude</label><input id="skyLat" type="number" step="0.01" class="num">
+        <label class="lbl" for="skyLon">Longitude</label><input id="skyLon" type="number" step="0.01" class="num">
+        <button class="btn ghost sm" id="skySet" type="button">Set</button>
+      </div>
+      <div class="tools">
+        <button class="btn ghost" id="skyM6" type="button">−6 hours</button><button class="btn ghost" id="skyM1" type="button">−1 hour</button>
+        <button class="btn ghost" id="skyNowBtn" type="button">Now</button>
+        <button class="btn ghost" id="skyP1" type="button">+1 hour</button><button class="btn ghost" id="skyP6" type="button">+6 hours</button>
+        <button class="btn ghost" id="skyFast" type="button">Watch a day pass</button>
+      </div>
+      <p class="note" id="skyMsg"></p>
       <div class="sechead"><h2>Test tools</h2></div>
       <div class="tools">
         <button class="btn ghost" id="tEnd" type="button">End this life now</button>

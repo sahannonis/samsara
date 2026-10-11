@@ -861,8 +861,101 @@ function hurtPlayer(d, src, melee) {
   return 'hit';
 }
 let nightOverride = null;
-function isNight() { if (nightOverride !== null) return nightOverride; const h = new Date().getHours(); return h >= 19 || h < 6; }
-function moonLight() { try { const ph = window.Astronomy.MoonPhase(new Date()) * Math.PI / 180; return { illum: (1 - Math.cos(ph)) / 2, waxing: ph < Math.PI }; } catch (_) { return { illum: 0.5, waxing: true }; } }
+/* ---------- the real sky: the Sun, Moon and stars for the player's own place and time ---------- */
+const HORIZON = 400;
+const SKY = { lat: 6.932, lon: 79.858, tz: 'Asia/Colombo', name: 'Colombo', offset: 0, speed: 0, t0: 0, cache: null, cacheReal: -1e9 };
+(function initSky() {
+  let saved = null; try { saved = JSON.parse(localStorage.getItem('samsara.sky') || 'null'); } catch (_) {}
+  if (saved && isFinite(saved.lat) && isFinite(saved.lon)) { Object.assign(SKY, { lat: saved.lat, lon: saved.lon, tz: saved.tz || SKY.tz, name: saved.name || 'Saved place' }); return; }
+  let tz = 'UTC'; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (_) {}
+  const p = PLACES.find(q => q[3] === tz);
+  if (p) Object.assign(SKY, { lat: p[1], lon: p[2], tz, name: p[0] });
+  else { const off = -new Date().getTimezoneOffset() / 60; Object.assign(SKY, { lat: 20, lon: off * 15, tz, name: `${tz} (guessed from your timezone)` }); }
+})();
+function saveSky() { try { localStorage.setItem('samsara.sky', JSON.stringify({ lat: SKY.lat, lon: SKY.lon, tz: SKY.tz, name: SKY.name })); } catch (_) {} SKY.cache = null; }
+function skyDate() { return new Date(Date.now() + SKY.offset + (SKY.speed ? (performance.now() - SKY.t0) * SKY.speed : 0)); }
+function skyFast(on) { if (on && !SKY.speed) { SKY.t0 = performance.now(); SKY.speed = 720; } else if (!on && SKY.speed) { SKY.offset += (performance.now() - SKY.t0) * SKY.speed; SKY.speed = 0; } SKY.cache = null; }
+function skyState() {
+  if (SKY.cache && performance.now() - SKY.cacheReal < (SKY.speed ? 40 : 500)) return SKY.cache;
+  const d = skyDate(); let sun, moon, phase, lst = 0;
+  try {
+    const A = window.Astronomy, obs = new A.Observer(SKY.lat, SKY.lon, 0);
+    const pos = b => { const eq = A.Equator(b, d, obs, true, true), hz = A.Horizon(d, obs, eq.ra, eq.dec, 'normal'); return { alt: hz.altitude, az: hz.azimuth }; };
+    sun = pos(A.Body.Sun); moon = pos(A.Body.Moon); phase = A.MoonPhase(d); lst = (A.SiderealTime(d) + SKY.lon / 15 + 48) % 24;
+  } catch (_) {
+    const h = d.getUTCHours() + d.getUTCMinutes() / 60 + SKY.lon / 15;
+    sun = { alt: 70 * Math.sin((h - 6) / 12 * Math.PI), az: ((h - 6) / 12) * 180 + 90 }; moon = { alt: -20, az: 0 }; phase = 90; lst = h;
+  }
+  const illum = (1 - Math.cos(phase * Math.PI / 180)) / 2;
+  SKY.cache = { d, sun, moon, phase, illum, waxing: phase < 180, lst, dark: clamp((4 - sun.alt) / 16, 0, 1) }; SKY.cacheReal = performance.now();
+  return SKY.cache;
+}
+function isNight() { if (nightOverride !== null) return nightOverride; return skyState().sun.alt < -6; }
+function moonLight() { const k = skyState(); return { illum: k.illum, waxing: k.waxing }; }
+function skyXY(b) { const a = b.alt * Math.PI / 180, z = b.az * Math.PI / 180; let x = -Math.cos(a) * Math.sin(z); if (SKY.lat < 0) x = -x; return { x: W / 2 + x * W * 0.47, y: HORIZON - Math.sin(a) * (HORIZON - 165) }; }
+const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+const dirOf = az => COMPASS[Math.round(((az % 360) + 360) % 360 / 45) % 8];
+function localTimeText(d) { try { return new Intl.DateTimeFormat('en-GB', { timeZone: SKY.tz, hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }).format(d); } catch (_) { return d.toUTCString().slice(5, 22); } }
+const STARS = Array.from({ length: 90 }, (_, i) => { const r1 = Math.sin(i * 12.9898) * 43758.5453, r2 = Math.sin(i * 78.233) * 12543.123, r3 = Math.sin(i * 39.425) * 9871.77; return { r: 120 + (r1 - Math.floor(r1)) * 640, a: (r2 - Math.floor(r2)) * Math.PI * 2, b: 0.4 + (r3 - Math.floor(r3)) * 0.6, big: (r3 - Math.floor(r3)) > 0.88 }; });
+const skyCv = document.createElement('canvas'), sctx = skyCv.getContext('2d');
+const mix = (a, b, t) => { const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), A = p(a), B = p(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`; };
+function paintSky() {
+  if (skyCv.width !== cv.width || skyCv.height !== cv.height) { skyCv.width = cv.width; skyCv.height = cv.height; }
+  const k = skyState(), c = sctx, d = k.dark, south = SKY.lat >= 0;
+  c.setTransform(scale, 0, 0, scale, 0, 0); c.clearRect(0, 0, W, H);
+  const g = c.createLinearGradient(0, 0, 0, HORIZON + 80); g.addColorStop(0, mix('#fbfaf6', '#121211', d)); g.addColorStop(1, mix('#fbfaf6', '#3d3b35', d)); c.fillStyle = g; c.fillRect(0, 0, W, H);
+  // dawn and dusk glow on the Sun's side
+  if (k.sun.alt > -14 && k.sun.alt < 12) { const sp = skyXY({ alt: 0, az: k.sun.az }), a = 0.55 * (1 - Math.abs(k.sun.alt + 1) / 13); const rg = c.createRadialGradient(sp.x, HORIZON, 10, sp.x, HORIZON, 520); rg.addColorStop(0, `rgba(214,196,170,${Math.max(0, a)})`); rg.addColorStop(1, 'rgba(214,196,170,0)'); c.fillStyle = rg; c.fillRect(0, 0, W, H); }
+  // stars wheel around the hidden pole as the real sidereal time turns
+  const sa = clamp((-4 - k.sun.alt) / 10, 0, 1);
+  if (sa > 0) { const px = W / 2, py = HORIZON + Math.sin(Math.abs(SKY.lat) * Math.PI / 180) * (HORIZON - 46) + 60, ang = (south ? 1 : -1) * k.lst / 24 * Math.PI * 2;
+    for (const st of STARS) { const x = px + Math.cos(st.a + ang) * st.r * 1.3, y = py + Math.sin(st.a + ang) * st.r; if (y > HORIZON - 4 || y < 0 || x < 0 || x > W) continue; c.globalAlpha = sa * st.b * (0.75 + 0.25 * Math.sin(clock * 2 + st.a * 7)); c.fillStyle = '#f3f0e7'; c.fillRect(x, y, st.big ? 2.5 : 1.6, st.big ? 2.5 : 1.6); }
+    c.globalAlpha = 1; }
+  // the Moon in its real phase
+  if (k.moon.alt > -1) { const m = skyXY(k.moon), r = 17, lit = (k.waxing ? 1 : -1) * (south ? 1 : -1), kx = Math.cos(k.phase * Math.PI / 180) * r;
+    c.globalAlpha = 0.45 + 0.55 * d; c.fillStyle = mix('#cfcbc0', '#3d3b35', d); c.beginPath(); c.arc(m.x, m.y, r, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fbfaf6'; c.beginPath(); c.arc(m.x, m.y, r, -Math.PI / 2, Math.PI / 2, lit < 0); c.fill();
+    c.fillStyle = k.illum > 0.5 ? '#fbfaf6' : mix('#cfcbc0', '#3d3b35', d); c.beginPath(); c.ellipse(m.x, m.y, Math.abs(kx), r, 0, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = mix('#8c897f', '#151513', 1 - d); c.lineWidth = 1.5; c.beginPath(); c.arc(m.x, m.y, r, 0, Math.PI * 2); c.stroke(); c.globalAlpha = 1; }
+  // the Sun
+  if (k.sun.alt > -2) { const sp = skyXY(k.sun), r = k.sun.alt < 8 ? 24 : 19;
+    c.strokeStyle = '#151513'; c.lineWidth = 2.2; c.fillStyle = '#fbfaf6'; c.beginPath(); c.arc(sp.x, sp.y, r, 0, Math.PI * 2); c.fill(); c.stroke();
+    c.beginPath(); for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 + clock * 0.1; c.moveTo(sp.x + Math.cos(a) * (r + 6), sp.y + Math.sin(a) * (r + 6)); c.lineTo(sp.x + Math.cos(a) * (r + (i % 2 ? 12 : 17)), sp.y + Math.sin(a) * (r + (i % 2 ? 12 : 17))); } c.stroke(); }
+  // where the directions are on the horizon
+  c.font = `11px ${FD}`; c.textAlign = 'center'; c.fillStyle = mix('#8c897f', '#b9b6ac', d);
+  const lbl = south ? [['E', 0.03], ['S', 0.5], ['W', 0.97]] : [['W', 0.03], ['N', 0.5], ['E', 0.97]];
+  for (const [t, f] of lbl) c.fillText(t, W * f + (f < 0.1 ? 10 : f > 0.9 ? -10 : 0), HORIZON - 8);
+}
+function drawSkyBehind() {
+  const k = skyState();
+  if (k.dark > 0) { ctx.save(); ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = `rgba(21,21,19,${k.dark * 0.42})`; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+  paintSky(); ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'destination-over'; ctx.drawImage(skyCv, 0, 0); ctx.restore();
+}
+function skyText() {
+  const k = skyState(), up = b => b.alt > 0;
+  const sun = up(k.sun) ? `the Sun is ${Math.round(k.sun.alt)}° high in the ${dirOf(k.sun.az)}` : `the Sun is ${Math.round(-k.sun.alt)}° below the ${dirOf(k.sun.az)} horizon`;
+  const moon = `the Moon is ${Math.round(k.illum * 100)}% full and ${k.waxing ? 'growing' : 'shrinking'}, ${up(k.moon) ? `${Math.round(k.moon.alt)}° high in the ${dirOf(k.moon.az)}` : 'below the horizon'}`;
+  return `${SKY.name} · ${localTimeText(k.d)}${SKY.offset || SKY.speed ? ' (moved by the time buttons)' : ''} · ${isNight() ? 'night' : k.sun.alt < 4 ? 'twilight' : 'day'}: ${sun}; ${moon}.`;
+}
+function bindSkyPanel() {
+  const sel = $('skyPlace'); if (!sel) return;
+  sel.innerHTML = `<option value="here">${esc(SKY.name)} (current)</option>` + PLACES.map((q, i) => `<option value="${i}">${q[0]}</option>`).join('');
+  sel.addEventListener('change', () => { const v = sel.value; if (v !== 'here') { const q = PLACES[+v]; Object.assign(SKY, { lat: q[1], lon: q[2], tz: q[3], name: q[0] }); saveSky(); $('skyLat').value = SKY.lat; $('skyLon').value = SKY.lon; } });
+  $('skyLat').value = SKY.lat; $('skyLon').value = SKY.lon;
+  $('skySet').addEventListener('click', () => { const la = parseFloat($('skyLat').value), lo = parseFloat($('skyLon').value); if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) { $('skyMsg').textContent = 'Latitude goes from -90 to 90 and longitude from -180 to 180.'; return; } let tz = SKY.tz; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (_) {} Object.assign(SKY, { lat: la, lon: lo, tz, name: `${la.toFixed(2)}, ${lo.toFixed(2)}` }); saveSky(); $('skyMsg').textContent = 'Place set. It stays on this device only.'; });
+  $('skyGeo').addEventListener('click', () => {
+    if (!navigator.geolocation) { $('skyMsg').textContent = 'This browser cannot share a location. Pick a city or type it in.'; return; }
+    $('skyMsg').textContent = 'Asking your browser…';
+    navigator.geolocation.getCurrentPosition(pos => { let tz = SKY.tz; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (_) {} Object.assign(SKY, { lat: +pos.coords.latitude.toFixed(3), lon: +pos.coords.longitude.toFixed(3), tz, name: 'Your location' }); saveSky(); $('skyLat').value = SKY.lat; $('skyLon').value = SKY.lon; $('skyMsg').textContent = 'Using your location. It stays on this device only.'; },
+      () => { $('skyMsg').textContent = 'The browser did not share a location. Pick a city or type it in.'; }, { timeout: 10000 });
+  });
+  const shift = h => { SKY.offset += h * 3600e3; SKY.cache = null; };
+  $('skyM6').addEventListener('click', () => shift(-6)); $('skyM1').addEventListener('click', () => shift(-1)); $('skyP1').addEventListener('click', () => shift(1)); $('skyP6').addEventListener('click', () => shift(6));
+  $('skyNowBtn').addEventListener('click', () => { skyFast(false); SKY.offset = 0; SKY.cache = null; $('skyFast').textContent = 'Watch a day pass'; });
+  $('skyFast').addEventListener('click', () => { skyFast(!SKY.speed); $('skyFast').textContent = SKY.speed ? 'Stop the fast sky' : 'Watch a day pass'; });
+  setInterval(() => { $('skyNow').textContent = skyText(); }, 500);
+}
+bindSkyPanel();
 const spellCost = w => Math.round(w.cost * (w.school && P.school ? (w.school === P.school ? 0.8 : 1.25) : 1));
 const rankOf = id => { const n = soul.ranks[id] || 0; return n >= 30 ? 3 : n >= 10 ? 2 : 1; };
 function needsMissing(w) {
@@ -1295,7 +1388,7 @@ toolBtn('tRelics', () => {
   banner = { t: 2.6, top: 'EVERY RELIC', sub: 'Test tool: you carry all seven. Feather, gecko, kite and bead are on. Swap in Tab.' };
 });
 toolBtn('tSpells', () => { for (const w of WORDS) soul.spells.add(w.id); P.stats.foc = Math.max(P.stats.foc, 14); applyStats(false); banner = { t: 2.6, top: 'EVERY SPELL', sub: 'Test tool: you know all fourteen spells and your Focus is at least 14. Put them on keys 1 to 4 in Tab, on the Spells page.' }; });
-toolBtn('tNight', () => { nightOverride = nightOverride === null ? !isNight() : nightOverride ? false : null; banner = { t: 2, top: nightOverride === null ? 'REAL CLOCK' : nightOverride ? 'NIGHT' : 'DAY', sub: nightOverride === null ? 'Day and night follow your own clock again.' : 'Test tool: day and night are forced until you press it again.' }; });
+toolBtn('tNight', () => { SKY.offset += 12 * 3600e3; SKY.cache = null; banner = { t: 2.4, top: isNight() ? 'NIGHT' : 'DAY', sub: 'Test tool: the sky moved 12 hours. Use the Sky buttons under the game to move it back, or press Now.' }; });
 toolBtn('tRich', () => {
   P.seeds += 1000; Object.keys(P.mats).forEach(k => P.mats[k] += 6);
   banner = { t: 2.6, top: 'SEEDS AND MATERIALS', sub: 'Test tool: 1000 seeds and 6 of every material. Rest at a shrine to level up; use a forge to temper.' };
@@ -1338,7 +1431,7 @@ function renderSpellBook() {
   return `
     <div class="gear">
       <div class="gcol"><span class="lbl">On your keys · say a spell aloud for 100%, press its key for 80%</span>${keys}
-        <div class="stats"><span>It is ${isNight() ? 'night' : 'day'} where you are${nightOverride !== null ? ' (test tool)' : ''}. The real Moon is ${Math.round(m.illum * 100)}% full and ${m.waxing ? 'growing' : 'shrinking'}.</span><span>Spells of your birth school cost less; spells of other schools cost more. Spells grow stronger the more you cast them.</span></div>
+        <div class="stats"><span>${esc(skyText())}</span><span>Spells of your birth school cost less; spells of other schools cost more. Spells grow stronger the more you cast them.</span></div>
         <span class="lbl">Spells you know · ${known.length} of ${WORDS.length} · they stay with your soul</span><div class="inv">${known.map(card).join('')}</div></div>
       <div class="gcol"><span class="lbl">Spells still out there</span><div class="inv">${unknown.length ? unknown.map(w => `<div class="item"><b>?</b><span class="hand">${esc(w.how)}</span></div>`).join('') : '<p class="note">You know every spell in the proving grounds.</p>'}</div></div>
     </div>`;
@@ -1645,15 +1738,6 @@ function drawOverDark() {
   for (const f of floaters) { ctx.globalAlpha = Math.min(1, f.life * 2); ctx.font = `13px ${FD}`; ctx.fillStyle = darkAt(f.x, f.y) && f.c !== RED ? '#d8d5cb' : f.c; ctx.textAlign = 'center'; const hw = ctx.measureText(f.t).width / 2 + 12; ctx.fillText(f.t, clamp(f.x, camX + hw, camX + W - hw), f.y); }
   ctx.globalAlpha = 1; ctx.restore();
 }
-function drawNight() {
-  ctx.save(); ctx.fillStyle = 'rgba(21,21,19,0.22)'; ctx.fillRect(0, 0, W, H);
-  const m = moonLight(), mx = 690, my = 128 - camY * 0.05, r = 16;
-  ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // the dark part of the Moon: a half disc plus an ellipse whose width follows the phase
-  const k = 1 - 2 * m.illum, side = m.waxing ? -1 : 1; ctx.fillStyle = INK2; ctx.beginPath(); ctx.arc(mx, my, r - 1, Math.PI / 2, Math.PI * 1.5, side > 0); ctx.ellipse(mx, my, Math.abs(k) * (r - 1), r - 1, 0, Math.PI * 1.5, Math.PI / 2, (k > 0) === (side > 0)); ctx.fill();
-  ctx.fillStyle = PAPER; for (let i = 0; i < 18; i++) { const sx = (i * 173 - camX * 0.05) % W, sy = 30 + (i * 61) % 160; ctx.globalAlpha = 0.4 + 0.4 * Math.sin(clock * 2 + i); ctx.fillRect((sx + W) % W, sy, 2, 2); }
-  ctx.restore();
-}
 function lightR() { return 80 + (P.torch.lit ? 170 : 0) + (has('bead') ? 60 : 0); }
 function drawDark() {
   const vis = DARKS.filter(d => visible(d, 0));
@@ -1875,13 +1959,13 @@ function drawHUD() {
 }
 function render() {
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
-  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
+  ctx.clearRect(0, 0, W, H); if (!P || mode === 'map') { ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H); }
   ctx.strokeStyle = RULE; ctx.lineWidth = 1; ctx.beginPath(); for (let y = 40 - (camY * 0.5) % 34; y < H; y += 34) { ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); } ctx.stroke();
   if (!P) return;
   if (mode === 'map') { drawMap(); cv.style.cursor = mapHits.some(m => P.visited.has(m.i) && Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18) ? 'pointer' : 'default'; return; }
   const sx = shake ? rnd(-shake, shake) : 0, sy = shake ? rnd(-shake, shake) * 0.6 : 0;
   ctx.save(); ctx.translate(sx, sy); drawWorld(); ctx.restore();
-  if (isNight()) drawNight();
+  drawSkyBehind();
   drawDark(); drawOverDark();
   drawHUD();
   cv.style.cursor = mode === 'play' && mouse.in ? 'none' : mode === 'map' && mapHits.some(m => P.visited.has(m.i) && Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18) ? 'pointer' : 'default';
@@ -1907,7 +1991,7 @@ window.__life = {
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };
