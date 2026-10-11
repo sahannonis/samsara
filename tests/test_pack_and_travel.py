@@ -52,7 +52,7 @@ async def main():
         hit = await ev("(()=>{ const L=__life; return null })()")
         await pg.keyboard.press('Digit5'); R['travel_unvisited_msg'] = await ev("__life.mode")
         await ev("""(()=>{})()""")
-        await pg.mouse.move(box['x'] + box['width'] * ((30 + 180 * 900 / 9800) / 960), box['y'] + box['height'] * ((150 + 1000 * 300 / 1400 - 10) / 540))
+        await pg.mouse.move(box['x'] + box['width'] * ((30 + 180 * 900 / 13700) / 960), box['y'] + box['height'] * ((150 + 1000 * 300 / 1400 - 10) / 540))
         await run(1); await fr.screenshot(path=OUT + 'b7_04_map_hover.png')
         await pg.mouse.down(); await pg.mouse.up(); await run(2)
         R['travel_click'] = await ev("__life.mode+' x '+Math.round(__life.P.x)")

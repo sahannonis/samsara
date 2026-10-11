@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const W = 960, H = 540, GRAV = 2000, LW = 9800, LH = 1400, PH = 52, CH = 34, BREATH = 8, TORCH = 60, KNIVES = 5;
+const W = 960, H = 540, GRAV = 2000, LW = 13700, LH = 1400, PH = 52, CH = 34, BREATH = 8, TORCH = 60, KNIVES = 5;
 const INK = '#151513', INK2 = '#3d3b35', PENCIL = '#8c897f', PAPER = '#fbfaf6', RULE = '#ebe8de', FAINT = '#e2ded3', RED = '#c4252b', HATCH = '#cfcbc0';
 const FD = '"Rubik Mono One","Arial Black",sans-serif', FH = '"Kalam","Comic Sans MS",cursive', FM = '"DM Mono",ui-monospace,monospace';
 const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -103,10 +103,21 @@ S(8550, 760, 1250, 640);
 S(9600, 0, 200, 660);
 FAKES.push({ x: 9600, y: 660, w: 200, h: 100, found: false });
 DARKS.push({ x: 7500, y: 0, w: 1300, h: 1400 });
+// the trial road, past the wall that is not there: three test bosses, each guarding a spell
+S(9800, 760, 1650, 640); S(11450, 760, 130, 640, 'hot'); S(11580, 760, 540, 640); S(12120, 760, 130, 640, 'hot'); S(12250, 760, 1450, 640);
+O(11640, 650, 120); O(11930, 650, 120); O(11785, 555, 120);
+S(13600, 0, 100, 760);
+const ARENAS = [
+  { id: 'chief', l: 10250, r: 11050, gy: 760, name: 'THE GRASPING CHIEF', who: 'The Grasping Chief', sub: 'A lesser boss (test stand-in)', seeds: 250, gift: 'quake', giftHow: 'The Grasping Chief falls, and its slam is yours now.' },
+  { id: 'wraith', l: 11450, r: 12250, gy: 760, name: 'THE EMBER WRAITH', who: 'The Ember Wraith', sub: 'A lesser boss (test stand-in)', seeds: 300, gift: 'wisps', giftHow: 'The Ember Wraith breaks apart, and its little fires follow you now.' },
+  { id: 'masked', l: 12650, r: 13450, gy: 760, name: 'THE MASKED ONE', who: 'The Masked One', sub: 'A great boss (test stand-in)', seeds: 500, gift: 'inkstep', giftHow: 'The mask cracks. The way it moved through ink is yours now.' },
+];
+ARENAS.forEach(a => { a.fight = false; a.hit = false; a.gates = [{ x: a.l - 24, y: a.gy - 320, w: 24, h: 320 }, { x: a.r, y: a.gy - 320, w: 24, h: 320 }]; });
 
 const SHRINES = [
   { x: 180, gy: 1000, name: 'Village shrine' }, { x: 2960, gy: 790, name: 'Plateau shrine' }, { x: 5900, gy: 1020, name: 'Pool shrine' },
   { x: 7300, gy: 560, name: 'Cave mouth shrine' }, { x: 9450, gy: 760, name: 'End shrine' },
+  { x: 10050, gy: 760, name: 'Trial shrine' }, { x: 11250, gy: 760, name: 'Second trial shrine' }, { x: 12450, gy: 760, name: 'Last trial shrine' },
 ];
 const HUT = { x: 470, gy: 1000 };
 const FOE_SPAWNS = [
@@ -153,21 +164,28 @@ const HINTS = [
   [8000, 700, 'The ground burns.'],
   [8350, 700, 'The bridge crumbles. Keep moving.'],
   [9050, 660, 'Rest at the shrine. The proving grounds end here.'],
+  [9500, 600, 'Or do they? The far wall looks thin.'],
+  [9980, 640, 'The trial road. Each one ahead guards a gift.'],
+  [10150, 680, 'Bosses do not beg, and they see through Unseen.'],
+  [11300, 660, 'It flies. Arrows, knives and spells reach it. Rain puts out its fire.'],
+  [12520, 660, 'It parries. Do not swing at its guard; a heavy blow breaks it.'],
 ];
 const ZONES = [[0, 'THE VILLAGE', 'Rest, talk, and find your first relic'], [1300, 'THE LOW TUNNEL', 'Crawl'], [2140, 'THE PLANKS', 'Up, through and over'], [2780, 'THE PLATEAU', 'Ledges and a ladder'],
   [4350, 'MUD AND ICE', 'The ground changes how you move'], [5200, 'THE POOL', 'Breath matters'], [6040, 'THE CHIMNEY', 'Walls you can climb, with the right charm'], [6600, 'THE WIND GAP', 'Too far to jump'],
-  [7500, 'THE DARK', 'Light, fire and false walls'], [8800, 'THE ARENA', 'The end of the proving grounds']];
+  [7500, 'THE DARK', 'Light, fire and false walls'], [8800, 'THE ARENA', 'The end of the proving grounds'], [9800, 'THE TRIAL ROAD', 'Three test bosses, each guarding a spell']];
 
 function blocked(b) {
   for (const s of SOLIDS) if (overlap(b, s)) return s;
   for (const c of CRUMBLES) if (c.state !== 'gone' && overlap(b, c)) return c;
   for (const t of TEMPS) if (overlap(b, { x: t.x, y: t.y + t.h * (1 - t.rise), w: t.w, h: t.h * t.rise })) return t;
+  for (const a of ARENAS) if (a.fight) for (const g of a.gates) if (overlap(b, g)) return g;
   return null;
 }
 function pointSolid(x, y) {
   for (const s of SOLIDS) if (inR(x, y, s)) return s;
   for (const c of CRUMBLES) if (c.state !== 'gone' && inR(x, y, c)) return c;
   for (const t of TEMPS) if (inR(x, y, t)) return t;
+  for (const a of ARENAS) if (a.fight) for (const g of a.gates) if (inR(x, y, g)) return g;
   return null;
 }
 const waterAt = (x, y) => WATERS.find(w => inR(x, y, w));
@@ -260,13 +278,19 @@ const WORDS = [
   { id: 'gust', say: 'Gust', short: 'GUST', school: 'Vayu', cost: 15, what: 'Wind throws foes back. Cast it in the air to lift yourself higher.', how: 'High up on the planks.', alias: ['gust', 'gusts', 'guest', 'gast', 'gusty', 'gassed'] },
   { id: 'pillar', say: 'Pillar', short: 'PILLAR', school: 'Prithvi', cost: 30, what: 'Stone rises where you aim and stays for 8 seconds. Stand on it to reach higher places.', how: 'Below the planks, near the high wall.', alias: ['pillar', 'pillars', 'piller', 'pilla', 'peeler', 'pillow'] },
   { id: 'monsoon', say: 'Monsoon', short: 'MONSOON', school: 'Jala', cost: 35, what: 'Rain falls where you aim for 6 seconds. Foes slow down, and burning ground under it is safe to cross.', how: 'At the mouth of the dark.', alias: ['monsoon', 'mon soon', 'monsun', 'man soon', 'monsoons', 'mansoon'] },
-  { id: 'unseen', say: 'Unseen', short: 'UNSEEN', school: 'Akasha', cost: 25, what: 'You turn to ink and foes lose you for 5 seconds, 8 at night. Attacking ends it.', how: 'Someone you helped may teach you.', alias: ['unseen', 'un seen', 'unscene', 'on seen', 'and seen', 'unsean'] },
+  { id: 'unseen', say: 'Unseen', short: 'UNSEEN', school: 'Akasha', cost: 25, what: 'You turn to ink and foes lose you for 5 seconds, 8 at night. Attacking ends it. Bosses see through it.', how: 'Someone you helped may teach you.', alias: ['unseen', 'un seen', 'unscene', 'on seen', 'and seen', 'unsean'] },
   { id: 'embers', say: 'Ember rain', short: 'EMBERS', school: 'Agni', cost: 30, what: 'Fire falls along the ground in front of you.', how: 'Past the crumbling bridge.', alias: ['ember rain', 'ember', 'embers', 'amber rain', 'member rain', 'amber'] },
   { id: 'echo', say: 'Echo', short: 'ECHO', school: 'Akasha', cost: 40, needs: { life: 2 }, what: 'A shade of one of your past lives fights beside you for 10 seconds.', how: 'Find a body you once wore.', alias: ['echo', 'eco', 'echoes', 'ekko', 'akko', 'ecco'] },
   { id: 'grasp', say: 'Grasp', short: 'GRASP', school: null, cost: 20, what: "Greed's own spell. Pull a foe to you and take some of its seeds. Using it weighs a little on karma.", how: 'The Grasping carry it. Defeat them.', alias: ['grasp', 'grasped', 'gasp', 'crasp', 'graps', 'grasps'] },
   { id: 'shani', say: 'Shani', short: 'SHANI', school: null, cost: 45, needs: { focus: 14 }, what: 'The weight of Saturn: everything near you slows down for 6 seconds, and you slow a little too.', how: 'A speaking stone below the plateau asks a question.', alias: ['shani', 'shanni', 'sani', 'shaney', 'saturn', 'shanee'] },
   { id: 'tide', say: 'Chandra', short: 'TIDE', school: null, cost: 30, what: "The Moon's tide heals you over 6 seconds. It is stronger the fuller the real Moon is tonight.", how: 'A stone above the wind gap wakes at night.', alias: ['chandra', 'chandr', 'candra', 'chandler', 'chander', 'tide'] },
   { id: 'starfall', say: 'Starfall', short: 'STARFALL', school: 'Akasha', cost: 50, needs: { night: true, focus: 12 }, what: 'Starlight strikes every foe you can see. Only at night where you are.', how: 'Behind a wall that is not there.', alias: ['starfall', 'star fall', 'star full', 'starful', 'stall fall'] },
+  { id: 'quake', say: 'Quake', short: 'QUAKE', school: 'Prithvi', cost: 35, boss: 'chief', what: 'Slam the ground: two waves of stone run out along the floor both ways and knock foes off their feet. Only on the ground.', how: 'Won from the Grasping Chief on the trial road. It is its own move.', alias: ['quake', 'quakes', 'kweak', 'earthquake', 'quaked', 'quaker', 'qwake'] },
+  { id: 'wisps', say: 'Wisps', short: 'WISPS', school: 'Agni', cost: 40, boss: 'wraith', what: 'Three wisps of fire circle you for 12 seconds and fly at foes that come near, setting them burning.', how: 'Won from the Ember Wraith on the trial road. It is its own fire.', alias: ['wisps', 'wisp', 'whisps', 'whisp', 'wasps', 'lisps', 'wispy'] },
+  { id: 'inkstep', say: 'Ink step', short: 'STEP', school: 'Akasha', cost: 20, boss: 'masked', what: 'Melt into ink and step up to 200 paces toward where you aim, through foes but not through walls. Nothing touches you as you go.', how: 'Won from the Masked One at the end of the trial road. It is how it moved.', alias: ['ink step', 'inkstep', 'in step', 'ink steps', 'inc step', 'ink stop', 'inks step', 'instep'] },
+  { id: 'surya', say: 'Surya', short: 'SURYA', school: null, cost: 45, needs: { day: true }, what: 'Sunlight strikes down where you aim. The higher the real Sun stands where you are, the harder it burns. Only while the Sun is up.', how: 'A stone on the plateau wakes when the real Sun stands high.', alias: ['surya', 'suriya', 'soorya', 'sorry a', 'suria', 'surya dev', 'sooriya'] },
+  { id: 'karuna', say: 'Karuna', short: 'KARUNA', school: null, cost: 25, what: 'Compassion: the foe in front of you lowers its weapon for 8 seconds. A boss only hesitates. Striking one you calmed weighs on karma.', how: 'Spare three who beg for mercy in one life.', alias: ['karuna', 'caruna', 'karoona', 'corona', 'karina', 'car una', 'karunaa'] },
+  { id: 'vajra', say: 'Vajra', short: 'VAJRA', school: 'Vayu', cost: 40, what: "Indra's lightning strikes the nearest foe in front of you and jumps to two more.", how: 'Beat a boss without being hit once.', alias: ['vajra', 'vajara', 'vadra', 'vazra', 'vajrah', 'vachra', 'bajra'] },
   { id: 'firewind', say: 'Fire wind', short: 'FIREWIND', school: 'Agni', cost: 35, what: 'A blast of fire in front of you that throws foes back.', how: 'Join two spells you know at a shrine.', alias: ['fire wind', 'firewind', 'fire win', 'far wind', 'fire when'] },
 ];
 const SPELL = id => WORDS.find(w => w.id === id);
@@ -324,7 +348,7 @@ function startRec() {
 function stopRec() { try { rec && rec.stop(); } catch (_) {} }
 
 /* ---------- state ---------- */
-const soul = { chants: new Set(['agni']), spells: new Set(['ignite', 'shield', 'restore']), ranks: {}, kills: 0, home: null, karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set() };
+const soul = { chants: new Set(['agni']), spells: new Set(['ignite', 'shield', 'restore']), ranks: {}, kills: 0, home: null, karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set(), bossKills: {} };
 let life = null, P = null, foes = [], shots = [], fx = [], floaters = [], shades = [], drops = [], pots = [];
 let shake = 0, hitstop = 0, clock = 0, banner = null, pendingDeath = 0, zoneTag = null;
 const villager = { x: 560, gy: 1000, helped: false, talkT: 0, line: '' };
@@ -334,7 +358,7 @@ const wears = id => P.garb.head === id || P.garb.body === id || P.garb.feet === 
 const inHand = id => WEAPONS[P.slots[P.slotIdx]].id === id;
 
 function newLife(birth) {
-  life = { n: soul.lives.length + 1, birth, deeds: [], end: null, start: Date.now() };
+  life = { n: soul.lives.length + 1, birth, deeds: [], end: null, start: Date.now(), bossDown: new Set() };
   soul.lives.push(life);
   const b = birth, noMana = b.tier === 0;
   const manaMax = [0, 40, 60, 80, 100][b.tier];
@@ -352,7 +376,7 @@ function newLife(birth) {
   resetNodes();
   if (!soul.home) soul.home = emptyInv();
   newHorse(); resetChests();
-  TEMPS = []; RAINS = []; ALLY = null; CHS = null; SUMMONS = []; ECHO_HITS = [];
+  TEMPS = []; RAINS = []; ALLY = null; CHS = null; SUMMONS = []; ECHO_HITS = []; WAVES = []; WISPS = []; BQ = [];
   pots = POT_SPOTS.map(([x, gy, seeds]) => ({ x, gy, seeds, broken: false }));
   FAKES.forEach(f => f.found = false);
   drops = []; shots = []; resetCrumbles(); spawnFoes();
@@ -361,7 +385,9 @@ function newLife(birth) {
   renderLives(); $('lifeLabel').textContent = `Life ${life.n}`;
 }
 function spawnFoes() {
-  foes = FOE_SPAWNS.map(s => { const h = s.high ? 60 : 52; return { x: s.x, gy: s.gy, l: s.l, r: s.r, high: !!s.high, mud: !!s.mud, y: s.gy - h, w: 24, h, vx: 0, face: -1, hp: s.high ? 50 : 36, hpMax: s.high ? 50 : 36, state: 'idle', t: rnd(0, 1), home: s.x, flash: 0, stag: 0, kneelT: 0, awayT: 0, alive: true, hitDone: false }; });
+  foes = FOE_SPAWNS.map(makeFoe);
+  for (const a of ARENAS) { a.fight = false; a.hit = false; if (!life.bossDown.has(a.id)) foes.push(makeBoss(a)); }
+  WAVES = WAVES.filter(v => !v.hostile);
 }
 function resetCrumbles() { CRUMBLES.forEach(c => { c.state = 'solid'; c.t = 0; }); }
 function camTarget() { return [clamp(P.x + P.w / 2 - W * 0.45 + P.face * 40, 0, LW - W), clamp(P.y + P.h / 2 - H * 0.56, 0, LH - H)]; }
@@ -723,7 +749,7 @@ function drawNode(n) {
 }
 
 /* ---------- forges, the shrine panel and the forge panel ---------- */
-const STONES = [{ k: 'speak', x: 3570, gy: 1100 }, { k: 'moon', x: 6550, gy: 560 }];
+const STONES = [{ k: 'speak', x: 3570, gy: 1100 }, { k: 'moon', x: 6550, gy: 560 }, { k: 'sun', x: 2850, gy: 790 }];
 const nearStone = () => STONES.find(st => Math.abs(pcx() - st.x) < 50 && Math.abs(P.y + P.h - st.gy) < 40);
 const SHANI_ANSWERS = ['shani', 'sani', 'saturn', 'shanaishchara', 'shanaischara', 'shanidev', 'shani dev', 'sanidev'];
 function answerStone(text) {
@@ -732,6 +758,12 @@ function answerStone(text) {
   return false;
 }
 function useStone(st) {
+  if (st.k === 'sun') {
+    if (soul.spells.has('surya')) { floater(st.x, st.gy - 60, 'THE STONE HAS GIVEN WHAT IT HAD', PENCIL); return; }
+    const alt = sunAlt();
+    if (alt < 20) { floater(st.x, st.gy - 60, alt <= 0 ? 'THE STONE IS DARK · IT WAITS FOR THE SUN TO STAND HIGH' : `THE SUN IS ONLY ${Math.round(alt)}° UP · THE STONE WANTS IT HIGHER`, PENCIL); return; }
+    learnSpell('surya', `With the real Sun ${Math.round(alt)}° above you, the stone burns white.`); return;
+  }
   if (st.k === 'moon') {
     if (soul.spells.has('tide')) { floater(st.x, st.gy - 60, 'THE STONE HAS GIVEN WHAT IT HAD', PENCIL); return; }
     if (!isNight()) { floater(st.x, st.gy - 60, 'THE STONE IS COLD BY DAY · COME BACK WHEN IT IS NIGHT WHERE YOU ARE', PENCIL); return; }
@@ -753,7 +785,8 @@ function drawStone(st) {
   ctx.fillStyle = st.k === 'moon' && night && !soul.spells.has('tide') ? '#f3f0e7' : PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(x - 18, g); ctx.lineTo(x - 15, g - 48); ctx.quadraticCurveTo(x, g - 62, x + 15, g - 48); ctx.lineTo(x + 18, g); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.lineWidth = 1.6; ctx.beginPath();
-  if (st.k === 'moon') { ctx.arc(x, g - 34, 9, 0.6, Math.PI * 2 - 0.6); ctx.stroke(); if (night && !soul.spells.has('tide')) { ctx.strokeStyle = PENCIL; ctx.beginPath(); ctx.arc(x, g - 34, 22 + Math.sin(clock * 3) * 3, 0, Math.PI * 2); ctx.stroke(); } }
+  if (st.k === 'sun') { const hot = sunAlt() >= 20 && !soul.spells.has('surya'); ctx.arc(x, g - 34, 6, 0, Math.PI * 2); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ctx.moveTo(x + Math.cos(a) * 9, g - 34 + Math.sin(a) * 9); ctx.lineTo(x + Math.cos(a) * 13, g - 34 + Math.sin(a) * 13); } ctx.stroke(); if (hot) { ctx.strokeStyle = RED; ctx.beginPath(); ctx.arc(x, g - 34, 22 + Math.sin(clock * 3) * 3, 0, Math.PI * 2); ctx.stroke(); } }
+  else if (st.k === 'moon') { ctx.arc(x, g - 34, 9, 0.6, Math.PI * 2 - 0.6); ctx.stroke(); if (night && !soul.spells.has('tide')) { ctx.strokeStyle = PENCIL; ctx.beginPath(); ctx.arc(x, g - 34, 22 + Math.sin(clock * 3) * 3, 0, Math.PI * 2); ctx.stroke(); } }
   else { for (let i = 0; i < 4; i++) { ctx.moveTo(x - 9, g - 42 + i * 8); ctx.lineTo(x + 9 - (i % 2) * 6, g - 42 + i * 8); } ctx.stroke(); }
 }
 const FORGES = [{ x: 70, gy: 1000 }, { x: 9290, gy: 760 }];
@@ -852,6 +885,8 @@ function blessHit(t, dmg, heavy) {
   return dmg;
 }
 function hurtFoe(t, dmg, heavy, o = {}) {
+  if (t.boss) { bossHurt(t, dmg, heavy, o); return; }
+  if (t.calmT > 0) { t.calmT = 0; if (!life.brokeCalm) { life.brokeCalm = true; deed('You struck one you had calmed.', -1); } }
   if (t.state === 'kneel') { t.alive = false; burst(t.x + 12, t.y + 20, 22); SFX.hit(); deed('You struck down one who begged for mercy.', -2); soul.memories.slain++; P.seeds += 10; return; }
   t.hp -= dmg; t.flash = 0.12; burst(t.x + 12, t.y + 20, 6); heavy ? SFX.heavy() : SFX.hit();
   t.vx = (t.x + t.w / 2 > pcx() ? 1 : -1) * (o.knock || (heavy ? 260 : 120)); t.state = 'stun'; t.t = o.stun || (heavy ? 0.6 : 0.3);
@@ -863,10 +898,11 @@ function hurtFoe(t, dmg, heavy, o = {}) {
 function hurtPlayer(d, src, melee) {
   if (CHS && CHS.state === 'chant' && !(P.dead || P.rollIF > 0 || P.inv > 0)) { if (!(melee && P.parryT > 0) && !(P.shieldT > 0)) cancelChant('THE HIT BREAKS YOUR CHANT'); }
   if (P.dead || P.rollIF > 0 || P.inv > 0 || P.climbT > 0) { if (P.rollIF > 0) floater(pcx(), P.y - 20, 'DODGED', PENCIL); return 'dodge'; }
-  if (melee && P.parryT > 0) { P.parryT = 0; SFX.parry(); floater(pcx(), P.y - 24, 'PARRY'); if (P.skills.has('second_wind')) { P.hp = Math.min(P.hpMax, P.hp + 12); floater(pcx(), P.y - 40, '+12'); } src.stag = 1.1; src.state = 'stag'; src.t = src.stag; P.riposte = 1.4; hitstop = 0.12; shake = 6; for (let i = 0; i < 10; i++) fx.push({ k: 'spark', x: pcx() + P.face * 20, y: P.y + 20, vx: rnd(-300, 300), vy: rnd(-300, 50), life: 0.25 }); return 'parry'; }
+  if (melee && P.parryT > 0) { P.parryT = 0; SFX.parry(); floater(pcx(), P.y - 24, 'PARRY'); if (P.skills.has('second_wind')) { P.hp = Math.min(P.hpMax, P.hp + 12); floater(pcx(), P.y - 40, '+12'); } if (src.boss) bossParried(src); else { src.stag = 1.1; src.state = 'stag'; src.t = src.stag; } P.riposte = 1.4; hitstop = 0.12; shake = 6; for (let i = 0; i < 10; i++) fx.push({ k: 'spark', x: pcx() + P.face * 20, y: P.y + 20, vx: rnd(-300, 300), vy: rnd(-300, 50), life: 0.25 }); return 'parry'; }
   if (P.shieldT > 0) { P.shieldT = 0; floater(pcx(), P.y - 24, 'BLOCKED'); tone(1500, 900, 0.06, 'square', 0.03); burst(pcx() + P.face * 26, P.y + 30, 10, PENCIL); return 'block'; }
   d *= 1 - protNow() / 100;
   if (P.mount) { horse.hp -= d * 0.6; d *= 0.4; }
+  for (const a of ARENAS) if (a.fight) a.hit = true;
   P.hp = Math.max(0, P.hp - d); P.hitT = 0.32; P.inv = 0.45; P.atk = null; P.charging = false; P.healT = 0;
   P.hang = null; P.ladder = null; P.plunge = false; P.glide = false; P.cling = 0;
   const away = pcx() < src.x + src.w / 2 ? -1 : 1;
@@ -874,7 +910,7 @@ function hurtPlayer(d, src, melee) {
   else { P.vx = away * 260; P.vy = -260; }
   shake = 9; hitstop = 0.08; SFX.hurt();
   burst(pcx(), P.y + 20, 12, RED);
-  if (P.hp <= 0) fall('The Grasping struck you down.');
+  if (P.hp <= 0) fall(src.who ? `${src.who} struck you down.` : src.mirror ? 'Your own ink struck you down.' : 'The Grasping struck you down.');
   return 'hit';
 }
 let nightOverride = null;
@@ -907,6 +943,7 @@ function skyState() {
   SKY.cache = { d, sun, moon, phase, illum, waxing: phase < 180, lst, dark: clamp((4 - sun.alt) / 16, 0, 1) }; SKY.cacheReal = performance.now();
   return SKY.cache;
 }
+function sunAlt() { if (nightOverride !== null) return nightOverride ? -30 : 55; return skyState().sun.alt; }
 function isNight() { if (nightOverride !== null) return nightOverride; return skyState().sun.alt < -6; }
 function moonLight() { const k = skyState(); return { illum: k.illum, waxing: k.waxing }; }
 function skyXY(b) { const a = b.alt * Math.PI / 180, z = b.az * Math.PI / 180; let x = -Math.cos(a) * Math.sin(z); if (SKY.lat < 0) x = -x; return { x: W / 2 + x * W * 0.47, y: HORIZON - Math.sin(a) * (HORIZON - 165) }; }
@@ -979,6 +1016,7 @@ function needsMissing(w) {
   const n = w.needs || {};
   if (n.focus && P.stats.foc < n.focus) return `NEEDS FOCUS ${n.focus}`;
   if (n.night && !isNight()) return 'ONLY AT NIGHT';
+  if (n.day && sunAlt() <= 0) return 'ONLY WHILE THE SUN IS UP';
   if (n.life && life.n < n.life) return 'NEEDS A PAST LIFE';
   return null;
 }
@@ -987,11 +1025,14 @@ function learnSpell(id, how) {
   soul.spells.add(id); const w = SPELL(id), free = P.wordSlots.indexOf(null);
   if (free >= 0) P.wordSlots[free] = id;
   SFX.relic(); for (let i = 0; i < 24; i++) fx.push({ k: 'ink', x: pcx() + rnd(-30, 30), y: P.y + rnd(-20, P.h), vx: rnd(-30, 30), vy: -rnd(30, 90), life: rnd(0.5, 1.1) });
-  banner = { t: 4.2, top: `A NEW SPELL: ${w.say.toUpperCase()}`, sub: `${how ? how + ' ' : ''}${w.what} Say "${w.say}" aloud, or put it on keys 1 to 4 in Tab.${free >= 0 ? ` It is on key ${free + 1}.` : ''}` };
+  showBanner({ t: 4.2, top: `A NEW SPELL: ${w.say.toUpperCase()}`, sub: `${how ? how + ' ' : ''}${w.what} Say "${w.say}" aloud, or put it on keys 1 to 4 in Tab.${free >= 0 ? ` It is on key ${free + 1}.` : ''}` });
   return true;
 }
+let BQ = [];
+function showBanner(b) { if (banner && banner.t > 0.6 && !banner.minor) BQ.push(b); else banner = b; }
+function frontFoe(range, dyMax, skipBoss) { let best = null, bd = 1e9; for (const f of foes) { if (!f.alive || f.state === 'kneel' || f.hidden || (skipBoss && f.boss)) continue; const dx = (f.x + f.w / 2 - pcx()) * P.face; if (dx < -20 || dx > range || Math.abs(f.y + f.h / 2 - (P.y + P.h / 2)) > dyMax) continue; if (dx < bd) { bd = dx; best = f; } } return best; }
 function groundBelow(x, y0) { for (let y = Math.max(0, y0); y < y0 + 520 && y < LH; y += 4) if (pointSolid(x, y)) return y; return null; }
-function graspTarget() { let best = null, bd = 1e9; for (const f of foes) { if (!f.alive || f.state === 'kneel') continue; const dx = (f.x + 12 - pcx()) * P.face; if (dx < 0 || dx > 340 || Math.abs(f.gy - (P.y + P.h)) > 110) continue; if (dx < bd) { bd = dx; best = f; } } return best; }
+function graspTarget() { let best = null, bd = 1e9; for (const f of foes) { if (!f.alive || f.state === 'kneel' || f.boss) continue; const dx = (f.x + 12 - pcx()) * P.face; if (dx < 0 || dx > 340 || Math.abs(f.gy - (P.y + P.h)) > 110) continue; if (dx < bd) { bd = dx; best = f; } } return best; }
 function castWord(w, power) {
   if (P.dead || mode !== 'play') return;
   if (P.noMana) { floater(pcx(), P.y - 30, 'NO MANA IN THIS LIFE', PENCIL); return; }
@@ -1006,6 +1047,9 @@ function castWord(w, power) {
   let pillarY = null, gt = null;
   if (w.id === 'pillar') { pillarY = groundBelow(ax, ay); if (pillarY === null || TEMPS.filter(t => t.pillar).length >= 2 && false) { floater(pcx(), P.y - 30, 'NO GROUND THERE', PENCIL); return; } }
   if (w.id === 'grasp') { gt = graspTarget(); if (!gt) { floater(pcx(), P.y - 30, 'NOTHING TO GRASP', PENCIL); return; } }
+  if (w.id === 'quake' && !P.onG) { floater(pcx(), P.y - 30, 'ONLY ON THE GROUND', PENCIL); return; }
+  if (w.id === 'karuna') { gt = frontFoe(320, 120); if (!gt) { floater(pcx(), P.y - 30, 'NO ONE IN FRONT OF YOU TO CALM', PENCIL); return; } }
+  if (w.id === 'vajra') { gt = frontFoe(380, 170); if (!gt) { floater(pcx(), P.y - 30, 'NO FOE IN REACH', PENCIL); return; } }
   P.mana -= cost; SFX.word(); shake = 5;
   const rk = rankOf(w.id); power *= (1 + 0.04 * (P.stats.foc - 10)) * [1, 1, 1.2, 1.4][rk];
   soul.ranks[w.id] = (soul.ranks[w.id] || 0) + 1; if (rankOf(w.id) > rk) floater(pcx(), P.y - 52, `${w.say.toUpperCase()} GROWS STRONGER`, INK2);
@@ -1039,12 +1083,40 @@ function castWord(w, power) {
   if (w.id === 'shani') { P.shaniT = 6 * power; tone(60, 40, 1.5, 'sine', 0.12); shake = 10; }
   if (w.id === 'tide') { const m = moonLight(), mul = 0.5 + 2 * m.illum; P.tideT = 6; P.tideRate = 32 * mul * power / 6; floater(cx, P.y - 52, `THE MOON IS ${Math.round(m.illum * 100)}% FULL`, INK2); }
   if (w.id === 'starfall') { let n = 0; for (const f of foes) if (f.alive && f.state !== 'kneel' && visible(f, 0)) { hurtFoe(f, 30 * power * dmgMul, true); n++; for (let i = 0; i < 6; i++) fx.push({ k: 'star', x: f.x + 12 + rnd(-6, 6), y: f.y - 200 + i * 30, vx: 0, vy: 900, life: 0.25 }); } if (!n) floater(cx, P.y - 52, 'NO FOE IN SIGHT', PENCIL); shake = 12; }
+  if (w.id === 'quake') {
+    const gy = P.y + P.h; for (const d of [-1, 1]) WAVES.push({ x: cx + d * 18, dir: d, gy, sp: 430, left: 420 * clamp(power, 0.8, 1.4), dmg: 22 * power * dmgMul, h: 36, hit: new Set() });
+    shake = 12; burst(cx, gy, 22, INK2, 240); tone(70, 40, 0.5, 'sawtooth', 0.08);
+  }
+  if (w.id === 'wisps') { WISPS = [0, 1, 2].map(i => ({ a: i * 2.094, t: 12 * power, x: cx, y: P.y + 18, tg: null, dmg: 14 * power * dmgMul })); tone(500, 900, 0.3, 'triangle', 0.04); }
+  if (w.id === 'inkstep') {
+    const [ux, uy] = mouse.in ? aimVec(cx, P.y + P.h / 2) : [P.face, 0], dist = 200 * clamp(power, 0.8, 1.4), ox = P.x, oy = P.y;
+    let nx = P.x, ny = P.y; for (let d = 8; d <= dist; d += 8) { const tx = P.x + ux * d, ty = P.y + uy * d; if (tx < 0 || tx > LW - P.w || ty < 0 || blocked({ x: tx, y: ty, w: P.w, h: P.h })) break; nx = tx; ny = ty; }
+    for (let i = 0; i < 14; i++) { const k = i / 13; fx.push({ k: 'ink', x: ox + P.w / 2 + (nx - ox) * k + rnd(-6, 6), y: oy + P.h / 2 + (ny - oy) * k + rnd(-14, 14), vx: rnd(-20, 20), vy: -rnd(10, 50), life: rnd(0.4, 0.8) }); }
+    P.x = nx; P.y = ny; P.vy = Math.min(0, P.vy) * 0.3; P.vx = ux * 120; P.inv = Math.max(P.inv, 0.35); P.inkT = 0.35; P.hang = null; P.ladder = null; P.cling = 0; P.glide = false; P.grabbed = 0;
+    tone(900, 200, 0.18, 'sine', 0.05);
+  }
+  if (w.id === 'surya') {
+    const alt = sunAlt(), k = Math.sin(clamp(alt, 0, 90) * Math.PI / 180), dmg = (18 + 42 * k) * power * dmgMul; let n = 0;
+    for (const f of foes) if (f.alive && f.state !== 'kneel' && !f.hidden && Math.abs(f.x + f.w / 2 - ax) < 56 && visible(f, 0)) { hurtFoe(f, dmg, true); f.burnT = 2; n++; }
+    fx.push({ k: 'beam', x: ax, y: groundBelow(ax, camY) ?? camY + H, life: 0.6 }); shake = 8; tone(1800, 600, 0.5, 'triangle', 0.05);
+    floater(cx, P.y - 52, `THE SUN IS ${Math.round(alt)}° HIGH`, INK2);
+  }
+  if (w.id === 'karuna') {
+    gt.calmT = (gt.boss ? 2 : 8) * power; gt.vx = 0; if (!gt.boss && gt.state !== 'stun') gt.state = 'idle';
+    floater(gt.x + gt.w / 2, gt.y - 24, gt.boss ? 'IT HESITATES' : 'IT LOWERS ITS WEAPON', INK2);
+    for (let i = 0; i < 12; i++) fx.push({ k: 'leaf', x: gt.x + gt.w / 2 + rnd(-16, 16), y: gt.y + rnd(0, gt.h), vx: 0, vy: -rnd(20, 60), life: 1 });
+  }
+  if (w.id === 'vajra') {
+    const chain = [gt]; while (chain.length < 3) { const c = chain[chain.length - 1]; let nb = null, bd = 230; for (const f of foes) if (f.alive && f.state !== 'kneel' && !f.hidden && !chain.includes(f)) { const d = Math.hypot(f.x - c.x, f.y - c.y); if (d < bd) { bd = d; nb = f; } } if (!nb) break; chain.push(nb); }
+    const pts = [[cx + P.face * 14, P.y + 16]]; chain.forEach((f, i) => { pts.push([f.x + f.w / 2, f.y + f.h / 2]); hurtFoe(f, [24, 18, 12][i] * power * dmgMul, false, { stun: 0.5 }); });
+    fx.push({ k: 'bolt', pts, x: 0, y: 0, life: 0.3 }); shake = 9; tone(2400, 80, 0.25, 'sawtooth', 0.06);
+  }
   if (w.id === 'firewind') {
     for (const f of foes) if (f.alive && f.state !== 'kneel') { const dx = (f.x + 12 - cx) * P.face; if (dx > -10 && dx < 210 && Math.abs(f.gy - (P.y + P.h)) < 110) hurtFoe(f, 20 * power * dmgMul, true, { knock: 440, stun: 0.8 }); }
     for (let i = 0; i < 26; i++) fx.push({ k: 'flame', x: cx + P.face * rnd(10, 40), y: P.y + rnd(5, P.h - 5), vx: P.face * rnd(260, 520), vy: rnd(-80, 40), life: rnd(0.3, 0.5) });
   }
 }
-let TEMPS = [], RAINS = [], ALLY = null;
+let TEMPS = [], RAINS = [], ALLY = null, WAVES = [], WISPS = [];
 /* ---------- chants: weapon blessings and summoning rituals, spoken aloud, no mana needed ---------- */
 const CHANTS = [
   { id: 'agni', kind: 'bless', name: 'Agni blessing', line: 'Fire of the first morning, burn what binds me', what: 'Your weapon burns: it hits harder and sets foes burning.', how: 'You were born knowing it.' },
@@ -1205,6 +1277,22 @@ function updateMagic(dt) {
   for (const r of RAINS) r.t -= dt; RAINS = RAINS.filter(r => r.t > 0);
   if (P.unseenT > 0) P.unseenT -= dt;
   if (P.shaniT > 0) P.shaniT -= dt;
+  if (P.inkT > 0) P.inkT -= dt;
+  for (const v of WAVES) {
+    const st = v.sp * dt; v.x += v.dir * st; v.left -= st;
+    if (v.left <= 0 || pointSolid(v.x + v.dir * 6, v.gy - 12) || !pointSolid(v.x, v.gy + 4)) { v.left = 0; continue; }
+    if (v.hostile) { if (!v.hitP && !P.dead && P.y + P.h > v.gy - v.h && P.y < v.gy && Math.abs(pcx() - v.x) < 16) { v.hitP = true; hurtPlayer(v.dmg, { x: v.x - v.dir * 30, w: 0, who: v.who }, false); } }
+    else for (const f of foes) if (f.alive && !v.hit.has(f) && f.state !== 'kneel' && !f.hidden && Math.abs(f.x + f.w / 2 - v.x) < f.w / 2 + 12 && f.y + f.h > v.gy - v.h && f.y + f.h < v.gy + 30) { v.hit.add(f); hurtFoe(f, v.dmg, true, { stun: 0.8, knock: 60 }); }
+  }
+  WAVES = WAVES.filter(v => v.left > 0);
+  for (const w of WISPS) {
+    w.t -= dt;
+    if (w.tg && (!w.tg.alive || w.tg.hidden || w.tg.calmT > 0)) w.tg = null;
+    if (!w.tg) { let bd = 260; for (const f of foes) if (f.alive && f.state !== 'kneel' && !f.hidden && !(f.calmT > 0) && f.state !== 'wait') { const d = Math.hypot(f.x + f.w / 2 - w.x, f.y + f.h / 2 - w.y); if (d < bd) { bd = d; w.tg = f; } } }
+    if (w.tg) { const f = w.tg, dx = f.x + f.w / 2 - w.x, dy = f.y + f.h / 2 - w.y, d = Math.hypot(dx, dy) || 1; w.x += dx / d * 470 * dt; w.y += dy / d * 470 * dt; if (d < 14 + f.w / 2) { hurtFoe(f, w.dmg, false); f.burnT = 2; w.t = 0; burst(w.x, w.y, 8, RED, 160); } }
+    else { w.a += dt * 3.2; const tx = pcx() + Math.cos(w.a) * 34, ty = P.y + 18 + Math.sin(w.a) * 16; w.x += (tx - w.x) * Math.min(1, dt * 10); w.y += (ty - w.y) * Math.min(1, dt * 10); }
+  }
+  WISPS = WISPS.filter(w => w.t > 0);
   if (P.tideT > 0) { P.tideT -= dt; P.hp = Math.min(P.hpMax, P.hp + P.tideRate * dt); if (Math.random() < dt * 8) fx.push({ k: 'bub', x: pcx() + rnd(-12, 12), y: P.y + P.h, vx: 0, vy: -70, life: 0.8 }); }
   if (ALLY) {
     const a = ALLY; a.t -= dt; a.cd -= dt;
@@ -1229,6 +1317,10 @@ function drawMagic() {
     ctx.fillStyle = 'rgba(140,137,127,0.12)'; ctx.fillRect(r.x, camY, r.w, H); ctx.globalAlpha = 1; }
   if (ALLY) { const a = ALLY; ctx.save(); ctx.globalAlpha = 0.55 + 0.15 * Math.sin(clock * 6); const pose = a.swing > 0 ? POSE.strike() : POSE.idle(clock); const r = stick(a.x, a.y + 26, pose, a.face, PENCIL, a.looks.build, { hair: a.looks.hair });
     ctx.strokeStyle = PENCIL; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(r.hF.x, r.hF.y); ctx.lineTo(r.hF.x + a.face * 30, r.hF.y - (a.swing > 0 ? 0 : 24)); ctx.stroke(); ctx.restore(); }
+  for (const v of WAVES) { if (!visible({ x: v.x - 60, y: v.gy - 60, w: 120, h: 60 })) continue; const col = v.fire ? RED : v.hostile ? INK : INK2;
+    ctx.fillStyle = col; ctx.strokeStyle = INK; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 5; i++) { const x = v.x - v.dir * i * 11, h = v.h * (1 - i * 0.17) * (0.85 + 0.15 * Math.sin(clock * 30 + i)); ctx.beginPath(); ctx.moveTo(x - 7, v.gy); ctx.lineTo(x + v.dir * 3, v.gy - h); ctx.lineTo(x + 7, v.gy); ctx.closePath(); if (v.fire && i % 2) { ctx.fillStyle = INK; ctx.fill(); ctx.fillStyle = col; } else ctx.fill(); } }
+  for (const w of WISPS) { const fl = 1 + 0.25 * Math.sin(clock * 20 + w.a * 5); ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(w.x, w.y, 4.5 * fl, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(w.x - 6, w.y + 2); ctx.quadraticCurveTo(w.x, w.y - 16 * fl, w.x + 6, w.y + 2); ctx.arc(w.x, w.y + 1, 6, 0, Math.PI); ctx.stroke(); }
   if (P.shaniT > 0) { ctx.strokeStyle = INK2; ctx.lineWidth = 1.5; for (let i = 0; i < 3; i++) { const rr = 60 + ((clock * 60 + i * 80) % 240); ctx.globalAlpha = 0.5 * (1 - (rr - 60) / 240); ctx.beginPath(); ctx.arc(pcx(), P.y + P.h / 2, rr, 0, Math.PI * 2); ctx.stroke(); } ctx.globalAlpha = 1; }
 }
 function nearShrine() { const cx = P.x + P.w / 2, fy = P.y + P.h; return SHRINES.findIndex(s => Math.abs(cx - s.x) < 70 && Math.abs(fy - s.gy) < 40); }
@@ -1286,14 +1378,16 @@ function foeHitbox(f) {
 function updateFoes(dt0) {
   for (const f of foes) {
     if (!f.alive) continue;
-    let dt = dt0; if (P.shaniT > 0 && Math.abs(f.x - P.x) < 460) dt *= 0.3; if (rainAt(f.x + 12)) dt *= 0.55;
+    let dt = dt0; if (P.shaniT > 0 && Math.abs(f.x - P.x) < 460) dt *= f.boss ? 0.6 : 0.3; if (rainAt(f.x + 12)) dt *= 0.55;
     f.flash = Math.max(0, f.flash - dt);
+    if (f.boss) { updateBoss(f, dt); continue; }
+    if (f.calmT > 0 && f.state !== 'kneel') { f.calmT -= dt; f.vx = 0; if (f.state !== 'stun') f.state = 'idle'; else { f.t -= dt; if (f.t <= 0) f.state = 'idle'; } continue; }
     const dx = pcx() - (f.x + 12), adx = Math.abs(dx);
     switch (f.state) {
       case 'kneel':
         f.kneelT += dt;
         if (adx > 160) f.awayT += dt;
-        if (f.awayT > 2.2 || (f.kneelT > 3 && !P.atk)) { f.alive = false; life.spared = (life.spared || 0) + 1; if (life.spared <= 3) deed('You spared one who begged for mercy.', 1); soul.memories.spared++; for (let i = 0; i < 16; i++) fx.push({ k: 'ink', x: f.x + 12, y: f.y + rnd(0, f.h), vx: rnd(-20, 20), vy: -rnd(20, 70), life: 1 }); floater(f.x + 12, f.y - 16, 'It walks into the ink.', INK2); }
+        if (f.awayT > 2.2 || (f.kneelT > 3 && !P.atk)) { f.alive = false; life.spared = (life.spared || 0) + 1; if (life.spared <= 3) deed('You spared one who begged for mercy.', 1); soul.memories.spared++; if (life.spared >= 3 && !soul.spells.has('karuna')) learnSpell('karuna', 'You spared three who begged for mercy in one life. Mercy becomes a spell.'); for (let i = 0; i < 16; i++) fx.push({ k: 'ink', x: f.x + 12, y: f.y + rnd(0, f.h), vx: rnd(-20, 20), vy: -rnd(20, 70), life: 1 }); floater(f.x + 12, f.y - 16, 'It walks into the ink.', INK2); }
         break;
       case 'stun': case 'stag': f.t -= dt; f.vx *= 0.9; if (f.t <= 0) { f.state = 'chase'; f.stag = 0; } break;
       case 'wind': f.t -= dt; f.vx = 0; if (f.t <= 0) { f.state = 'swing'; f.t = f.high ? 0.2 : 0.16; f.hitDone = false; f.vx = f.face * 120; SFX.swing(); } break;
@@ -1311,6 +1405,161 @@ function updateFoes(dt0) {
     }
     f.x = clamp(f.x + f.vx * dt * (f.mud ? 0.5 : 1), f.l, f.r - f.w);
     for (const t of TEMPS) if (overlap(f, t)) { f.x = f.x + 12 < t.x + t.w / 2 ? t.x - f.w : t.x + t.w; f.vx = 0; }
+  }
+}
+/* ---------- bosses (test stand-ins: who they are and how you find them is still to be planned) ---------- */
+const CHIEF_COMBO = [{ wind: 0.55, act: 0.18, dmg: 16, reach: 78 }, { wind: 0.38, act: 0.18, dmg: 16, reach: 78 }, { wind: 0.8, act: 0.24, dmg: 28, reach: 96, heavy: true }];
+const MASK_CUTS = [{ wind: 0.34, act: 0.12, dmg: 12, reach: 62 }, { wind: 0.22, act: 0.12, dmg: 12, reach: 62 }];
+const MASK_BEHIND = [{ wind: 0.42, act: 0.14, dmg: 14, reach: 66 }];
+function makeFoe(s) { const h = s.high ? 60 : 52; return { x: s.x, gy: s.gy, l: s.l, r: s.r, high: !!s.high, mud: !!s.mud, y: s.gy - h, w: 24, h, vx: 0, face: -1, hp: s.hp || (s.high ? 50 : 36), hpMax: s.hp || (s.high ? 50 : 36), state: 'idle', t: rnd(0, 1), home: s.x, flash: 0, stag: 0, kneelT: 0, awayT: 0, alive: true, hitDone: false, arena: s.arena || null, mirror: !!s.mirror }; }
+function makeBoss(a) {
+  const k = { chief: { w: 40, h: 92, hp: 420, poise: 100 }, wraith: { w: 34, h: 46, hp: 320, poise: 70, fly: true }, masked: { w: 24, h: 56, hp: 520, poise: 110 } }[a.id];
+  const x = a.l + (a.r - a.l) * 0.68 - k.w / 2;
+  return { boss: a.id, ar: a, name: a.name, who: a.who, alive: true, x, y: a.gy - k.h - (k.fly ? 170 : 0), w: k.w, h: k.h, gy: a.gy, l: a.l, r: a.r, hp: k.hp, hpMax: k.hp, poise: k.poise, poiseMax: k.poise, fly: !!k.fly,
+    vx: 0, vy: 0, face: -1, state: 'wait', t: 0, cd: 1, phase: 1, stag: 0, calmT: 0, burnT: 0, flash: 0, stolen: 0, side: 1, sideT: 0, hitDone: false, hidden: false, home: x, sinceHit: 9 };
+}
+const bossNow = () => foes.find(f => f.boss && f.alive && f.ar.fight);
+function startFight(a, B) {
+  a.fight = true; a.hit = false; B.state = 'intro'; B.t = 1.3;
+  zoneTag = { name: a.name, sub: a.sub, t: 3.4 }; tone(110, 55, 0.9, 'sawtooth', 0.06); shake = 6;
+  if (P.mount) { dismount(false); horse.state = 'away'; floater(pcx(), P.y - 46, 'YOUR HORSE WILL NOT COME IN', PENCIL); }
+  for (const g of a.gates) if (overlap(P, g)) P.x = g.x < a.l ? a.l + 2 : a.r - P.w - 2;
+  floater(pcx(), P.y - 30, 'THE WAY CLOSES BEHIND YOU', RED);
+}
+function bossStrike(B, dmg, reach, parryable, high) {
+  if (B.hitDone) return;
+  const box = { x: B.face > 0 ? B.x + B.w - 4 : B.x + 4 - reach, y: high ? B.y : B.y + B.h * 0.2, w: reach, h: high ? B.h : B.h * 0.6 };
+  if (overlap(box, P)) { B.hitDone = true; hurtPlayer(dmg, B, parryable); }
+}
+function bossSeq(B, seq, sp) { B.seqL = seq; B.si = 0; B.sp = sp; B.cur = seq[0]; B.state = 'wind'; B.t = B.cur.wind * sp; SFX.warn(); }
+function nextSeq(B) { B.si++; if (B.seqL && B.si < B.seqL.length) { B.cur = B.seqL[B.si]; B.state = 'wind'; B.t = B.cur.wind * B.sp; } else { B.state = 'cool'; B.t = B.boss === 'masked' ? 0.6 : 0.9; B.cd = B.boss === 'masked' ? 0.7 : 1.1; } }
+function bossStagger(B) { B.state = 'stag'; B.t = 2.2; B.stag = 2.2; B.poise = B.poiseMax; B.vx = 0; B.vy = 0; B.seqL = null; B.hidden = false; if (B.fly) B.y = B.ar.gy - B.h; floater(B.x + B.w / 2, B.y - 24, 'OPEN'); tone(300, 120, 0.3, 'square', 0.05); }
+function bossParried(B) { B.hitDone = true; B.poise -= 50; if (B.poise <= 0 || B.state === 'dive') { bossStagger(B); return; } B.state = 'recover'; B.t = 0.7; B.seqL = null; B.vx = -B.face * 120; }
+function bossHurt(B, dmg, heavy, o) {
+  if (B.hidden || B.state === 'dying') return;
+  if (B.state === 'wait') { const a = B.ar; if (pcx() > a.l && pcx() < a.r && Math.abs(P.y + P.h - a.gy) < 260) startFight(a, B); else { floater(B.x + B.w / 2, B.y - 20, 'IT WAITS FOR YOU TO COME IN', PENCIL); return; } }
+  if (B.state === 'guard') {
+    const near = Math.abs(pcx() - (B.x + B.w / 2)) < 130;
+    if (heavy && near && !o.echo) { floater(B.x + B.w / 2, B.y - 40, 'GUARD BROKEN', INK); bossStagger(B); return; }
+    floater(B.x + B.w / 2, B.y - 30, near ? 'COUNTERED' : 'DEFLECTED', RED); tone(1700, 1200, 0.05, 'square', 0.04); for (let i = 0; i < 6; i++) fx.push({ k: 'spark', x: B.x + B.w / 2 - B.face * -14, y: B.y + 22, vx: rnd(-260, 260), vy: rnd(-260, 40), life: 0.2 });
+    if (near) { B.state = 'counter'; B.t = 0.1; }
+    return;
+  }
+  if (B.calmT > 0) { B.calmT = 0; if (!life.brokeCalm) { life.brokeCalm = true; deed('You struck one you had calmed.', -1); } }
+  B.hp -= dmg; B.flash = 0.12; B.sinceHit = 0; burst(B.x + B.w / 2, B.y + B.h / 2, 7); heavy ? SFX.heavy() : SFX.hit();
+  if (B.state === 'stag') B.stag = 0;
+  else { B.poise -= (heavy ? 26 : 10) + ((o.knock || 0) > 300 ? 8 : 0); if (B.poise <= 0 && B.state !== 'intro') bossStagger(B); }
+  if (B.hp <= 0) { B.hp = 0; B.state = 'dying'; B.t = 1.6; B.vx = 0; B.vy = 0; B.hidden = false; shake = 14; tone(200, 30, 1.4, 'sawtooth', 0.07);
+    for (const f of foes) if (f.arena === B.ar.id && f.alive) { f.alive = false; for (let i = 0; i < 12; i++) fx.push({ k: 'ink', x: f.x + 12, y: f.y + rnd(0, f.h), vx: rnd(-20, 20), vy: -rnd(20, 70), life: 0.9 }); } }
+}
+function bossGone(B) {
+  B.alive = false; const a = B.ar; a.fight = false; life.bossDown.add(a.id); soul.bossKills[a.id] = (soul.bossKills[a.id] || 0) + 1;
+  for (let i = 0; i < 60; i++) fx.push({ k: 'ink', x: B.x + rnd(0, B.w), y: B.y + rnd(0, B.h), vx: rnd(-90, 90), vy: -rnd(30, 160), life: rnd(0.6, 1.4) });
+  const seeds = a.seeds + B.stolen; P.seeds += seeds; floater(B.x + B.w / 2, B.y - 20, `+${seeds} seeds`);
+  banner = null; showBanner({ t: 3.4, top: `${a.name} FALLS`, sub: `+${seeds} seeds${B.stolen ? ', with what it took from you' : ''}. The way opens. In your next life it waits here again.` });
+  if (!soul.spells.has(a.gift)) learnSpell(a.gift, a.giftHow); else floater(pcx(), P.y - 50, 'YOU ALREADY CARRY ITS GIFT', PENCIL);
+  if (!a.hit) { if (!soul.spells.has('vajra')) learnSpell('vajra', 'Not one blow touched you. The sky noticed.'); else floater(pcx(), P.y - 66, 'NOT ONE BLOW TOUCHED YOU', INK2); }
+}
+function bossPhys(B, dt) {
+  const G = B.ar.gy;
+  if (B.fly) {
+    B.y += B.vy * dt; if (B.state === 'stag' || B.state === 'grounded' || B.state === 'dying' && B.y + B.h > G - 4) B.y = G - B.h;
+    B.y = clamp(B.y, G - 330, G - B.h);
+  } else if (B.state === 'air') { B.vy += GRAV * dt; B.y += B.vy * dt; if (B.y + B.h >= G && B.vy > 0) { B.y = G - B.h; B.vy = 0; chiefLand(B); } }
+  else B.y = G - B.h;
+  B.x = clamp(B.x + B.vx * dt, B.l, B.r - B.w);
+  B.gy = B.fly ? B.y + B.h : G;
+}
+function chiefLand(B) {
+  B.state = 'land'; B.t = 0.7; shake = 13; burst(B.x + B.w / 2, B.ar.gy, 26, INK2, 260); tone(60, 30, 0.5, 'sawtooth', 0.08);
+  for (const d of [-1, 1]) WAVES.push({ x: B.x + B.w / 2 + d * 24, dir: d, gy: B.ar.gy, sp: B.phase > 1 ? 480 : 390, left: 560, dmg: B.phase > 1 ? 16 : 14, h: 30, hostile: true, who: B.who });
+  if (Math.abs(pcx() - (B.x + B.w / 2)) < 50 && P.y + P.h > B.y) hurtPlayer(22, B, false);
+}
+function wraithOrbs(B) {
+  const n = B.phase > 1 ? 5 : 3, cx = B.x + B.w / 2, cy = B.y + B.h / 2;
+  for (let i = 0; i < n; i++) { const T = 0.8 + i * 0.15, g = 900, tx = pcx() + (i - (n - 1) / 2) * 46, ty = P.y + P.h / 2; shots.push({ hostile: true, fire: true, x: cx, y: cy, vx: (tx - cx) / T, vy: (ty - cy) / T - 0.5 * g * T, g, life: 3, dmg: 12, r: 9, src: B }); }
+  tone(400, 900, 0.25, 'sawtooth', 0.04);
+}
+function updateBoss(B, dt) {
+  const a = B.ar, G = a.gy, cx = B.x + B.w / 2, dx = pcx() - cx, ad = Math.abs(dx);
+  if (B.state === 'dying') { B.t -= dt; B.vx = 0; if (B.fly) B.vy = 260; bossPhys(B, dt); if (B.t <= 0) bossGone(B); return; }
+  if (B.state === 'wait') {
+    B.face = dx < 0 ? -1 : 1; if (B.fly) { B.vy = (G - 190 + Math.sin(clock * 2) * 14 - (B.y + B.h / 2)) * 2; bossPhys(B, dt); }
+    if (!P.dead && pcx() > a.l + 40 && pcx() < a.r - 40 && Math.abs(P.y + P.h - G) < 260) startFight(a, B);
+    return;
+  }
+  B.sinceHit += dt; if (B.sinceHit > 2 && B.state !== 'stag') B.poise = Math.min(B.poiseMax, B.poise + 10 * dt);
+  if (B.calmT > 0 && B.state !== 'stag' && B.state !== 'intro') { B.calmT -= dt; B.vx *= 0.8; B.vy *= 0.8; B.hidden = false; if (B.state !== 'idle') { B.state = 'idle'; B.seqL = null; } bossPhys(B, dt); return; }
+  if (B.state === 'intro') { B.t -= dt; B.vx = 0; B.vy = 0; if (B.t <= 0) { B.state = 'idle'; B.cd = 0.5; } bossPhys(B, dt); return; }
+  if (P.dead) { B.vx *= 0.9; B.vy *= 0.9; bossPhys(B, dt); return; }
+  if (B.phase === 1 && B.hp < B.hpMax * 0.5 && ['idle', 'cool'].includes(B.state)) {
+    B.phase = 2; B.state = 'roar'; B.t = 1.2; B.vx = 0; B.vy = 0; shake = 10; tone(90, 45, 1, 'sawtooth', 0.07);
+    floater(cx, B.y - 30, B.boss === 'chief' ? 'IT CALLS ITS KIN' : B.boss === 'masked' ? 'IT SHOWS YOU YOUR OWN FACE' : 'IT BURNS BRIGHTER', RED);
+    if (B.boss === 'chief') for (const x of [a.l + 60, a.r - 84]) foes.push(makeFoe({ x, gy: G, l: a.l, r: a.r, arena: a.id }));
+    if (B.boss === 'masked') { const m = makeFoe({ x: clamp(pcx() + P.face * 140, a.l + 10, a.r - 40), gy: G, l: a.l, r: a.r, arena: a.id, hp: 60, mirror: true }); foes.push(m); for (let i = 0; i < 20; i++) fx.push({ k: 'ink', x: m.x + 12, y: m.y + rnd(0, 52), vx: rnd(-30, 30), vy: -rnd(20, 80), life: 0.8 }); }
+  }
+  const sp = B.phase > 1 ? (B.boss === 'masked' ? 0.85 : 0.8) : 1;
+  switch (B.state) {
+    case 'wind': B.t -= dt; B.vx = 0; if (B.t <= 0) { B.state = 'swing'; B.t = B.cur.act; B.hitDone = false; B.vx = B.face * (B.boss === 'masked' ? 220 : 160); SFX.swing(); } break;
+    case 'swing': B.t -= dt; bossStrike(B, B.cur.dmg, B.cur.reach, !B.cur.unparry, B.cur.heavy); if (B.t <= 0 && B.state === 'swing') nextSeq(B); break;
+    case 'stag': case 'recover': case 'cool': case 'roar': B.t -= dt; B.vx *= 0.85; B.vy *= 0.85; if (B.state === 'stag') B.stag = Math.min(B.stag, B.t); if (B.t <= 0) { B.state = 'idle'; B.stag = 0; B.cd = Math.max(B.cd, 0.3); } break;
+    default:
+      if (B.boss === 'chief') thinkChief(B, dt, cx, dx, ad, sp);
+      else if (B.boss === 'wraith') thinkWraith(B, dt, cx, sp);
+      else thinkMasked(B, dt, cx, dx, ad, sp);
+  }
+  bossPhys(B, dt);
+}
+function thinkChief(B, dt, cx, dx, ad, sp) {
+  switch (B.state) {
+    case 'idle': B.face = Math.sign(dx) || B.face; B.cd -= dt;
+      if (B.cd <= 0) { if (ad < 120) bossSeq(B, CHIEF_COMBO, sp); else if (ad < 430 && Math.random() < 0.45) { B.state = 'gwind'; B.t = 0.75 * sp; SFX.warn(); } else { B.state = 'crouch'; B.t = 0.55 * sp; SFX.warn(); } }
+      else B.vx = ad > 90 ? B.face * (B.phase > 1 ? 110 : 85) : 0; break;
+    case 'gwind': B.t -= dt; B.vx = 0; if (B.t <= 0) { B.state = 'gdash'; B.t = 0.55; B.hitDone = false; B.vx = B.face * 440; } break;
+    case 'gdash': B.t -= dt;
+      if (!B.hitDone && overlap(B, P)) { B.hitDone = true; if (hurtPlayer(20, B, false) === 'hit') { const s2 = Math.min(30, P.seeds); if (s2) { P.seeds -= s2; B.stolen += s2; floater(pcx(), P.y - 40, `IT TAKES ${s2} SEEDS`, RED); } } }
+      if (B.t <= 0) { B.state = 'cool'; B.t = 0.9; B.cd = 1; } break;
+    case 'crouch': B.t -= dt; B.vx = 0; if (B.t <= 0) { const T = 0.78; B.state = 'air'; B.vy = -780; B.vx = clamp((pcx() - cx) / T, -620, 620); } break;
+    case 'land': B.t -= dt; B.vx = 0; if (B.t <= 0) { B.state = 'idle'; B.cd = 0.9; } break;
+  }
+}
+function thinkWraith(B, dt, cx, sp) {
+  const G = B.ar.gy, cy = B.y + B.h / 2;
+  switch (B.state) {
+    case 'idle': {
+      B.cd -= dt; if (clock > B.sideT) { B.side = -B.side; B.sideT = clock + rnd(2.5, 4); }
+      const tx = clamp(pcx() + B.side * 150, B.l + 40, B.r - 40), ty = G - 190 + Math.sin(clock * 2.2) * 18;
+      B.vx = clamp((tx - cx) * 2, -230, 230); B.vy = clamp((ty - cy) * 3, -220, 220); B.face = pcx() < cx ? -1 : 1;
+      if (B.cd <= 0) { const r = Math.random(); if (B.phase > 1 && r < 0.3) { B.state = 'rwind'; B.t = 0.9; B.tx = (B.l + B.r) / 2; SFX.warn(); } else if (r < 0.62) { B.state = 'owind'; B.t = 0.6 * sp; } else { B.state = 'dwind'; B.t = 0.7 * sp; B.tx = pcx(); B.ty = P.y + P.h - 22; SFX.warn(); } }
+      break; }
+    case 'owind': B.t -= dt; B.vx *= 0.9; B.vy *= 0.9; if (B.t <= 0) { wraithOrbs(B); B.state = 'idle'; B.cd = B.phase > 1 ? 1.1 : 1.6; } break;
+    case 'dwind': B.t -= dt; B.vx = 0; B.vy = 0; if (B.t <= 0) { B.state = 'dive'; B.hitDone = false; } break;
+    case 'dive': { const ddx = B.tx - cx, ddy = B.ty - cy, d = Math.hypot(ddx, ddy) || 1; B.vx = ddx / d * 820; B.vy = ddy / d * 820; B.face = ddx < 0 ? -1 : 1;
+      if (!B.hitDone && overlap(B, P)) { B.hitDone = true; hurtPlayer(18, B, true); }
+      if (B.state === 'dive' && (d < 24 || B.y + B.h >= G - 2)) { B.state = 'grounded'; B.t = 1.3; B.vx = 0; B.vy = 0; B.y = G - B.h; shake = 6; burst(cx, G, 14, INK2, 200); }
+      break; }
+    case 'grounded': B.t -= dt; B.vx = 0; B.vy = 0; if (B.t <= 0) { B.state = 'idle'; B.cd = 0.8; B.vy = -200; } break;
+    case 'rwind': B.t -= dt; B.vx = clamp((B.tx - cx) * 4, -420, 420); B.vy = clamp((G - B.h / 2 - cy) * 4, -420, 520);
+      if (B.t <= 0) { B.y = G - B.h; B.vx = 0; B.vy = 0; for (const d of [-1, 1]) WAVES.push({ x: cx + d * 22, dir: d, gy: G, sp: 360, left: 700, dmg: 12, h: 26, hostile: true, fire: true, who: B.who }); B.state = 'grounded'; B.t = 1; shake = 8; tone(300, 80, 0.5, 'sawtooth', 0.05); }
+      break;
+  }
+}
+function thinkMasked(B, dt, cx, dx, ad, sp) {
+  switch (B.state) {
+    case 'idle': { B.face = Math.sign(dx) || B.face; B.cd -= dt; const want = 130;
+      B.vx = ad > want + 30 ? B.face * (B.phase > 1 ? 240 : 200) : ad < want - 40 ? -B.face * 150 : 0;
+      if (B.cd <= 0) { const r = Math.random();
+        if (ad < 100 && r < 0.45) bossSeq(B, MASK_CUTS, sp);
+        else if (r < 0.62 && (P.atk || P.charging || ad < 170)) { B.state = 'guard'; B.t = 1.1; B.vx = 0; }
+        else if (r < (B.phase > 1 ? 0.9 : 0.82)) { B.state = 'vanish'; B.t = 0.45; B.hidden = true; B.vx = 0; for (let i = 0; i < 18; i++) fx.push({ k: 'ink', x: cx + rnd(-12, 12), y: B.y + rnd(0, B.h), vx: rnd(-30, 30), vy: -rnd(20, 80), life: 0.7 }); tone(700, 150, 0.2, 'sine', 0.05); }
+        else { B.state = 'back'; B.t = 0.25; B.vx = -B.face * 280; } }
+      break; }
+    case 'back': B.t -= dt; if (B.t <= 0) { B.state = 'lwind'; B.t = 0.5 * sp; B.vx = 0; SFX.warn(); } break;
+    case 'lwind': B.t -= dt; B.face = Math.sign(dx) || B.face; if (B.t <= 0) { B.state = 'lunge'; B.t = 0.28; B.hitDone = false; B.vx = B.face * 900; SFX.swing(); } break;
+    case 'lunge': B.t -= dt; bossStrike(B, 20, 44, true); if (B.t <= 0 && B.state === 'lunge') { B.state = 'cool'; B.t = 0.7; B.cd = 0.8; B.vx = 0; } break;
+    case 'vanish': B.t -= dt; if (B.t <= 0) { B.hidden = false; B.x = clamp(pcx() - P.face * 70 - B.w / 2, B.l, B.r - B.w); B.face = pcx() < B.x + B.w / 2 ? -1 : 1; for (let i = 0; i < 18; i++) fx.push({ k: 'ink', x: B.x + 12 + rnd(-12, 12), y: B.y + rnd(0, B.h), vx: rnd(-30, 30), vy: -rnd(20, 80), life: 0.7 }); bossSeq(B, MASK_BEHIND, sp); } break;
+    case 'guard': B.t -= dt; B.vx = 0; B.face = Math.sign(dx) || B.face; if (B.t <= 0) { B.state = 'idle'; B.cd = 0.3; } break;
+    case 'counter': B.t -= dt; if (B.t <= 0) { B.cur = { act: 0.16, dmg: 18, reach: 76, unparry: true }; B.seqL = [B.cur]; B.si = 0; B.sp = 1; B.state = 'swing'; B.t = 0.16; B.hitDone = false; B.vx = B.face * 120; SFX.swing(); } break;
   }
 }
 function updateCrumbles(dt) {
@@ -1335,9 +1584,10 @@ function updateShots(dt) {
       else burst(s.x, s.y, 10);
       continue;
     }
-    if (s.fire && waterAt(s.x, s.y)) { s.life = 0; for (let i = 0; i < 8; i++) fx.push({ k: 'bub', x: s.x + rnd(-8, 8), y: s.y, vx: 0, vy: -rnd(40, 90), life: 0.6 }); continue; }
+    if (s.fire && (waterAt(s.x, s.y) || (s.hostile && rainAt(s.x)))) { s.life = 0; for (let i = 0; i < 8; i++) fx.push({ k: 'bub', x: s.x + rnd(-8, 8), y: s.y, vx: 0, vy: -rnd(40, 90), life: 0.6 }); continue; }
+    if (s.hostile) { if (!P.dead && circle(s, P)) { if (hurtPlayer(s.dmg, s.src || { x: s.x, w: 0 }, false) !== 'dodge') { s.life = 0; burst(s.x, s.y, 10, RED); } } continue; }
     let done = false;
-    for (const t of foes) if (t.alive && t.state !== 'kneel' && circle(s, t)) { hurtFoe(t, s.dmg, false); s.life = 0; burst(s.x, s.y, 12); if (s.knife) drops.push({ x: t.x + 12, y: t.gy - 4, a: s.vx > 0 ? 0.3 : Math.PI - 0.3 }); done = true; break; }
+    for (const t of foes) if (t.alive && t.state !== 'kneel' && !t.hidden && circle(s, t)) { hurtFoe(t, s.dmg, false); s.life = 0; burst(s.x, s.y, 12); if (s.knife) drops.push({ x: t.x + 12, y: t.gy - 4, a: s.vx > 0 ? 0.3 : Math.PI - 0.3 }); done = true; break; }
     if (done) continue;
     for (const p of pots) if (!p.broken && circle(s, { x: p.x - 12, y: p.gy - 28, w: 24, h: 28 })) { breakPot(p); s.life = 0; if (s.knife) drops.push({ x: p.x, y: p.gy - 4, a: 0 }); break; }
   }
@@ -1519,7 +1769,7 @@ function wakeAtShrine() {
   const s = SHRINES[P.shrine];
   Object.assign(P, { x: s.x + 40, y: s.gy - PH, h: PH, w: 22, mount: false, vx: 0, vy: 0, hp: P.hpMax, st: P.stMax, mana: P.manaMax, lotus: P.lotusMax, breath: BREATH, dead: false, deadT: 0, atk: null, charging: false, rollT: 0, healT: 0, hitT: 0, inv: 1, shieldT: 0,
     hang: null, climbT: 0, ladder: null, glide: false, plunge: false, cling: 0, inWater: false, headUnder: false, knives: P.knivesMax, torch: { fuel: P.torchMax, lit: false } });
-  drops = []; spawnFoes(); shots = []; resetCrumbles(); snapCam(); TEMPS = []; RAINS = []; ALLY = null; CHS = null; SUMMONS = []; ECHO_HITS = []; P.bless = null; P.unseenT = 0; P.shaniT = 0; P.tideT = 0;
+  drops = []; spawnFoes(); shots = []; resetCrumbles(); snapCam(); TEMPS = []; RAINS = []; ALLY = null; CHS = null; SUMMONS = []; ECHO_HITS = []; WAVES = []; WISPS = []; P.bless = null; P.unseenT = 0; P.shaniT = 0; P.tideT = 0;
 }
 function trueDeath(spot) {
   mode = 'death'; stopRec(); banner = null; zoneTag = null;
@@ -1562,7 +1812,15 @@ toolBtn('tRelics', () => {
   banner = { t: 2.6, top: 'EVERY RELIC', sub: 'Test tool: you carry all seven. Feather, gecko, kite and bead are on. Swap in Tab.' };
 });
 toolBtn('tChants', () => { CHANTS.forEach(c => soul.chants.add(c.id)); P.mats.petal += 2; P.mats.ink += 4; P.mats.wood += 2; P.mats.ember += 2; P.seeds += 60; banner = { t: 2.6, top: 'EVERY CHANT', sub: 'Test tool: you know all ten chants and carry offerings for the summons. Press C to chant.' }; });
-toolBtn('tSpells', () => { for (const w of WORDS) soul.spells.add(w.id); P.stats.foc = Math.max(P.stats.foc, 14); applyStats(false); banner = { t: 2.6, top: 'EVERY SPELL', sub: 'Test tool: you know all fourteen spells and your Focus is at least 14. Put them on keys 1 to 4 in Tab, on the Spells page.' }; });
+toolBtn('tSpells', () => { for (const w of WORDS) soul.spells.add(w.id); P.stats.foc = Math.max(P.stats.foc, 14); applyStats(false); banner = { t: 2.6, top: 'EVERY SPELL', sub: `Test tool: you know all ${WORDS.length} spells and your Focus is at least 14. Put them on keys 1 to 4 in Tab, on the Spells page.` }; });
+toolBtn('tBoss', () => {
+  if (ARENAS.some(a => a.fight)) return;
+  if (P.mount) dismount(false);
+  const i = ARENAS.findIndex(a => !life.bossDown.has(a.id)), a = ARENAS[i < 0 ? 0 : i], si = 5 + ARENAS.indexOf(a);
+  if (i < 0) life.bossDown.clear();
+  const s2 = SHRINES[si]; Object.assign(P, { x: s2.x + 40, y: s2.gy - PH, h: PH, vx: 0, vy: 0, hang: null, ladder: null }); rest(si);
+  P.x = a.l - 110; snapCam(); banner = { t: 2.6, top: a.name, sub: 'Test tool: you rested at the shrine before it and stand at its gate. Walk in to begin. If you fall, you wake at that shrine.' };
+});
 toolBtn('tNight', () => { SKY.offset += 12 * 3600e3; SKY.cache = null; banner = { t: 2.4, top: isNight() ? 'NIGHT' : 'DAY', sub: 'Test tool: the sky moved 12 hours. Use the Sky buttons under the game to move it back, or press Now.' }; });
 toolBtn('tRich', () => {
   P.seeds += 1000; Object.keys(P.mats).forEach(k => P.mats[k] += 6);
@@ -1662,11 +1920,11 @@ function renderGear() {
   q('[data-ws]').forEach(se => se.addEventListener('change', () => { const i = +se.dataset.ws, v = se.value || null, j = v ? P.wordSlots.indexOf(v) : -1; if (j >= 0 && j !== i) P.wordSlots[j] = P.wordSlots[i]; P.wordSlots[i] = v; renderGear(); }));
 }
 let mapHits = [], mapMsg = null;
-function danger() { return foes.some(f => f.alive && (f.state === 'chase' || f.state === 'wind' || f.state === 'swing') && Math.abs(f.x - P.x) < 520 && Math.abs(f.gy - (P.y + P.h)) < 160); }
+function danger() { return ARENAS.some(a => a.fight) || foes.some(f => f.alive && (f.state === 'chase' || f.state === 'wind' || f.state === 'swing') && Math.abs(f.x - P.x) < 520 && Math.abs(f.gy - (P.y + P.h)) < 160); }
 function travelTo(i) {
   if (i < 0 || i >= SHRINES.length || !P || P.dead) return;
   if (!P.visited.has(i)) { mapMsg = { t: clock + 2.5, text: 'You have not rested at that shrine in this life.' }; return; }
-  if (danger()) { mapMsg = { t: clock + 2.5, text: 'The Grasping are hunting you. Get away from them first.' }; return; }
+  if (danger()) { mapMsg = { t: clock + 2.5, text: ARENAS.some(a => a.fight) ? 'There is no leaving a boss fight. Win, or fall.' : 'The Grasping are hunting you. Get away from them first.' }; return; }
   if (P.mount) dismount(false);
   if (horse.state === 'idle') horse.state = 'away';
   const s = SHRINES[i]; Object.assign(P, { x: s.x + 40, y: s.gy - PH, h: PH, w: 22, vx: 0, vy: 0, hang: null, ladder: null, climbT: 0, glide: false, plunge: false, cling: 0 });
@@ -1695,6 +1953,7 @@ function drawMap() {
     ctx.font = `12px ${FD}`; ctx.textAlign = 'center'; ctx.fillStyle = seen ? INK : PENCIL; ctx.fillText(seen ? String(i + 1) : '?', sx, sy + 16);
     if (seen && hov) { ctx.strokeStyle = RED; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy - 10, 15, 0, Math.PI * 2); ctx.stroke(); ctx.font = `15px ${FH}`; ctx.fillStyle = INK; ctx.fillText(s.name + ' · click to travel', clamp(sx, 150, W - 150), sy - 30); }
     ctx.fillStyle = i === P.shrine ? INK : PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx, sy - 16); ctx.lineTo(sx - 6, sy - 4); ctx.lineTo(sx + 6, sy - 4); ctx.closePath(); ctx.fill(); ctx.stroke(); });
+  for (const a of ARENAS) { const bx = X((a.l + a.r) / 2), by = Y(a.gy) - 14, down = life.bossDown.has(a.id); ctx.strokeStyle = down ? PENCIL : RED; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx, by - 7); ctx.lineTo(bx + 6, by); ctx.lineTo(bx, by + 7); ctx.lineTo(bx - 6, by); ctx.closePath(); ctx.stroke(); if (!down) { ctx.fillStyle = RED; ctx.fillRect(bx - 1.5, by - 1.5, 3, 3); } }
   for (const f of FORGES) { ctx.fillStyle = INK; ctx.fillRect(X(f.x) - 5, Y(f.gy) - 7, 10, 5); ctx.fillRect(X(f.x) - 2, Y(f.gy) - 3, 4, 3); }
   for (const c of CHESTS) if (!chestOpen(c)) { ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.fillRect(X(c.x) - 4, Y(c.gy) - 8, 8, 7); ctx.strokeRect(X(c.x) - 4, Y(c.gy) - 8, 8, 7); }
   if (horse.state === 'wild' || horse.state === 'idle') { ctx.font = `13px ${FH}`; ctx.fillStyle = INK2; ctx.textAlign = 'center'; ctx.fillText('horse', X(horse.x), Y(horse.gy) - 6); }
@@ -1705,13 +1964,14 @@ function drawMap() {
   ctx.fillStyle = RED; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - 7, py - 13); ctx.lineTo(px + 7, py - 13); ctx.closePath(); ctx.fill(); ctx.font = `10px ${FD}`; ctx.textAlign = 'center'; ctx.fillText('YOU', px, py - 18);
   ctx.textAlign = 'left'; ctx.font = `15px ${FH}`; ctx.fillStyle = INK2;
   const ly = 492; ctx.fillText('▲ shrine (filled: you wake here)    ◯ relic still waiting    ▫ chest    ▬ forge    ● your seeds    ✕ a body from a past life    red line: burning ground', 30, ly);
-  ctx.fillText(`Relics found: ${P.relics.size} of ${Object.keys(RELICS).length} · Chests opened: ${CHESTS.filter(chestOpen).length} of ${CHESTS.length}`, 30, ly + 22);
+  ctx.fillText(`◇ boss (red: still waiting in this life) · Relics found: ${P.relics.size} of ${Object.keys(RELICS).length} · Chests opened: ${CHESTS.filter(chestOpen).length} of ${CHESTS.length}`, 30, ly + 22);
 }
 
 /* ---------- update ---------- */
 function update(dt) {
   clock += dt;
   if (banner) { banner.t -= dt; if (banner.t <= 0) banner = null; }
+  if (!banner && BQ.length && mode === 'play') banner = BQ.shift();
   if (zoneTag) { zoneTag.t -= dt; if (zoneTag.t <= 0) zoneTag = null; }
   if (villager.talkT > 0) villager.talkT -= dt;
   if (hitstop > 0) { hitstop -= dt; return; }
@@ -1830,6 +2090,7 @@ function drawWorld() {
     ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.strokeRect(c.x + 2 + ox, c.y + oy, c.w - 4, c.h);
     ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(c.x + 30 + ox, c.y + oy); ctx.lineTo(c.x + 36 + ox, c.y + 8 + oy); ctx.lineTo(c.x + 30 + ox, c.y + c.h + oy); ctx.stroke();
   }
+  drawArenas();
   // props
   SHRINES.forEach((s, i) => { if (visible({ x: s.x - 80, y: s.gy - 160, w: 160, h: 160 })) drawShrine(s, i); });
   const hx = HUT.x, hg = HUT.gy; ctx.fillStyle = PAPER; ctx.fillRect(hx - 60, hg - 90, 120, 90); hatch(hx - 60, hg - 90, 120, 90, 9); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(hx - 60, hg - 90, 120, 90);
@@ -1900,6 +2161,8 @@ function drawWorld() {
     else if (f.k === 'ring') { const k = 1 - f.life / 0.35, r = (f.big ? 20 : 8) + k * (f.big ? 90 : 30); ctx.strokeStyle = INK2; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(f.x, f.y, r, r * 0.3, 0, 0, Math.PI * 2); ctx.stroke(); }
     else if (f.k === 'wind') { ctx.strokeStyle = PENCIL; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x - f.vx * 0.05, f.y); ctx.stroke(); }
     else if (f.k === 'flame') { ctx.fillStyle = Math.random() < 0.3 ? RED : INK; ctx.beginPath(); ctx.arc(f.x, f.y, 3 + f.life * 6, 0, Math.PI * 2); ctx.fill(); }
+    else if (f.k === 'beam') { const k = f.life / 0.6, top = camY - 20; ctx.fillStyle = 'rgba(251,250,246,0.9)'; ctx.fillRect(f.x - 28 * k - 6, top, 56 * k + 12, f.y - top); ctx.strokeStyle = INK2; ctx.lineWidth = 2; ctx.beginPath(); for (const sx of [-1, 1]) { ctx.moveTo(f.x + sx * (28 * k + 6), top); ctx.lineTo(f.x + sx * (28 * k + 6), f.y); } for (let y = top + ((clock * 900) % 40); y < f.y; y += 40) { ctx.moveTo(f.x - 10, y); ctx.lineTo(f.x + 10, y + 14); } ctx.stroke(); ctx.strokeStyle = RED; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(f.x, f.y, 40 * k + 10, 7, 0, 0, Math.PI * 2); ctx.stroke(); }
+    else if (f.k === 'bolt') { ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); for (let i = 0; i < f.pts.length - 1; i++) { const [ax, ay] = f.pts[i], [bx, by] = f.pts[i + 1]; ctx.moveTo(ax, ay); for (let j = 1; j <= 5; j++) { const t = j / 5; ctx.lineTo(ax + (bx - ax) * t + (j < 5 ? rnd(-10, 10) : 0), ay + (by - ay) * t + (j < 5 ? rnd(-10, 10) : 0)); } } ctx.stroke(); ctx.strokeStyle = PAPER; ctx.lineWidth = 1; ctx.stroke(); }
     else if (f.k === 'star') { ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x, f.y - 40); ctx.stroke(); }
     else if (f.k === 'bub') { ctx.strokeStyle = INK2; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(f.x + Math.sin(f.life * 9) * 3, f.y, 3, 0, Math.PI * 2); ctx.stroke(); }
     else { ctx.fillStyle = f.c || INK; ctx.beginPath(); ctx.arc(f.x, f.y, f.k === 'ink' ? 4 : 3, 0, Math.PI * 2); ctx.fill(); }
@@ -1917,7 +2180,7 @@ function drawOverDark() {
   if (!P.mount && horse && (horse.state === 'wild' || horse.state === 'idle') && Math.abs(pcx() - horse.x) < 70 && Math.abs(P.y + P.h - horse.gy) < 50) { ctx.fillStyle = INK2; ctx.fillText(horse.state === 'wild' ? 'E: offer the horse a lotus' : 'E: ride', horse.x, horse.gy - 96); }
   else if (P.mount && P.onG && Math.abs(P.vx) < 40) { ctx.fillStyle = INK2; ctx.fillText('E: get down · Shift: gallop', pcx(), P.y - 26); }
   { const q = nearInscription(); if (q) { ctx.fillStyle = INK2; ctx.fillText(soul.chants.has(q.id) ? 'E: read the chant again' : 'E: read the carved chant', q.x, q.gy - 70); } }
-  { const st = nearStone(); if (st) { ctx.fillStyle = INK2; ctx.fillText(st.k === 'moon' ? 'E: touch the moon stone' : 'E: listen to the stone', st.x, st.gy - 80); } }
+  { const st = nearStone(); if (st) { ctx.fillStyle = INK2; ctx.fillText(st.k === 'moon' ? 'E: touch the moon stone' : st.k === 'sun' ? 'E: touch the sun stone' : 'E: listen to the stone', st.x, st.gy - 80); } }
   if (nearForge() >= 0 && !P.mount) { const f = FORGES[nearForge()]; ctx.fillStyle = INK2; ctx.fillText('E: use the forge', f.x + 4, f.gy - 92); }
   if (Math.abs(pcx() - HOME.x) < 60 && Math.abs(P.y + P.h - HOME.gy) < 50) { ctx.fillStyle = INK2; ctx.fillText('E: your chest · it keeps things across lives', HOME.x, HOME.gy - 70); }
   for (const c of CHESTS) if (Math.abs(pcx() - c.x) < 60 && Math.abs(P.y + P.h - c.gy) < 50) { ctx.fillStyle = darkAt(c.x, c.gy - 50) ? '#b9b6ac' : INK2; ctx.fillText(chestOpen(c) ? (invEmpty(c.inv) ? 'E: an empty chest' : 'E: look inside') : 'E: open', c.x, c.gy - 40); }
@@ -1953,10 +2216,77 @@ function speech(x, y, text) {
   ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.fillRect(bx, by, bw, bh); ctx.strokeRect(bx, by, bw, bh);
   ctx.fillStyle = INK; ctx.textAlign = 'left'; lines.forEach((l, i) => ctx.fillText(l, bx + 12, by + 24 + i * 22)); ctx.textAlign = 'center';
 }
+function drawArenas() {
+  for (const a of ARENAS) {
+    if (!visible({ x: a.l - 60, y: a.gy - 340, w: a.r - a.l + 120, h: 340 })) continue;
+    for (const g of a.gates) {
+      if (a.fight) { ctx.fillStyle = 'rgba(21,21,19,0.82)'; ctx.fillRect(g.x, g.y, g.w, g.h); ctx.strokeStyle = PAPER; ctx.lineWidth = 1.5; ctx.beginPath(); for (let i = 0; i < 6; i++) { const yy = g.y + ((clock * 60 + i * 57) % g.h); ctx.moveTo(g.x + 4, yy); ctx.quadraticCurveTo(g.x + g.w / 2 + Math.sin(clock * 3 + i) * 6, yy - 14, g.x + g.w - 4, yy - 28); } ctx.stroke(); }
+      else if (!life.bossDown.has(a.id)) { ctx.strokeStyle = PENCIL; ctx.lineWidth = 2; ctx.save(); ctx.setLineDash([6, 8]); ctx.beginPath(); ctx.moveTo(g.x + g.w / 2, a.gy); ctx.lineTo(g.x + g.w / 2, a.gy - 150); ctx.stroke(); ctx.restore(); }
+      ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.fillRect(g.x - 4, a.gy - 34, g.w + 8, 34); hatch(g.x - 4, a.gy - 34, g.w + 8, 34, 6); ctx.strokeRect(g.x - 4, a.gy - 34, g.w + 8, 34);
+    }
+  }
+}
+function drawBoss(B) {
+  const cx = B.x + B.w / 2, ink = B.flash > 0 ? PENCIL : B.state === 'dying' ? PENCIL : INK2, st = B.state;
+  if (B.hidden) { ctx.fillStyle = INK; ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.ellipse(cx, B.y + B.h - 4, 18, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; return; }
+  if (st === 'dying') ctx.globalAlpha = clamp(B.t / 1.6, 0.15, 1);
+  const warn = (txt, y, col = RED) => { ctx.fillStyle = col; ctx.font = `20px ${FD}`; ctx.textAlign = 'center'; ctx.fillText(txt, cx, y); };
+  if (B.boss === 'chief') {
+    const pose = st === 'wind' || st === 'gwind' || st === 'crouch' ? POSE.wind() : st === 'swing' || st === 'gdash' || st === 'land' ? POSE.strike() : st === 'stag' || st === 'recover' ? POSE.hurt() : st === 'air' ? POSE.jump() : st === 'roar' ? POSE.parry() : Math.abs(B.vx) > 10 ? POSE.run(clock * 6) : POSE.idle(clock);
+    const r = stick(cx, B.y + B.h, pose, B.face, ink, 5, { hollow: true, s: 1.75 });
+    ctx.strokeStyle = ink; ctx.lineWidth = 2.5; ctx.beginPath(); for (let i = -2; i <= 2; i++) { ctx.moveTo(r.head.x + i * 4.5, r.head.y - r.hr + 2); ctx.lineTo(r.head.x + i * 5.5, r.head.y - r.hr - 9 - (i === 0 ? 5 : 0)); } ctx.stroke();
+    const club = st === 'swing' && B.cur && B.cur.heavy ? [r.hF.x + B.face * 6, r.hF.y - 4, r.hF.x + B.face * 70, r.hF.y + 30] : st === 'wind' ? [r.hF.x, r.hF.y, r.hF.x - B.face * 30, r.hF.y - 54] : [r.hF.x, r.hF.y, r.hF.x + B.face * 46, r.hF.y - 30];
+    ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(club[0], club[1]); ctx.lineTo(club[2], club[3]); ctx.stroke(); ctx.beginPath(); ctx.arc(club[2], club[3], 7, 0, Math.PI * 2); ctx.fillStyle = ink; ctx.fill();
+    if (st === 'wind') warn(B.cur && B.cur.heavy ? '!!' : '!', r.head.y - 26);
+    if (st === 'gwind') { warn('GRAB', r.head.y - 28); ctx.strokeStyle = RED; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, B.y + B.h / 2, 56 + Math.sin(clock * 20) * 4, 0, Math.PI * 2); ctx.stroke(); }
+    if (st === 'crouch') { warn('↑', r.head.y - 26); ctx.strokeStyle = RED; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pcx() - 30, B.ar.gy + 4); ctx.lineTo(pcx() + 30, B.ar.gy + 4); ctx.stroke(); }
+    if (st === 'swing') { ctx.strokeStyle = RED; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx + B.face * 30, B.y + B.h * 0.45, 52, B.face > 0 ? -1.2 : Math.PI - 1.2, B.face > 0 ? 1.2 : Math.PI + 1.2); ctx.stroke(); }
+  } else if (B.boss === 'wraith') {
+    const cy = B.y + B.h / 2, fl = Math.sin(clock * 14) * 3, glow = st === 'owind' || st === 'dwind' || st === 'rwind';
+    ctx.fillStyle = 'rgba(196,37,43,0.18)'; if (glow) { ctx.beginPath(); ctx.arc(cx, cy, 40 + Math.sin(clock * 24) * 5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = PAPER; ctx.strokeStyle = ink; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(cx - 17, cy + 6); ctx.quadraticCurveTo(cx - 20, cy - 26, cx - 4 + fl, cy - 40); ctx.quadraticCurveTo(cx + 2, cy - 26, cx + 9, cy - 34 - fl); ctx.quadraticCurveTo(cx + 22, cy - 14, cx + 17, cy + 6);
+    ctx.quadraticCurveTo(cx + 10, cy + 22, cx + B.face * -10, cy + 30 + fl); ctx.quadraticCurveTo(cx - 8, cy + 20, cx - 17, cy + 6); ctx.closePath(); ctx.fill(); ctx.stroke();
+    hatch(cx - 14, cy - 10, 28, 24, 7, HATCH, 1);
+    ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(cx + B.face * 5 - 4, cy - 6, 3, 0, Math.PI * 2); ctx.arc(cx + B.face * 5 + 5, cy - 6, 3, 0, Math.PI * 2); ctx.fill();
+    for (let i = 0; i < 3; i++) { ctx.fillStyle = i % 2 ? RED : INK; ctx.beginPath(); ctx.arc(cx + Math.sin(clock * 5 + i * 2) * 14, cy + 30 + i * 7 + fl, 3 - i * 0.6, 0, Math.PI * 2); ctx.fill(); }
+    if (st === 'dwind') { ctx.save(); ctx.strokeStyle = RED; ctx.lineWidth = 2; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(B.tx, B.ty); ctx.stroke(); ctx.restore(); warn('!', B.y - 14); }
+    if (st === 'rwind') warn('↑', B.y - 14);
+  } else {
+    const pose = st === 'wind' || st === 'lwind' || st === 'counter' ? POSE.wind() : st === 'swing' || st === 'lunge' ? POSE.strike() : st === 'stag' || st === 'recover' ? POSE.hurt() : st === 'guard' ? POSE.parry() : Math.abs(B.vx) > 10 ? POSE.run(clock * 10) : POSE.idle(clock);
+    const r = stick(cx, B.y + B.h, pose, B.face, ink, 3.5, { s: 1.08 });
+    ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.ellipse(r.head.x + B.face * 1.5, r.head.y, r.hr * 0.85, r.hr * 1.15, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = INK; ctx.fillRect(r.head.x + B.face * 1 - 4, r.head.y - 2, 3, 1.6); ctx.fillRect(r.head.x + B.face * 1 + 1.5, r.head.y - 2, 3, 1.6);
+    ctx.strokeStyle = ink; ctx.lineWidth = 2.5; ctx.beginPath();
+    if (st === 'guard') { ctx.moveTo(r.hF.x - B.face * 6, r.hF.y - 30); ctx.lineTo(r.hF.x + B.face * 8, r.hF.y + 22); }
+    else if (st === 'swing' || st === 'lunge') { ctx.moveTo(r.hF.x, r.hF.y); ctx.lineTo(r.hF.x + B.face * 52, r.hF.y + 2); }
+    else { ctx.moveTo(r.hF.x, r.hF.y); ctx.lineTo(r.hF.x + B.face * 38, r.hF.y - 24); }
+    ctx.stroke();
+    if (st === 'guard') { ctx.fillStyle = INK; ctx.font = `11px ${FD}`; ctx.textAlign = 'center'; ctx.fillText('GUARD', cx, r.head.y - 22); }
+    if (st === 'wind' || st === 'lwind') warn('!', r.head.y - 18);
+    if (st === 'counter') warn('!', r.head.y - 18);
+    if (st === 'swing' || st === 'lunge') { ctx.strokeStyle = RED; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(cx, B.y + B.h * 0.42); ctx.lineTo(cx + B.face * 70, B.y + B.h * 0.42); ctx.stroke(); }
+  }
+  if (st === 'stag') { ctx.font = `12px ${FD}`; ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.fillText('OPEN', cx, B.y - 26); }
+  if (B.calmT > 0) { ctx.strokeStyle = INK2; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(cx, B.y - 14, 12, 4, 0, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+}
+function drawBossBar() {
+  const B = bossNow(); if (!B) return;
+  const w = 460, x = (W - w) / 2, y = H - 78;
+  ctx.fillStyle = 'rgba(251,250,246,0.88)'; ctx.fillRect(x - 10, y - 22, w + 20, 34);
+  ctx.font = `11px ${FD}`; ctx.textAlign = 'left'; ctx.fillStyle = INK; ctx.fillText(B.name, x, y - 7);
+  ctx.textAlign = 'right'; ctx.fillStyle = PENCIL; ctx.fillText(B.ar.sub.toUpperCase(), x + w, y - 7);
+  ctx.fillStyle = FAINT; ctx.fillRect(x, y, w, 8); ctx.fillStyle = RED; ctx.fillRect(x, y, w * clamp(B.hp / B.hpMax, 0, 1), 8);
+  ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, 8);
+  ctx.fillStyle = INK2; ctx.fillRect(x, y + 9, w * clamp(B.poise / B.poiseMax, 0, 1) * 0.3, 2);
+}
 function drawFoe(f) {
+  if (f.boss) return drawBoss(f);
   const ink = f.flash > 0 ? PENCIL : INK2, cx = f.x + 12, g = f.gy;
   const pose = f.state === 'kneel' ? POSE.kneel() : f.state === 'wind' ? POSE.wind() : f.state === 'swing' ? POSE.strike() : f.state === 'stun' || f.state === 'stag' ? POSE.hurt() : Math.abs(f.vx) > 10 ? POSE.run(clock * 8 + f.home) : POSE.idle(clock + f.home);
-  const r = stick(cx, g, pose, f.face, ink, 3, { hollow: true, s: f.high ? 1.15 : 1 });
+  const r = f.mirror ? stick(cx, g, pose, f.face, f.flash > 0 ? HATCH : PENCIL, P.looks.build, { hair: P.looks.hair }) : stick(cx, g, pose, f.face, ink, 3, { hollow: true, s: f.high ? 1.15 : 1 });
+  if (f.calmT > 0) { ctx.strokeStyle = INK2; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(cx, f.y - 16, 10, 3.5, 0, 0, Math.PI * 2); ctx.stroke(); }
   if (f.high && f.state !== 'kneel') {
     ctx.strokeStyle = ink; ctx.lineWidth = 4; ctx.beginPath();
     if (f.state === 'wind') { ctx.moveTo(cx - f.face * 40, r.head.y - 14); ctx.lineTo(cx + f.face * 22, r.head.y - 20); }
@@ -2050,6 +2380,7 @@ function drawGarb(p, r) {
 }
 function drawPlayer() {
   const p = P; if (!p) return;
+  if (p.inkT > 0) { ctx.save(); ctx.globalAlpha = 0.3; drawPlayerBody(p); ctx.restore(); return; }
   if (p.inv > 0 && !p.dead && Math.floor(p.inv * 16) % 2 === 0) return;
   if (p.unseenT > 0) { ctx.save(); ctx.globalAlpha = 0.28; drawPlayerBody(p); ctx.restore(); if (Math.random() < 0.3) fx.push({ k: 'ink', x: (p.x + p.w / 2) + rnd(-10, 10), y: p.y + rnd(0, p.h), vx: rnd(-10, 10), vy: -rnd(10, 40), life: 0.6 }); return; }
   drawPlayerBody(p);
@@ -2110,7 +2441,7 @@ function drawHUD() {
   const p = P;
   const bar = (x, y, w, v, max, label, col = INK) => { ctx.font = `10px ${FD}`; ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.fillText(label, x, y - 4); ctx.fillStyle = FAINT; ctx.fillRect(x, y, w, 10); ctx.fillStyle = col; ctx.fillRect(x, y, w * clamp(v / max, 0, 1), 10); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, 10); };
   const plate = (x, y, w, h) => { ctx.fillStyle = 'rgba(251,250,246,0.88)'; ctx.fillRect(x, y, w, h); };
-  plate(10, 6, 378, 136); plate(W - 330, 6, 320, p.mount ? 92 : 74);
+  plate(10, 6, 378, 136);
   bar(20, 26, 200, p.hp, p.hpMax, 'HEALTH');
   bar(20, 52, 200 * p.stMax / 100, p.st, p.stMax, 'STAMINA', INK2);
   if (p.manaMax) bar(20, 78, 200 * p.manaMax / 100, p.mana, p.manaMax, `MANA · ${life.birth.school || ''}`, PENCIL); else { ctx.font = `10px ${FD}`; ctx.fillStyle = PENCIL; ctx.fillText('NO MANA IN THIS LIFE', 20, 84); }
@@ -2120,11 +2451,23 @@ function drawHUD() {
   ctx.fillText('RELICS', 20, 106);
   for (let i = 0; i < 4; i++) { const bx = 20 + i * 32, by = 110; ctx.fillStyle = PAPER; ctx.fillRect(bx, by, 28, 28); ctx.strokeStyle = p.equip[i] ? INK : FAINT; ctx.lineWidth = 2; ctx.strokeRect(bx, by, 28, 28); if (p.equip[i]) relicIcon(p.equip[i], bx + 14, by + 14, 0.85); }
   ctx.fillStyle = PENCIL; ctx.fillText(`${p.relics.size}/7 FOUND`, 156, 128);
-  ctx.textAlign = 'right'; ctx.fillStyle = INK; ctx.fillText(`LIFE ${life.n} · LV ${levelOf()} · ${curW().name.toUpperCase()} ${TIER_NAME[tierOf(p.slots[p.slotIdx])]} (Q: ${WEAPONS[p.slots[1 - p.slotIdx]].name.toUpperCase()})`, W - 20, 22);
-  ctx.fillStyle = PENCIL; ctx.fillText(micMode === 'off' ? 'MIC OFF · KEYS 1 TO 4' : micMode === 'ptt' ? (pttHeld ? (micReady ? 'LISTENING' : 'MIC STARTING…') : 'HOLD V TO SPEAK') : (recOn ? 'MIC ON · SPEAK A WORD' : 'MIC STARTING…'), W - 20, 40);
-  ctx.fillText(`${p.bless ? `${CHANT(p.bless.el).name.split(' ')[0].toUpperCase()} ${Math.ceil(p.bless.t)}s · ` : ''}${SUMMONS.length ? `${SUMMONS[0].id.toUpperCase()} ${Math.ceil(SUMMONS[0].t)}s · ` : ''}TAB · M · C: CHANT · ${isNight() ? 'NIGHT' : 'DAY'}`, W - 20, 56);
-  const LD = loadNow(); ctx.fillStyle = LD.cls === 'over' ? RED : INK2; ctx.fillText(`LOAD ${LD.full ? 'PACK FULL' : LD.cls.toUpperCase()} · PACK ${Math.round(LD.pack)}/${P.packMax} · PROTECTION ${protNow()}%`, W - 20, 72);
-  if (p.mount) { ctx.textAlign = 'left'; bar(W - 220, 84, 200, horse.hp, horse.hpMax, '', INK2); ctx.textAlign = 'right'; ctx.fillStyle = INK; ctx.fillText('HORSE', W - 226, 93); }
+  // right box: short lines, and the box grows to fit them so nothing spills out
+  const LD = loadNow(), other = WEAPONS[p.slots[1 - p.slotIdx]].name.toUpperCase();
+  const timers = [p.bless ? `${CHANT(p.bless.el).name.split(' ')[0].toUpperCase()} ${Math.ceil(p.bless.t)}s` : '', ...SUMMONS.map(sm => `${sm.id.toUpperCase()} ${Math.ceil(sm.t)}s`)].filter(Boolean);
+  const RL = [
+    [`LIFE ${life.n} · LV ${levelOf()}`, INK],
+    [`${curW().name.toUpperCase()} ${TIER_NAME[tierOf(p.slots[p.slotIdx])]} · Q: ${other}`, INK],
+    [micMode === 'off' ? 'MIC OFF · KEYS 1 TO 4' : micMode === 'ptt' ? (pttHeld ? (micReady ? 'LISTENING' : 'MIC STARTING…') : 'HOLD V TO SPEAK') : (recOn ? 'MIC ON · SPEAK A WORD' : 'MIC STARTING…'), PENCIL],
+    [`LOAD ${LD.full ? 'PACK FULL' : LD.cls.toUpperCase()} · PACK ${Math.round(LD.pack)}/${P.packMax}`, LD.cls === 'over' || LD.full ? RED : INK2],
+    [`PROTECTION ${protNow()}% · ${isNight() ? 'NIGHT' : 'DAY'}`, INK2],
+  ];
+  if (timers.length) RL.push([timers.join(' · '), INK]);
+  RL.push(['TAB · M · C: CHANT', PENCIL]);
+  ctx.font = `10px ${FD}`;
+  const rw = Math.max(240, ...RL.map(l => ctx.measureText(l[0]).width)) + 24, rh = 12 + RL.length * 16 + (p.mount ? 20 : 0);
+  plate(W - 10 - rw, 6, rw, rh);
+  ctx.textAlign = 'right'; RL.forEach(([t, c], i) => { ctx.fillStyle = c; ctx.fillText(t, W - 20, 22 + i * 16); });
+  if (p.mount) { const yb = 14 + RL.length * 16; ctx.textAlign = 'left'; bar(W - 220, yb, 200, horse.hp, horse.hpMax, '', INK2); ctx.textAlign = 'right'; ctx.fillStyle = INK; ctx.fillText('HORSE', W - 226, yb + 9); }
   // hotbar
   const bw = 54, gap = 6, total = 8 * bw + 7 * gap, x0 = (W - total) / 2, y0 = H - 50;
   plate(x0 - 6, y0 - 6, total + 12, 50);
@@ -2144,6 +2487,7 @@ function drawHUD() {
     let fs = 28; ctx.font = `${fs}px ${FD}`; while (ctx.measureText(banner.top).width > W - 80 && fs > 14) { fs -= 2; ctx.font = `${fs}px ${FD}`; }
     ctx.fillText(banner.top, W / 2, by + 44); ctx.font = `18px ${FH}`; lines.forEach((l, i) => ctx.fillText(l, W / 2, by + 74 + i * 24)); ctx.globalAlpha = 1;
   }
+  drawBossBar();
   drawChantHUD();
 
 }
@@ -2182,7 +2526,7 @@ window.__life = {
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };
