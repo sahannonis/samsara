@@ -60,12 +60,25 @@ async def main():
         await ev("__say('fire of the first', false)"); await ev("__say('fire of the first fire of the first morning burn what binds me')"); await run(2)
         R['restart'] = await ev("__life.CHS ? __life.CHS.matched.filter(Boolean).length+'/'+__life.CHS.matched.length : 'done '+JSON.stringify(__life.P.bless)")
         await run(400)
+        # a chant without the voice, with the mic on: hold C for 3 seconds, 85%
+        await ev("__life.P.bless=null"); await run(1, {}, {'chant': 1}); await run(1, {}, {'h1': 1}); await run(200, {'chant': True}); await run(2)
+        R['voiceless'] = await ev("JSON.stringify(__life.P.bless)")
+        # the horse jumps twice
+        await ev("__life.put(700,1000)"); await run(3); await ev("document.getElementById('tHorse').click()"); await run(120); await ev("__life.mount()"); await run(10)
+        await run(1, {}, {'jump': 1}); await run(18); vy1 = await ev("__life.P.vy"); await run(1, {}, {'jump': 1}); vy2 = await ev("__life.P.vy")
+        R['horse_double'] = f"mounted {await ev('__life.P.mount')} vy {vy1:.0f} -> {vy2:.0f} used {await ev('__life.P.horseJumped')}"
+        await run(6); await fr.screenshot(path=OUT + 'b14_01_horse_jump.png'); await run(80); await run(1, {}, {'jump': 1}); await run(10); await run(1, {}, {'jump': 1}); await run(1, {}, {'jump': 1})
+        R['horse_no_third'] = await ev("__life.P.horseJumped")
+        await run(80); await run(1, {}, {'use': 1}); await run(30)
         # --- the Empty longbow ---
         await ev("document.getElementById('tEmpty').click()"); await run(2)
         await ev("__life.put(12330,760)"); await run(3); await run(1, {}, {'use': 1}); await ev("__life.moveItem(__life.CHESTS_.find(c=>c.x===12330).inv,'weapon:7',true)")
         await pg.keyboard.press('Escape'); await run(2)
         R['bow'] = await ev("__life.P.weapons.has(7)+' arrows '+JSON.stringify(__life.P.arrows)")
         await ev("__life.P.slots[0]=7; __life.P.slotIdx=0")
+        await pg.keyboard.press('Tab'); await run(1); await pg.locator('[data-view="gear"]').click()
+        R['gear_arrows'] = await ev("[...document.querySelectorAll('#gearIn .slot')].map(e=>e.innerText).join(' ').match(/(Iron|Ember|Ink) ×\\d+/g).join(', ')")
+        await fr.screenshot(path=OUT + 'b14_02_quiver.png'); await pg.keyboard.press('Escape'); await run(2)
         # full draw passes through two foes
         await ev("(()=>{const L=__life; [4,5].forEach((i,n)=>{const f=L.foes[i]; f.alive=true; f.hp=200; f.hpMax=200; f.state='idle'; f.x=3800+n*60;}); L.put(3600,1100); L.P.face=1; L.mouse.in=false;})()"); await run(2)
         await run(1, {'heavy': True}, {'heavy': 1}); await run(70, {'heavy': True}); await fr.screenshot(path=OUT + 'b13_05_draw.png'); await run(40)

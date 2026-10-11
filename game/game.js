@@ -667,12 +667,13 @@ function updatePlayer(dt) {
   else if (!P.onG && !P.inWater) P.vx += (tgt - P.vx) * Math.min(1, dt * 14);
   else P.vx = tgt;
   if (mx && (!P.atk || P.mount) && !P.charging && P.rollT <= 0 && P.hitT <= 0 && P.kickT <= 0 && !P.plunge) P.face = mx;
+  if (P.onG) P.horseJumped = false;
   // jumping
   if ((jp || P.jbuf > 0) && P.hitT <= 0 && !P.plunge && P.healT <= 0) {
     if (P.inWater) { if (jp && !P.headUnder) { P.vy = -680; P.jbuf = 0; P.jumping = true; SFX.splash(); } }
     else if (P.onG && held.down && P.groundS && P.groundS.k === 'oneway') { P.dropT = 0.25; P.onG = false; P.jbuf = 0; P.y += 1; }
-    else if (P.onG || P.coy > 0) { P.vy = (P.mount ? -780 : -720) * (surf === 'mud' ? (wears('boots') || P.mount ? 0.88 : 0.7) : 1); P.onG = false; P.coy = 0; P.jbuf = 0; P.jumping = true; SFX.jump(); }
-    else if (P.mount) { /* a horse cannot jump in the air */ }
+    else if (P.onG || P.coy > 0) { P.horseJumped = false; P.vy = (P.mount ? -780 : -720) * (surf === 'mud' ? (wears('boots') || P.mount ? 0.88 : 0.7) : 1); P.onG = false; P.coy = 0; P.jbuf = 0; P.jumping = true; SFX.jump(); }
+    else if (P.mount) { if (jp && horse.perk === 'double jump' && !P.horseJumped) { P.vy = -700; P.horseJumped = true; P.jbuf = 0; puff(pcx(), P.y + P.h); for (let i = 0; i < 8; i++) fx.push({ k: 'dot', x: pcx() + rnd(-20, 20), y: P.y + P.h, vx: rnd(-80, 80), vy: rnd(20, 120), life: 0.4, c: INK2 }); SFX.air(); } }
     else if (jp && P.clingMem > 0 && has('gecko')) { P.vy = -690; P.vx = -P.clingDir * 340; P.kickT = 0.17; P.face = -P.clingDir; P.cling = 0; P.clingMem = 0; P.jbuf = 0; P.jumping = true; P.jumpsLeft = has('garuda') ? 1 : 0; puff(P.x + (P.clingDir > 0 ? P.w : 0), P.y + 30); SFX.jump(); }
     else if (jp && P.jumpsLeft > 0 && has('garuda')) { P.vy = -640; P.jumpsLeft--; P.jbuf = 0; P.jumping = true; P.glide = false; puff(pcx(), P.y + P.h); SFX.air(); }
   }
@@ -1252,12 +1253,11 @@ function chantStep(dt, mx) {
     return;
   }
   CHS.t += dt;
-  if (pressed.chant && micMode !== 'off') { cancelChant('YOU STOP CHANTING'); return; }
   if (mx || pressed.jump || pressed.roll) { cancelChant('YOU STOP CHANTING'); return; }
-  if (micMode === 'off') {
-    if (held.chant) CHS.hold += dt; else if (CHS.hold > 0) { cancelChant('YOU LET GO TOO SOON'); return; }
-    const need = 4; CHS.matched = CHS.c.words.map((_, i) => i < Math.floor(CHS.c.words.length * Math.min(1, CHS.hold / need))); if (CHS.hold >= need) { finishChant(0.6, 1); return; }
-  }
+  // without a voice: hold C. It takes 3 seconds and gives 85% of a clean spoken chant
+  if (held.chant) CHS.hold += dt;
+  else if (CHS.hold > 0) { if (CHS.hold < 0.25 && micMode !== 'off') cancelChant('YOU STOP CHANTING'); else cancelChant('YOU LET GO TOO SOON'); return; }
+  if (CHS.hold > 0) { const need = 3, n = Math.floor(CHS.c.words.length * Math.min(1, CHS.hold / need)); CHS.matched = CHS.matched.map((v, i) => v || i < n); if (CHS.hold >= need) { CHS.silent = true; finishChant(0.85, 1); return; } }
   const k = CHS.matched.filter(Boolean).length / CHS.matched.length;
   if (k >= 0.999) { finishChant(1, CHS.t <= CHS.c.words.length * 0.5 + 2 ? 1 : 0.9); return; }
   if (CHS.t >= CHS.limit) { if (k >= 0.5) finishChant(k, 0.85); else cancelChant('THE CHANT FADES · TOO FEW WORDS WERE HEARD'); }
@@ -1342,7 +1342,7 @@ function drawChantHUD() {
     ctx.font = `21px ${FH}`; const parts = ws.map((t, i) => ({ t, on: CHS.matched[i] })); const total = parts.reduce((a, q) => a + ctx.measureText(q.t + ' ').width, 0); let x = W / 2 - total / 2; ctx.textAlign = 'left';
     for (const q of parts) { ctx.fillStyle = q.on ? INK : PENCIL; ctx.fillText(q.t, x, 166); if (q.on) { ctx.fillRect(x, 170, ctx.measureText(q.t).width, 2); } x += ctx.measureText(q.t + ' ').width; }
     ctx.textAlign = 'center'; ctx.font = `13px ${FH}`; ctx.fillStyle = INK2;
-    ctx.fillText(micMode === 'off' ? 'Mic is off: keep holding C' : micMode === 'ptt' ? (pttHeld ? 'Listening… speak the line' : 'Hold V and speak the line') : 'Speak the line', W / 2, 192);
+    ctx.fillText(CHS.hold > 0 ? 'Keep holding C (no voice: 85%)' : micMode === 'off' ? 'Mic is off: hold C for 3 seconds (85%)' : micMode === 'ptt' ? (pttHeld ? 'Listening… speak the line' : 'Hold V and speak the line · or hold C (85%)') : 'Speak the line · or hold C (85%)', W / 2, 192);
     ctx.fillStyle = FAINT; ctx.fillRect(x0 + 10, 198, w - 20, 3); ctx.fillStyle = INK; ctx.fillRect(x0 + 10, 198, (w - 20) * Math.max(0, 1 - CHS.t / CHS.limit), 3);
   }
   ctx.restore();
@@ -1680,7 +1680,7 @@ function updateShots(dt) {
 /* ---------- the horse ---------- */
 const HORSE_HOME = { x: 720, gy: 1000 };
 let horse = null;
-function newHorse() { horse = { x: HORSE_HOME.x, gy: HORSE_HOME.gy, face: -1, state: 'wild', hp: 120, hpMax: 120, arriveT: 0, fleeT: 0, fleeX: 0, graze: 0 }; }
+function newHorse() { horse = { perk: 'double jump', x: HORSE_HOME.x, gy: HORSE_HOME.gy, face: -1, state: 'wild', hp: 120, hpMax: 120, arriveT: 0, fleeT: 0, fleeX: 0, graze: 0 }; }
 function mount() {
   const box = { x: horse.x - 22, y: horse.gy - 80, w: 44, h: 80 };
   if (blocked(box)) { floater(horse.x, horse.gy - 90, 'NO ROOM TO MOUNT HERE', PENCIL); return; }
@@ -1956,7 +1956,7 @@ function renderChantBook() {
   const card0 = card; const cardP = c => card0(c).replace(/<\/div>$/, prep(c) + '</div>');
   return `<div class="gear"><div class="gcol"><span class="lbl">Chants you know · ${known.length} of ${CHANTS.length} · ${P.prepared.size} of ${P.chantSlots} prepared${P.noMana ? ' (a body with no mana holds five)' : ''}</span>
       <div class="stats"><span>Only prepared chants come up when you press C. ${atS ? 'You are at a shrine: prepare or put away chants here.' : 'Change which chants are prepared while standing at a shrine.'}</span></div>
-      <div class="stats"><span>Press C in play: first the weapon blessings, press C again for summons. Choose with a number, then speak the line.</span><span>Clean, steady words make it stronger. Chanting at a shrine makes it stronger and longer. A hit breaks the chant. With the mic off, hold C for four seconds (60% strength).</span><span>Summons answer once, then wait until you rest at a shrine.</span></div>
+      <div class="stats"><span>Press C in play: first the weapon blessings, press C again for summons. Choose with a number, then speak the line.</span><span>Clean, steady words make it stronger. Chanting at a shrine makes it stronger and longer. A hit breaks the chant. Without your voice (any mic setting), hold C for three seconds instead: the chant comes out at 85%.</span><span>Summons answer once, then wait until you rest at a shrine.</span></div>
       <div class="inv">${known.map(cardP).join('')}</div></div>
     <div class="gcol"><span class="lbl">Chants still carved somewhere</span><div class="inv">${unknown.length ? unknown.map(c => `<div class="item"><b>?</b><span class="hand">${esc(c.how)}</span></div>`).join('') : '<p class="note">You know every chant in the proving grounds.</p>'}</div></div></div>`;
 }
@@ -1980,9 +1980,10 @@ function renderSpellBook() {
 }
 function renderGear() {
   const b = life.birth, full = !P.equip.includes(null), LD = loadNow();
-  const slot = i => { const w = WEAPONS[P.slots[i]]; return `<div class="slot${P.slotIdx === i ? ' cur' : ''}"><span class="lbl">Hand ${i + 1}${P.slotIdx === i ? ' · in use' : ''}</span><b>${w.name}</b><span>${w.perk}</span><span class="m">Weight ${w.weight}</span></div>`; };
+  const quiver = () => `<span class="m"><b>Arrows</b> · now: ${ARROWS[P.arrowKind].name}${P.arrowKind === 'reed' ? '' : ' ×' + P.arrows[P.arrowKind]} (R changes)</span>${['reed', 'iron', 'ember', 'ink'].map(k => `<span class="m">${ARROWS[k].name} ${k === 'reed' ? '· endless' : '×' + P.arrows[k]} · ${ARROWS[k].what}</span>`).join('')}<span class="m">More are made at a forge.</span>`;
+  const slot = i => { const w = WEAPONS[P.slots[i]]; return `<div class="slot${P.slotIdx === i ? ' cur' : ''}"><span class="lbl">Hand ${i + 1}${P.slotIdx === i ? ' · in use' : ''}</span><b>${w.name}</b><span>${w.perk}</span><span class="m">Weight ${w.weight}</span>${w.long ? quiver() : ''}</div>`; };
   const owned = [...P.weapons].sort((x, y) => x - y);
-  const inv = owned.map(wi => { const w = WEAPONS[wi]; return `<div class="item"><b>${w.name}</b><span class="m">Light ${w.light.dmg} · Heavy ${w.heavy.dmg} · Stamina ${w.light.st}/${w.heavy.st} · Weight ${w.weight} · Tier I</span><div class="row"><button class="btn ghost sm" type="button" data-w="${wi}" data-s="0"${w.nomana && !P.noMana ? ' disabled' : ''}>Hand 1</button><button class="btn ghost sm" type="button" data-w="${wi}" data-s="1"${w.nomana && !P.noMana ? ' disabled' : ''}>Hand 2</button>${w.nomana && !P.noMana ? '<span class="m">It slips from hands that hold mana.</span>' : ''}</div></div>`; }).join('') + (owned.length < WEAPONS.length ? `<p class="note">${WEAPONS.length - owned.length} more weapon${WEAPONS.length - owned.length === 1 ? '' : 's'} hidden in chests on the road.</p>` : '');
+  const inv = owned.map(wi => { const w = WEAPONS[wi]; return `<div class="item"><b>${w.name}</b><span class="m">Light ${w.light.dmg} · Heavy ${w.heavy.dmg} · Stamina ${w.light.st}/${w.heavy.st} · Weight ${w.weight} · Tier I</span><div class="row"><button class="btn ghost sm" type="button" data-w="${wi}" data-s="0"${w.nomana && !P.noMana ? ' disabled' : ''}>Hand 1</button><button class="btn ghost sm" type="button" data-w="${wi}" data-s="1"${w.nomana && !P.noMana ? ' disabled' : ''}>Hand 2</button>${w.nomana && !P.noMana ? '<span class="m">It slips from hands that hold mana.</span>' : ''}</div>${w.long ? `<span class="m">Arrows: iron ×${P.arrows.iron} · ember ×${P.arrows.ember} · ink ×${P.arrows.ink} · reed endless</span>` : ''}</div>`; }).join('') + (owned.length < WEAPONS.length ? `<p class="note">${WEAPONS.length - owned.length} more weapon${WEAPONS.length - owned.length === 1 ? '' : 's'} hidden in chests on the road.</p>` : '');
   const gslots = ['head', 'body', 'feet'].map(k => { const id = P.garb[k], g = id && GARB[id]; return `<div class="slot"><span class="lbl">${SLOT_NAMES[k]}</span>${g ? `<b>${g.name}</b><span>${g.what}</span><span class="m">Protection ${g.prot}% · Weight ${g.weight}</span><div class="row"><button class="btn ghost sm" type="button" data-goff="${k}">Take off</button></div>` : '<span class="note">Nothing</span>'}</div>`; }).join('');
   const gcar = [...P.garbOwned].filter(id => P.garb[GARB[id].slot] !== id);
   const ginv = gcar.length ? gcar.map(id => { const g = GARB[id]; return `<div class="item"><b>${g.name}</b><span>${SLOT_NAMES[g.slot]} · ${g.what}</span><span class="m">Protection ${g.prot}% · Weight ${g.weight}</span><div class="row"><button class="btn ghost sm" type="button" data-gon="${id}">Wear</button></div></div>`; }).join('') : `<p class="note">Garments you find but do not wear wait here. Found ${P.garbOwned.size} of ${Object.keys(GARB).length}.</p>`;
