@@ -202,7 +202,7 @@ const dk = document.createElement('canvas'), dctx = dk.getContext('2d');
 let scale = 1;
 function fit() { const r = cv.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2); cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); dk.width = cv.width; dk.height = cv.height; scale = cv.width / W; }
 addEventListener('resize', fit);
-const KEYS = { KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyW: 'up', ArrowUp: 'up', Space: 'jump', KeyS: 'down', ArrowDown: 'down', KeyJ: 'light', KeyK: 'heavy', KeyL: 'roll', ShiftLeft: 'roll', ShiftRight: 'roll', KeyI: 'parry', KeyF: 'heal', KeyQ: 'swap', KeyE: 'use', KeyV: 'talk' };
+const KEYS = { KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyW: 'up', ArrowUp: 'up', Space: 'jump', KeyS: 'down', ArrowDown: 'down', KeyJ: 'light', KeyK: 'heavy', KeyL: 'roll', ShiftLeft: 'roll', ShiftRight: 'roll', KeyI: 'parry', KeyF: 'heal', KeyQ: 'swap', KeyE: 'use', KeyV: 'talk', KeyC: 'chant' };
 for (let i = 1; i <= 8; i++) KEYS['Digit' + i] = 'h' + i;
 const held = {}, pressed = {}, released = {};
 let mode = 'start';
@@ -300,6 +300,7 @@ function startRec() {
   rec.onaudiostart = () => { micReady = true; };
   rec.onresult = e => {
     if (micMode === 'off' || (micMode === 'ptt' && !pttHeld && performance.now() - pttRelease > 450)) return;
+    if (CHS && CHS.state === 'chant') { if (CHS.base === null) CHS.base = e.resultIndex; const toks = []; const tk = t => t.toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean); for (let i = CHS.base; i < e.results.length; i++) { const one = tk(e.results[i][0].transcript); toks.push(...one); chantHeard(one); } chantHeard(toks); for (let i = CHS.base; i < e.results.length; i++) for (let a = 1; a < e.results[i].length; a++) chantHeard(e.results[i][a].transcript.toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean)); const last = e.results[e.results.length - 1]; if (last.isFinal) voiceLog(`heard “${last[0].transcript.trim()}” (chant)`, true); return; }
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const r = e.results[i];
       for (let a = 0; a < r.length; a++) {
@@ -323,7 +324,7 @@ function startRec() {
 function stopRec() { try { rec && rec.stop(); } catch (_) {} }
 
 /* ---------- state ---------- */
-const soul = { spells: new Set(['ignite', 'shield', 'restore']), ranks: {}, kills: 0, home: null, karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set() };
+const soul = { chants: new Set(['agni']), spells: new Set(['ignite', 'shield', 'restore']), ranks: {}, kills: 0, home: null, karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set() };
 let life = null, P = null, foes = [], shots = [], fx = [], floaters = [], shades = [], drops = [], pots = [];
 let shake = 0, hitstop = 0, clock = 0, banner = null, pendingDeath = 0, zoneTag = null;
 const villager = { x: 560, gy: 1000, helped: false, talkT: 0, line: '' };
@@ -351,7 +352,7 @@ function newLife(birth) {
   resetNodes();
   if (!soul.home) soul.home = emptyInv();
   newHorse(); resetChests();
-  TEMPS = []; RAINS = []; ALLY = null;
+  TEMPS = []; RAINS = []; ALLY = null; CHS = null; SUMMONS = []; ECHO_HITS = [];
   pots = POT_SPOTS.map(([x, gy, seeds]) => ({ x, gy, seeds, broken: false }));
   FAKES.forEach(f => f.found = false);
   drops = []; shots = []; resetCrumbles(); spawnFoes();
@@ -446,10 +447,11 @@ function lightAttack(W8) {
   if (W8.bow) { shootArrow(W8.light, 1); P.atk = { t: 0, dur: W8.light.dur, a0: 99, a1: 99, bow: true, hit: new Set() }; }
   else {
     P.atk = Object.assign({ t: 0, hit: new Set(), heavy: false }, W8.light, { daggers: W8.id === 'daggers', dmg: W8.light.dmg * wMul(W8) }); SFX.swing();
+    if (P.bless && P.bless.el === 'vayu') { const f = 0.72; P.atk.dur *= f; P.atk.a0 *= f; P.atk.a1 *= f; const sx = pcx() + P.face * 24; shots.push({ windcut: true, x: sx, y: P.y + Math.min(20, P.h * 0.5), vx: P.face * 760, vy: 0, life: 0.35, dmg: 6 * P.bless.pow * P.dmgMul, r: 9 }); }
     if (W8.id === 'daggers') { P.combo = P.comboT > 0 ? P.combo % 3 + 1 : 1; P.comboT = W8.light.dur + 0.4; if (P.combo === 3) P.atk.combo3 = true; }
   }
 }
-function busy() { return P.atk || P.rollT > 0 || P.healT > 0 || P.hitT > 0 || P.swapT > 0 || P.dead || P.plunge || P.landT > 0; }
+function busy() { return (CHS && CHS.state === 'chant') || P.atk || P.rollT > 0 || P.healT > 0 || P.hitT > 0 || P.swapT > 0 || P.dead || P.plunge || P.landT > 0; }
 function setH(h) {
   if (P.h === h) return true;
   const ny = P.y + P.h - h;
@@ -529,6 +531,7 @@ function updatePlayer(dt) {
   }
   if (P.ladder) { ladderStep(dt, mx); afterMove(dt, mx, true); return; }
 
+  if (pressed.chant && !CHS && !P.dead && !P.mount) openChantPick(); else if (CHS) chantStep(dt, mx);
   if (P.healT > 0) { P.healT -= dt; if (P.healT <= 0) { P.hp = Math.min(P.hpMax, P.hp + 40); floater(pcx(), P.y - 20, '+40'); } }
   if (P.atk) { const A = P.atk; A.t += dt; if (A.t >= A.a0 && A.t <= A.a1) doHits(A); if (A.t >= A.dur) P.atk = null; }
   if (!busy()) {
@@ -580,7 +583,7 @@ function updatePlayer(dt) {
   else if (P.rollT > 0) { P.rollT -= dt; P.vx = P.face * P.rollV * (surf === 'mud' && !wears('boots') ? 0.6 : 1); if (P.rollT <= 0) P.rollT = 0; }
   else if (P.hitT > 0 || P.kickT > 0) P.vx *= Math.max(0, 1 - 2 * dt);
   else if (P.plunge) P.vx = 0;
-  else if (P.healT > 0 || P.landT > 0) P.vx = 0;
+  else if (P.healT > 0 || P.landT > 0 || (CHS && CHS.state === 'chant')) P.vx = 0;
   else if (P.atk && P.atk.lunge && P.onG && P.atk.t >= P.atk.a0 - 0.08 && P.atk.t < P.atk.a1) P.vx = P.face * P.atk.lunge;
   else if (P.atk && P.onG) P.vx *= 0.8;
   else if (surf === 'ice') P.vx += (tgt - P.vx) * Math.min(1, dt * (wears('cleats') ? 12 : 2.2));
@@ -833,11 +836,20 @@ function doHits(A) {
     if (A.combo3) { dmg *= 2; floater(t.x + t.w / 2, t.y - 34, 'THIRD CUT', INK2); }
     if (A.daggers && t.face === P.face && t.state !== 'kneel') { dmg *= 2.5; floater(t.x + t.w / 2, t.y - 20, 'FROM BEHIND'); }
     if (A.thrust && P.mount && Math.abs(P.vx) > 250) { dmg *= 1 + Math.abs(P.vx) / 430; floater(t.x + t.w / 2, t.y - 20, 'CHARGE'); }
-    hurtFoe(t, dmg, A.heavy, { stun: A.stun, knock: A.knock });
+    if (P.bless) dmg = blessHit(t, dmg, A.heavy);
+    hurtFoe(t, dmg, A.heavy, { stun: (A.stun || (A.heavy ? 0.6 : 0.3)) * (P.bless && P.bless.el === 'prithvi' ? 1.8 : 1), knock: (A.knock || (A.heavy ? 260 : 120)) * (P.bless && P.bless.el === 'prithvi' ? 1.6 : 1) });
     hitstop = A.heavy ? 0.09 : 0.05; shake = A.heavy ? 8 : 4;
   }
   for (const p of pots) if (!p.broken && overlap(box, { x: p.x - 12, y: p.gy - 28, w: 24, h: 28 })) breakPot(p);
   for (const n of NODES) if (n.hp > 0 && !A.hit.has(n) && overlap(box, nodeBox(n))) { A.hit.add(n); hitNode(n, A.heavy ? 2 : 1); }
+}
+function blessHit(t, dmg, heavy) {
+  const b = P.bless, pw = clamp(b.pow, 0.5, 1.2);
+  if (b.el === 'agni') { dmg *= 1.25 + 0.2 * pw; t.burnT = 3; }
+  if (b.el === 'jala') { const h = dmg * 0.18 * pw; P.hp = Math.min(P.hpMax, P.hp + h); }
+  if (b.el === 'akasha') ECHO_HITS.push({ f: t, t: 0.3, dmg: dmg * 0.5 * pw });
+  if (b.el === 'prithvi' && heavy) for (const f of foes) if (f !== t && f.alive && f.state !== 'kneel' && Math.abs(f.x - t.x) < 90 && Math.abs(f.gy - t.gy) < 40) hurtFoe(f, dmg * 0.4, false, { stun: 0.8 });
+  return dmg;
 }
 function hurtFoe(t, dmg, heavy, o = {}) {
   if (t.state === 'kneel') { t.alive = false; burst(t.x + 12, t.y + 20, 22); SFX.hit(); deed('You struck down one who begged for mercy.', -2); soul.memories.slain++; P.seeds += 10; return; }
@@ -849,6 +861,7 @@ function hurtFoe(t, dmg, heavy, o = {}) {
   }
 }
 function hurtPlayer(d, src, melee) {
+  if (CHS && CHS.state === 'chant' && !(P.dead || P.rollIF > 0 || P.inv > 0)) { if (!(melee && P.parryT > 0) && !(P.shieldT > 0)) cancelChant('THE HIT BREAKS YOUR CHANT'); }
   if (P.dead || P.rollIF > 0 || P.inv > 0 || P.climbT > 0) { if (P.rollIF > 0) floater(pcx(), P.y - 20, 'DODGED', PENCIL); return 'dodge'; }
   if (melee && P.parryT > 0) { P.parryT = 0; SFX.parry(); floater(pcx(), P.y - 24, 'PARRY'); if (P.skills.has('second_wind')) { P.hp = Math.min(P.hpMax, P.hp + 12); floater(pcx(), P.y - 40, '+12'); } src.stag = 1.1; src.state = 'stag'; src.t = src.stag; P.riposte = 1.4; hitstop = 0.12; shake = 6; for (let i = 0; i < 10; i++) fx.push({ k: 'spark', x: pcx() + P.face * 20, y: P.y + 20, vx: rnd(-300, 300), vy: rnd(-300, 50), life: 0.25 }); return 'parry'; }
   if (P.shieldT > 0) { P.shieldT = 0; floater(pcx(), P.y - 24, 'BLOCKED'); tone(1500, 900, 0.06, 'square', 0.03); burst(pcx() + P.face * 26, P.y + 30, 10, PENCIL); return 'block'; }
@@ -1032,6 +1045,159 @@ function castWord(w, power) {
   }
 }
 let TEMPS = [], RAINS = [], ALLY = null;
+/* ---------- chants: weapon blessings and summoning rituals, spoken aloud, no mana needed ---------- */
+const CHANTS = [
+  { id: 'agni', kind: 'bless', name: 'Agni blessing', line: 'Fire of the first morning, burn what binds me', what: 'Your weapon burns: it hits harder and sets foes burning.', how: 'You were born knowing it.' },
+  { id: 'jala', kind: 'bless', name: 'Jala blessing', line: 'Water remembers every wound, let it close', what: 'Every hit you land heals you a little.', how: 'Carved on the floor of the pool.' },
+  { id: 'vayu', kind: 'bless', name: 'Vayu blessing', line: 'Wind without a home, carry me now', what: 'You strike faster, and quick strikes send a small wind cut.', how: 'Carved at the edge of the wind gap.' },
+  { id: 'prithvi', kind: 'bless', name: 'Prithvi blessing', line: 'Mountain under my feet, stand before me', what: 'Your hits stun far longer and throw foes back. Heavy hits shake the ground.', how: 'Carved low in the low tunnel.' },
+  { id: 'akasha', kind: 'bless', name: 'Akasha blessing', line: 'Silence holds every sound, let the sky open', what: 'Every hit lands again a moment later, at half strength.', how: 'Carved at the far end of the long tunnel.' },
+  { id: 'deva', kind: 'summon', name: 'Call the Shining Ones', line: 'Shining ones above the clouds, come down and stand with me', what: 'A deva stays above you for 20 seconds, healing you and guarding you from a hit now and then.', offer: { petal: 1 }, needs: 'good', how: 'Carved where the arena begins.' },
+  { id: 'asura', kind: 'summon', name: 'Call the Proud Ones', line: 'Proud ones who never kneel, fight beside me now', what: 'An asura fights for you for 20 seconds. When it leaves, it takes its price in seeds.', offer: { ink: 2 }, how: 'Carved in the arena, near the forge.' },
+  { id: 'preta', kind: 'summon', name: 'Call the Hungry Ones', line: 'Hungry ones who are never full, eat from my enemies', what: 'A hungry ghost drifts to your foes for 20 seconds, draining them and bringing you their seeds.', offer: { seeds: 30 }, how: 'Carved on the lower floor below the plateau.' },
+  { id: 'tiryak', kind: 'summon', name: 'Call the Forest Kin', line: 'Brothers of the forest, run with me', what: 'A spirit tiger hunts beside you for 20 seconds. It only answers a body born with no mana.', offer: { wood: 1 }, needs: 'nomana', how: 'Carved near the horse in the village.' },
+  { id: 'naraka', kind: 'summon', name: 'Call the Burning Ones', line: 'Burning ones below the earth, rise and break them', what: 'Fire bursts up under every foe you can see for 5 seconds. It burns you too.', offer: { ember: 1 }, how: 'Carved in the dark, by the burning ground.' },
+];
+CHANTS.forEach(c => { c.words = c.line.toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean); });
+const CHANT = id => CHANTS.find(c => c.id === id);
+const INSCRIPTIONS = [{ id: 'jala', x: 5590, gy: 1340 }, { id: 'vayu', x: 6255, gy: 560 }, { id: 'prithvi', x: 1480, gy: 1000 }, { id: 'akasha', x: 3840, gy: 1340 }, { id: 'deva', x: 8960, gy: 760 }, { id: 'asura', x: 9180, gy: 760 }, { id: 'preta', x: 3950, gy: 1100 }, { id: 'tiryak', x: 820, gy: 1000 }, { id: 'naraka', x: 7830, gy: 760 }];
+const nearInscription = () => INSCRIPTIONS.find(q => Math.abs(pcx() - q.x) < 40 && Math.abs(P.y + P.h - q.gy) < 40);
+let CHS = null, SUMMONS = [], ECHO_HITS = [];
+function matchWords(target, heard) {
+  const out = target.map(() => false); let j = 0;
+  for (let i = 0; i < target.length; i++) {
+    let best = -1, bs = 0;
+    for (let k = j; k < Math.min(heard.length, j + 8); k++) { const sc = sim(target[i], heard[k]); if (sc > bs) { bs = sc; best = k; } }
+    if (bs >= (target[i].length <= 3 ? 0.5 : 0.62)) { out[i] = true; j = best + 1; }
+  }
+  return out;
+}
+function chantBlocked(c) {
+  if (c.needs === 'good' && soul.karma < 0) return 'THE SHINING ONES DO NOT ANSWER WHILE YOUR KARMA IS IN DEBT';
+  if (c.needs === 'nomana' && !P.noMana) return 'THE FOREST KIN ONLY ANSWER A BODY BORN WITH NO MANA';
+  if (c.kind === 'summon' && P.summoned && P.summoned.has(c.id)) return 'THEY ALREADY CAME · REST AT A SHRINE TO CALL THEM AGAIN';
+  if (c.kind === 'summon' && SUMMONS.length) return 'ONE CALLING AT A TIME';
+  if (c.offer && !canPay(c.offer)) return `THEY ASK FOR AN OFFERING: ${costText(c.offer).toUpperCase()}`;
+  return null;
+}
+function openChantPick() {
+  if (CHS && CHS.state === 'chant') return;
+  const page = !CHS ? 'bless' : CHS.page === 'bless' ? 'summon' : null;
+  if (!page) { CHS = null; return; }
+  CHS = { state: 'pick', page, list: CHANTS.filter(c => c.kind === page && soul.chants.has(c.id)) };
+}
+function startChant(c) {
+  const why = chantBlocked(c); if (why) { floater(pcx(), P.y - 30, why, PENCIL); CHS = null; return; }
+  const shrine = nearShrine() >= 0;
+  CHS = { state: 'chant', c, t: 0, limit: c.words.length * 0.75 + 3.5, matched: c.words.map(() => false), base: null, hold: 0, shrine };
+  P.atk = null; P.charging = false; SFX.drink(); banner = null; zoneTag = null;
+  if (micMode === 'ptt' && !pttHeld) floater(pcx(), P.y - 40, 'HOLD V AND SPEAK', INK2);
+}
+function chantHeard(tokens) { if (!CHS || CHS.state !== 'chant') return; const m = matchWords(CHS.c.words, tokens); CHS.matched = CHS.matched.map((v, i) => v || m[i]); }
+function cancelChant(why) { if (!CHS) return; if (CHS.state === 'chant' && why) floater(pcx(), P.y - 40, why, RED); CHS = null; }
+function chantStep(dt, mx) {
+  if (!CHS) return;
+  if (CHS.state === 'pick') {
+    for (let i = 0; i < 9; i++) if (pressed['h' + (i + 1)]) { pressed['h' + (i + 1)] = false; const c = CHS.list[i]; if (c) startChant(c); else CHS = null; return; }
+    if (pressed.chant) openChantPick();
+    return;
+  }
+  CHS.t += dt;
+  if (pressed.chant && micMode !== 'off') { cancelChant('YOU STOP CHANTING'); return; }
+  if (mx || pressed.jump || pressed.roll) { cancelChant('YOU STOP CHANTING'); return; }
+  if (micMode === 'off') {
+    if (held.chant) CHS.hold += dt; else if (CHS.hold > 0) { cancelChant('YOU LET GO TOO SOON'); return; }
+    const need = 4; CHS.matched = CHS.c.words.map((_, i) => i < Math.floor(CHS.c.words.length * Math.min(1, CHS.hold / need))); if (CHS.hold >= need) { finishChant(0.6, 1); return; }
+  }
+  const k = CHS.matched.filter(Boolean).length / CHS.matched.length;
+  if (k >= 0.999) { finishChant(1, CHS.t <= CHS.c.words.length * 0.5 + 2 ? 1 : 0.9); return; }
+  if (CHS.t >= CHS.limit) { if (k >= 0.5) finishChant(k, 0.85); else cancelChant('THE CHANT FADES · TOO FEW WORDS WERE HEARD'); }
+}
+function finishChant(clean, pace) {
+  const c = CHS.c, shrine = CHS.shrine; let pw = clean * pace * (shrine ? 1.2 : 1); CHS = null;
+  if (c.offer) { if (!canPay(c.offer)) { floater(pcx(), P.y - 30, 'THE OFFERING IS GONE', PENCIL); return; } pay(c.offer); }
+  SFX.word(); shake = 6; for (let i = 0; i < 26; i++) fx.push({ k: 'ink', x: pcx() + rnd(-30, 30), y: P.y + rnd(-10, P.h), vx: rnd(-40, 40), vy: -rnd(30, 110), life: rnd(0.5, 1.2) });
+  floater(pcx(), P.y - 44, `${c.name.toUpperCase()} · ${Math.round(pw * 100)}%`);
+  voiceLog(`chant: ${c.name} at ${Math.round(pw * 100)}%`, true);
+  if (c.kind === 'bless') { P.bless = { el: c.id, t: (30 + 60 * clamp(pw, 0, 1.2)) * (shrine ? 1.5 : 1), pow: pw }; return; }
+  P.summoned = P.summoned || new Set(); P.summoned.add(c.id);
+  const sm = { id: c.id, x: pcx() - P.face * 40, y: P.y + 10, t: c.id === 'naraka' ? 5 : 20, cd: 0.5, pow: pw, face: P.face, swing: 0 };
+  SUMMONS.push(sm); tone(110, 330, 1.2, 'sine', 0.06);
+  banner = { t: 2.4, top: c.name.toUpperCase(), sub: c.what };
+}
+const nearestFoe = (x, y, r) => { let best = null, bd = r; for (const f of foes) if (f.alive && f.state !== 'kneel') { const d = Math.hypot(f.x + 12 - x, f.y + 26 - y); if (d < bd) { bd = d; best = f; } } return best; };
+function updateChants(dt) {
+  if (P.bless) { P.bless.t -= dt; if (P.bless.t <= 0) { floater(pcx(), P.y - 30, 'THE BLESSING FADES', PENCIL); P.bless = null; }
+    else if (Math.random() < dt * 14) { const el = P.bless.el, hx = pcx() + P.face * 22, hy = P.y + (P.h > 40 ? 20 : 12); fx.push(el === 'agni' ? { k: 'flame', x: hx + rnd(-6, 6), y: hy, vx: rnd(-10, 10), vy: -rnd(40, 90), life: 0.35 } : el === 'jala' ? { k: 'bub', x: hx, y: hy, vx: 0, vy: 50, life: 0.5 } : el === 'vayu' ? { k: 'wind', x: hx, y: hy + rnd(-8, 8), vx: P.face * 200, vy: 0, life: 0.2 } : el === 'prithvi' ? { k: 'dot', x: hx, y: hy, vx: rnd(-40, 40), vy: -rnd(20, 80), life: 0.4, c: INK2 } : { k: 'ring', x: hx, y: hy, life: 0.35 }); } }
+  for (const e of ECHO_HITS) { e.t -= dt; if (e.t <= 0 && e.f.alive) { hurtFoe(e.f, e.dmg, false, { echo: true }); for (let i = 0; i < 6; i++) fx.push({ k: 'ring', x: e.f.x + 12, y: e.f.y + 26, life: 0.3 }); } }
+  ECHO_HITS = ECHO_HITS.filter(e => e.t > 0);
+  for (const f of foes) if (f.alive && f.burnT > 0) { f.burnT -= dt; f.hp = Math.max(1, f.hp - 5 * dt); if (Math.random() < dt * 10) fx.push({ k: 'flame', x: f.x + rnd(4, 20), y: f.y + rnd(10, 40), vx: 0, vy: -60, life: 0.3 }); }
+  for (const sm of SUMMONS) {
+    sm.t -= dt; sm.cd -= dt; if (sm.swing > 0) sm.swing -= dt;
+    const tg = nearestFoe(sm.x, sm.y, 460);
+    if (sm.id === 'deva') { const tx = pcx() - P.face * 26, ty = P.y - 48 + Math.sin(clock * 2) * 6; sm.x += (tx - sm.x) * Math.min(1, dt * 4); sm.y += (ty - sm.y) * Math.min(1, dt * 4); P.hp = Math.min(P.hpMax, P.hp + 4 * sm.pow * dt); if (sm.cd <= 0) { sm.cd = 6; P.shieldT = Math.max(P.shieldT, 1.6); floater(sm.x, sm.y - 20, 'THE DEVA GUARDS YOU', INK2); } }
+    else if (sm.id === 'naraka') { if (sm.cd <= 0) { sm.cd = 1; let n = 0; for (const f of foes) if (f.alive && f.state !== 'kneel' && visible(f, 0)) { hurtFoe(f, 18 * sm.pow, true); n++; for (let i = 0; i < 12; i++) fx.push({ k: 'flame', x: f.x + 12 + rnd(-10, 10), y: f.gy - rnd(0, 20), vx: rnd(-20, 20), vy: -rnd(200, 420), life: 0.45 }); } if (n) { P.hp = Math.max(1, P.hp - 3); floater(pcx(), P.y - 20, 'THE FIRE BURNS YOU TOO', RED); } } }
+    else {
+      const sp = sm.id === 'tiryak' ? 420 : sm.id === 'preta' ? 150 : 230;
+      const tx = tg ? tg.x + 12 - Math.sign(tg.x + 12 - sm.x || 1) * (sm.id === 'preta' ? 6 : 30) : pcx() - P.face * 44, ty = tg ? tg.y + 26 : P.y + P.h - 30 + Math.sin(clock * 3) * 4;
+      const dx = tx - sm.x, dy = ty - sm.y, d = Math.hypot(dx, dy) || 1, v = Math.min(sp, d * 6); sm.x += dx / d * v * dt; sm.y += dy / d * v * dt; sm.face = (tg ? tg.x + 12 : pcx()) > sm.x ? 1 : -1;
+      if (tg && d < 48) {
+        if (sm.id === 'asura' && sm.cd <= 0) { sm.cd = 0.9; sm.swing = 0.25; hurtFoe(tg, 14 * sm.pow * P.dmgMul, true); }
+        if (sm.id === 'tiryak' && sm.cd <= 0) { sm.cd = 1.1; sm.swing = 0.3; hurtFoe(tg, 15 * sm.pow * P.dmgMul, true, { knock: 420 }); }
+        if (sm.id === 'preta') { const drain = 6 * sm.pow * dt; tg.hp -= drain; sm.acc = (sm.acc || 0) + drain; if (sm.acc >= 2) { sm.acc -= 2; P.seeds++; } if (tg.hp <= 0) { tg.hp = 1; hurtFoe(tg, 5, false); } }
+      }
+    }
+    if (sm.t <= 0) {
+      if (sm.id === 'asura') { const take = Math.min(30, P.seeds); P.seeds -= take; floater(pcx(), P.y - 30, `THE ASURA TAKES ITS PRICE · ${take} SEEDS`, RED); }
+      for (let i = 0; i < 18; i++) fx.push({ k: 'ink', x: sm.x + rnd(-14, 14), y: sm.y + rnd(-30, 20), vx: rnd(-20, 20), vy: -rnd(20, 60), life: 0.8 });
+    }
+  }
+  SUMMONS = SUMMONS.filter(sm => sm.t > 0);
+}
+function drawSummons() {
+  for (const sm of SUMMONS) {
+    if (sm.id === 'naraka') continue;
+    ctx.save(); ctx.globalAlpha = 0.85;
+    if (sm.id === 'deva') { ctx.strokeStyle = INK2; ctx.lineWidth = 1.5; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 + clock; ctx.moveTo(sm.x + Math.cos(a) * 16, sm.y - 34 + Math.sin(a) * 16); ctx.lineTo(sm.x + Math.cos(a) * 24, sm.y - 34 + Math.sin(a) * 24); } ctx.stroke(); stick(sm.x, sm.y + 10, POSE.glide(), sm.face, INK2, 3, { hollow: true }); }
+    else if (sm.id === 'asura') { const r = stick(sm.x, sm.y + 34, sm.swing > 0 ? POSE.strike() : POSE.idle(clock), sm.face, INK2, 5, { s: 1.45, eye: true, eyeC: RED }); ctx.strokeStyle = INK2; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(r.hF.x, r.hF.y); ctx.lineTo(r.hF.x + sm.face * 46, r.hF.y - (sm.swing > 0 ? 0 : 34)); ctx.stroke(); }
+    else if (sm.id === 'preta') { ctx.strokeStyle = PENCIL; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(sm.x, sm.y - 16, 9, 12, 0, 0, Math.PI * 2); ctx.moveTo(sm.x - 9, sm.y - 14); ctx.quadraticCurveTo(sm.x - 12, sm.y + 18, sm.x - 2 + Math.sin(clock * 6) * 4, sm.y + 26); ctx.moveTo(sm.x + 9, sm.y - 14); ctx.quadraticCurveTo(sm.x + 12, sm.y + 18, sm.x + 2 + Math.sin(clock * 6 + 1) * 4, sm.y + 26); ctx.stroke(); ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(sm.x, sm.y - 12, 2.5, 0, Math.PI * 2); ctx.fill(); }
+    else if (sm.id === 'tiryak') { ctx.translate(sm.x, sm.y + 10); ctx.scale(sm.face, 1); ctx.strokeStyle = INK2; ctx.fillStyle = PAPER; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(0, 0, 24, 10, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(26, -6, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.lineWidth = 2; ctx.beginPath(); for (let i = -2; i <= 2; i++) { ctx.moveTo(i * 8, -9); ctx.lineTo(i * 8 + 3, 9); } const ph = clock * 16; for (const [lx, o] of [[-16, 0], [-10, 2], [12, 1], [18, 3]]) { ctx.moveTo(lx, 8); ctx.lineTo(lx + Math.sin(ph + o) * 7, 20); } ctx.moveTo(-24, -2); ctx.quadraticCurveTo(-38, -14, -34, -24); ctx.stroke(); }
+    ctx.restore();
+  }
+}
+function drawInscription(q) {
+  const x = q.x, g = q.gy, known = soul.chants.has(q.id);
+  ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.fillRect(x - 16, g - 40, 32, 40); hatch(x - 16, g - 40, 32, 40, 9); ctx.strokeRect(x - 16, g - 40, 32, 40);
+  ctx.strokeStyle = known ? PENCIL : INK; ctx.lineWidth = 1.6; ctx.beginPath(); for (let i = 0; i < 4; i++) { ctx.moveTo(x - 10, g - 32 + i * 8); ctx.lineTo(x + 10 - (i % 2) * 7, g - 32 + i * 8); } ctx.stroke();
+  if (!known) { ctx.strokeStyle = PENCIL; ctx.beginPath(); ctx.arc(x, g - 20, 26 + Math.sin(clock * 2.5) * 2, 0, Math.PI * 2); ctx.stroke(); }
+}
+function readInscription(q) {
+  const c = CHANT(q.id); banner = null; mode = 'stone'; clearHeld();
+  $('gearIn').innerHTML = `<span class="eyebrow">A carved chant · Esc to leave</span><h2>${esc(c.name)}</h2><p class="hand">“${esc(c.line)}”</p><p>${esc(c.what)}${c.offer ? ` Offering: ${esc(costText(c.offer))}.` : ''}</p>
+    <div class="row">${soul.chants.has(c.id) ? '<span class="note">You already know this chant.</span>' : '<button class="btn" id="learnChant" type="button">Learn it</button>'}</div><p class="note">Press C during play, choose the chant, then speak the line (hold V if you use push to talk). With the mic off, hold C instead.</p>`;
+  $('ovGear').hidden = false;
+  const b = $('learnChant'); if (b) b.addEventListener('click', () => { soul.chants.add(c.id); closePanel(); SFX.relic(); banner = { t: 3.6, top: `A NEW CHANT: ${c.name.toUpperCase()}`, sub: `“${c.line}”. Press C to chant it.` }; });
+}
+function drawChantHUD() {
+  if (!CHS) return;
+  ctx.save(); ctx.textAlign = 'center';
+  if (CHS.state === 'pick') {
+    const list = CHS.list, h = 48 + Math.max(1, list.length) * 20, x0 = W / 2 - 220; ctx.fillStyle = 'rgba(251,250,246,0.95)'; ctx.fillRect(x0, 120, 440, h); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(x0, 120, 440, h);
+    ctx.font = `12px ${FD}`; ctx.fillStyle = INK; ctx.fillText(CHS.page === 'bless' ? 'BLESS YOUR WEAPON · C FOR SUMMONS' : 'SUMMON · C TO CLOSE', W / 2, 142);
+    ctx.font = `15px ${FH}`; ctx.textAlign = 'left';
+    if (!list.length) { ctx.fillStyle = PENCIL; ctx.fillText('You know none yet. Look for carved chants.', x0 + 20, 166); }
+    list.forEach((c, i) => { const why = chantBlocked(c); ctx.fillStyle = why ? PENCIL : INK; ctx.fillText(`${i + 1}  ${c.name}${c.offer ? ` · offer ${costText(c.offer)}` : ''}${why && c.kind === 'summon' ? ' · not now' : ''}`, x0 + 20, 166 + i * 20); });
+  } else {
+    const ws = CHS.c.words, x0 = 120, w = W - 240; ctx.fillStyle = 'rgba(251,250,246,0.95)'; ctx.fillRect(x0, 118, w, 86); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(x0, 118, w, 86);
+    ctx.font = `11px ${FD}`; ctx.fillStyle = INK2; ctx.fillText(`${CHS.c.name.toUpperCase()}${CHS.shrine ? ' · AT A SHRINE, STRONGER' : ''}`, W / 2, 136);
+    ctx.font = `21px ${FH}`; const parts = ws.map((t, i) => ({ t, on: CHS.matched[i] })); const total = parts.reduce((a, q) => a + ctx.measureText(q.t + ' ').width, 0); let x = W / 2 - total / 2; ctx.textAlign = 'left';
+    for (const q of parts) { ctx.fillStyle = q.on ? INK : PENCIL; ctx.fillText(q.t, x, 166); if (q.on) { ctx.fillRect(x, 170, ctx.measureText(q.t).width, 2); } x += ctx.measureText(q.t + ' ').width; }
+    ctx.textAlign = 'center'; ctx.font = `13px ${FH}`; ctx.fillStyle = INK2;
+    ctx.fillText(micMode === 'off' ? 'Mic is off: keep holding C' : micMode === 'ptt' ? (pttHeld ? 'Listening… speak the line' : 'Hold V and speak the line') : 'Speak the line', W / 2, 192);
+    ctx.fillStyle = FAINT; ctx.fillRect(x0 + 10, 198, w - 20, 3); ctx.fillStyle = INK; ctx.fillRect(x0 + 10, 198, (w - 20) * Math.max(0, 1 - CHS.t / CHS.limit), 3);
+  }
+  ctx.restore();
+}
 const rainAt = x => RAINS.some(r => x > r.x && x < r.x + r.w);
 function updateMagic(dt) {
   for (const t of TEMPS) { t.t -= dt; t.rise = Math.min(1, t.rise + dt * 6); }
@@ -1053,6 +1219,8 @@ function updateMagic(dt) {
   }
 }
 function drawMagic() {
+  drawSummons();
+  for (const q of INSCRIPTIONS) if (visible({ x: q.x - 30, y: q.gy - 60, w: 60, h: 60 })) drawInscription(q);
   for (const t of TEMPS) { if (!visible(t)) continue; const h = t.h * t.rise, y = t.y + t.h - h, fade = t.t < 1.5 && Math.floor(t.t * 8) % 2 === 0;
     ctx.globalAlpha = fade ? 0.5 : 1; ctx.fillStyle = PAPER; ctx.fillRect(t.x, y, t.w, h); hatch(t.x, y, t.w, h, 7, INK2, 1); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(t.x + 1.5, y + 1.5, t.w - 3, h - 3);
     ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(t.x + 14, y + 20); ctx.lineTo(t.x + 24, y + 44); ctx.lineTo(t.x + 18, y + 70); ctx.stroke(); ctx.globalAlpha = 1; }
@@ -1069,6 +1237,7 @@ function use() {
   if (sh >= 0) { if (P.mount) dismount(false); rest(sh); openShrine(sh); return; }
   if (nearForge() >= 0 && !P.mount) { openForge(); return; }
   { const st = nearStone(); if (st && !P.mount) { useStone(st); return; } }
+  { const q = nearInscription(); if (q && !P.mount) { readInscription(q); return; } }
   const cx = pcx(), fy = P.y + P.h;
   if (P.mount) { if (P.onG) dismount(false); return; }
   if (horse.state !== 'away' && horse.state !== 'fled' && Math.abs(cx - horse.x) < 56 && Math.abs(fy - horse.gy) < 40 && P.onG) {
@@ -1104,7 +1273,7 @@ function talkVillager() {
 }
 function rest(i) {
   P.hp = P.hpMax; P.lotus = P.lotusMax; P.st = P.stMax; P.mana = P.manaMax; P.breath = BREATH; P.torch.fuel = P.torchMax; P.knives = P.knivesMax; P.shrine = i; P.visited.add(i); SFX.rest();
-  drops = []; spawnFoes(); shots = []; resetCrumbles(); resetNodes();
+  drops = []; spawnFoes(); shots = []; resetCrumbles(); resetNodes(); P.summoned = new Set();
   if (horse.state !== 'wild') { horse.hp = horse.hpMax; if (horse.state === 'fled') horse.state = 'away'; }
   banner = { t: 2.4, top: 'RESTED', sub: `${SHRINES[i].name}. If you fall, you wake here. The Grasping return, and so do trees, ore and flowers.` };
 }
@@ -1332,6 +1501,7 @@ function openChest(c) {
 function fall(why, useSafe) {
   if (P.dead) return;
   if (P.mount) dismount(true);
+  CHS = null; P.bless = null;
   P.dead = true; P.deadT = 0; P.why = why; P.fellSafe = !!useSafe; P.hang = null; P.ladder = null; P.torch.lit = false; SFX.death();
   pendingDeath = 1.4;
 }
@@ -1349,7 +1519,7 @@ function wakeAtShrine() {
   const s = SHRINES[P.shrine];
   Object.assign(P, { x: s.x + 40, y: s.gy - PH, h: PH, w: 22, mount: false, vx: 0, vy: 0, hp: P.hpMax, st: P.stMax, mana: P.manaMax, lotus: P.lotusMax, breath: BREATH, dead: false, deadT: 0, atk: null, charging: false, rollT: 0, healT: 0, hitT: 0, inv: 1, shieldT: 0,
     hang: null, climbT: 0, ladder: null, glide: false, plunge: false, cling: 0, inWater: false, headUnder: false, knives: P.knivesMax, torch: { fuel: P.torchMax, lit: false } });
-  drops = []; spawnFoes(); shots = []; resetCrumbles(); snapCam(); TEMPS = []; RAINS = []; ALLY = null; P.unseenT = 0; P.shaniT = 0; P.tideT = 0;
+  drops = []; spawnFoes(); shots = []; resetCrumbles(); snapCam(); TEMPS = []; RAINS = []; ALLY = null; CHS = null; SUMMONS = []; ECHO_HITS = []; P.bless = null; P.unseenT = 0; P.shaniT = 0; P.tideT = 0;
 }
 function trueDeath(spot) {
   mode = 'death'; stopRec(); banner = null; zoneTag = null;
@@ -1391,6 +1561,7 @@ toolBtn('tRelics', () => {
   P.equip = ['garuda', 'gecko', 'kite', 'bead'];
   banner = { t: 2.6, top: 'EVERY RELIC', sub: 'Test tool: you carry all seven. Feather, gecko, kite and bead are on. Swap in Tab.' };
 });
+toolBtn('tChants', () => { CHANTS.forEach(c => soul.chants.add(c.id)); P.mats.petal += 2; P.mats.ink += 4; P.mats.wood += 2; P.mats.ember += 2; P.seeds += 60; banner = { t: 2.6, top: 'EVERY CHANT', sub: 'Test tool: you know all ten chants and carry offerings for the summons. Press C to chant.' }; });
 toolBtn('tSpells', () => { for (const w of WORDS) soul.spells.add(w.id); P.stats.foc = Math.max(P.stats.foc, 14); applyStats(false); banner = { t: 2.6, top: 'EVERY SPELL', sub: 'Test tool: you know all fourteen spells and your Focus is at least 14. Put them on keys 1 to 4 in Tab, on the Spells page.' }; });
 toolBtn('tNight', () => { SKY.offset += 12 * 3600e3; SKY.cache = null; banner = { t: 2.4, top: isNight() ? 'NIGHT' : 'DAY', sub: 'Test tool: the sky moved 12 hours. Use the Sky buttons under the game to move it back, or press Now.' }; });
 toolBtn('tRich', () => {
@@ -1424,6 +1595,14 @@ function renderLives() {
 function openGear() { mode = 'gear'; clearHeld(); renderGear(); $('ovGear').hidden = false; }
 function closePanel() { $('ovGear').hidden = true; mode = 'play'; clearHeld(); }
 let gearView = 'gear';
+function renderChantBook() {
+  const card = c => { const why = chantBlocked(c); return `<div class="item"><b>${c.name}</b><span class="hand">“${esc(c.line)}”</span><span>${esc(c.what)}</span><span class="m">${c.offer ? `Offering: ${esc(costText(c.offer))}` : 'No offering'}${c.needs === 'good' ? ' · needs karma not in debt' : c.needs === 'nomana' ? ' · only for a body born with no mana' : ''}${why ? ` · now: ${esc(why.toLowerCase())}` : ''}</span></div>`; };
+  const known = CHANTS.filter(c => soul.chants.has(c.id)), unknown = CHANTS.filter(c => !soul.chants.has(c.id));
+  return `<div class="gear"><div class="gcol"><span class="lbl">Chants you know · ${known.length} of ${CHANTS.length} · they need no mana, only your voice</span>
+      <div class="stats"><span>Press C in play: first the weapon blessings, press C again for summons. Choose with a number, then speak the line.</span><span>Clean, steady words make it stronger. Chanting at a shrine makes it stronger and longer. A hit breaks the chant. With the mic off, hold C for four seconds (60% strength).</span><span>Summons answer once, then wait until you rest at a shrine.</span></div>
+      <div class="inv">${known.map(card).join('')}</div></div>
+    <div class="gcol"><span class="lbl">Chants still carved somewhere</span><div class="inv">${unknown.length ? unknown.map(c => `<div class="item"><b>?</b><span class="hand">${esc(c.how)}</span></div>`).join('') : '<p class="note">You know every chant in the proving grounds.</p>'}</div></div></div>`;
+}
 function renderSpellBook() {
   const known = WORDS.filter(w => soul.spells.has(w.id)), unknown = WORDS.filter(w => !soul.spells.has(w.id));
   const keys = P.noMana ? '<p class="note">This body was born with no mana, so it cannot cast. What you have learned stays with your soul for the next life.</p>' : P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}"><option value="">— empty —</option>${known.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · ${spellCost(w)} mana</option>`).join('')}</select></label>`).join('') + (P.wordSlots.length < 4 ? `<p class="note">${4 - P.wordSlots.length} key${P.wordSlots.length === 3 ? '' : 's'} locked: this body's ${life.birth.tierName} mana opens ${P.wordSlots.length}.</p>` : '');
@@ -1454,9 +1633,9 @@ function renderGear() {
   const words = P.noMana ? '<p class="note">This body has no mana, so keys 1 to 4 stay empty.</p>' : P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}">${WORDS.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · ${w.cost} mana</option>`).join('')}</select></label>`).join('');
   const hs = horse.state, horseLine = hs === 'wild' ? 'No mount yet. A wild horse grazes by the hut.' : hs === 'ridden' ? `Riding · horse health ${Math.round(horse.hp)}/${horse.hpMax}` : hs === 'fled' ? 'Your horse is hurt and ran off. Rest at a shrine.' : `Befriended · horse health ${Math.round(horse.hp)}/${horse.hpMax}`;
   $('gearIn').innerHTML = `
-    <span class="eyebrow">Life ${life.n} · Tab or Esc to close</span><h2>${gearView === 'spells' ? 'Spells' : 'Gear'}</h2>
-    <div class="row"><button class="btn sm${gearView === 'gear' ? '' : ' ghost'}" type="button" data-view="gear">Gear</button><button class="btn sm${gearView === 'spells' ? '' : ' ghost'}" type="button" data-view="spells">Spells</button></div>
-    ${gearView === 'spells' ? renderSpellBook() : `<div class="gear">
+    <span class="eyebrow">Life ${life.n} · Tab or Esc to close</span><h2>${gearView === 'spells' ? 'Spells' : gearView === 'chants' ? 'Chants' : 'Gear'}</h2>
+    <div class="row"><button class="btn sm${gearView === 'gear' ? '' : ' ghost'}" type="button" data-view="gear">Gear</button><button class="btn sm${gearView === 'spells' ? '' : ' ghost'}" type="button" data-view="spells">Spells</button><button class="btn sm${gearView === 'chants' ? '' : ' ghost'}" type="button" data-view="chants">Chants</button></div>
+    ${gearView === 'spells' ? renderSpellBook() : gearView === 'chants' ? renderChantBook() : `<div class="gear">
       <div class="gcol">
         <span class="lbl">Load · what you carry in your hands and wear</span>
         <div class="stats"><span>${LD.w.toFixed(1)} of ${P.loadMax} · ${LD.cls.toUpperCase()}</span><span class="meter"><i style="width:${Math.min(100, LD.r * 100)}%"></i><b style="left:35%"></b><b style="left:70%"></b></span><span>${LD.say}</span><span>Pack ${LD.pack.toFixed(1)} of ${P.packMax}: weapons you are not holding, garments you are not wearing, spare relics and materials.</span></div>
@@ -1542,7 +1721,7 @@ function update(dt) {
     if (pressed.talk) { pttHeld = true; startRec(); }
     if (released.talk) { pttHeld = false; pttRelease = performance.now(); setTimeout(() => { if (!pttHeld && micMode === 'ptt') stopRec(); }, 500); }
   }
-  updatePlayer(dt); updateFoes(dt); updateShots(dt); updateCrumbles(dt); updateHorse(dt); updateMagic(dt);
+  updatePlayer(dt); updateFoes(dt); updateShots(dt); updateCrumbles(dt); updateHorse(dt); updateMagic(dt); updateChants(dt);
   for (const f of fx) { f.life -= dt; f.x += (f.vx || 0) * dt; f.y += (f.vy || 0) * dt; if (f.k === 'dot') f.vy += 900 * dt; }
   fx = fx.filter(f => f.life > 0);
   for (const f of floaters) { f.life -= dt; f.y -= 34 * dt; } floaters = floaters.filter(f => f.life > 0);
@@ -1693,6 +1872,7 @@ function drawWorld() {
   }
   for (const f of foes) if (f.alive && visible(f, 80)) drawFoe(f);
   for (const s of shots) {
+    if (s.windcut) { ctx.strokeStyle = INK2; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x - Math.sign(s.vx) * 10, s.y, 14, -1.1, 1.1); if (s.vx < 0) { ctx.beginPath(); ctx.arc(s.x + 10, s.y, 14, Math.PI - 1.1, Math.PI + 1.1); } ctx.stroke(); continue; }
     if (s.arrow || s.knife) { const a = s.knife ? s.spin : Math.atan2(s.vy, s.vx); ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(a); ctx.strokeStyle = INK; ctx.lineWidth = s.knife ? 3 : 2.5; ctx.beginPath(); ctx.moveTo(s.knife ? -10 : -26, 0); ctx.lineTo(s.knife ? 8 : 0, 0); ctx.stroke(); ctx.fillStyle = INK; ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4); ctx.closePath(); ctx.fill(); ctx.restore(); }
     else { const sp = Math.hypot(s.vx, s.vy) || 1; ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); for (let i = 1; i < 4; i++) { ctx.globalAlpha = 0.5 / i; ctx.beginPath(); ctx.arc(s.x - s.vx / sp * i * 12, s.y - s.vy / sp * i * 12, s.r * (1 - i * 0.18), 0, Math.PI * 2); ctx.fill(); } ctx.globalAlpha = 1; }
   }
@@ -1736,6 +1916,7 @@ function drawOverDark() {
   const sh = nearShrine(); if (sh >= 0 && !P.dead) { ctx.fillStyle = darkAt(SHRINES[sh].x, SHRINES[sh].gy - 170) ? '#b9b6ac' : INK2; ctx.fillText('E: rest and level up', SHRINES[sh].x, SHRINES[sh].gy - 170); }
   if (!P.mount && horse && (horse.state === 'wild' || horse.state === 'idle') && Math.abs(pcx() - horse.x) < 70 && Math.abs(P.y + P.h - horse.gy) < 50) { ctx.fillStyle = INK2; ctx.fillText(horse.state === 'wild' ? 'E: offer the horse a lotus' : 'E: ride', horse.x, horse.gy - 96); }
   else if (P.mount && P.onG && Math.abs(P.vx) < 40) { ctx.fillStyle = INK2; ctx.fillText('E: get down · Shift: gallop', pcx(), P.y - 26); }
+  { const q = nearInscription(); if (q) { ctx.fillStyle = INK2; ctx.fillText(soul.chants.has(q.id) ? 'E: read the chant again' : 'E: read the carved chant', q.x, q.gy - 70); } }
   { const st = nearStone(); if (st) { ctx.fillStyle = INK2; ctx.fillText(st.k === 'moon' ? 'E: touch the moon stone' : 'E: listen to the stone', st.x, st.gy - 80); } }
   if (nearForge() >= 0 && !P.mount) { const f = FORGES[nearForge()]; ctx.fillStyle = INK2; ctx.fillText('E: use the forge', f.x + 4, f.gy - 92); }
   if (Math.abs(pcx() - HOME.x) < 60 && Math.abs(P.y + P.h - HOME.gy) < 50) { ctx.fillStyle = INK2; ctx.fillText('E: your chest · it keeps things across lives', HOME.x, HOME.gy - 70); }
@@ -1941,7 +2122,7 @@ function drawHUD() {
   ctx.fillStyle = PENCIL; ctx.fillText(`${p.relics.size}/7 FOUND`, 156, 128);
   ctx.textAlign = 'right'; ctx.fillStyle = INK; ctx.fillText(`LIFE ${life.n} · LV ${levelOf()} · ${curW().name.toUpperCase()} ${TIER_NAME[tierOf(p.slots[p.slotIdx])]} (Q: ${WEAPONS[p.slots[1 - p.slotIdx]].name.toUpperCase()})`, W - 20, 22);
   ctx.fillStyle = PENCIL; ctx.fillText(micMode === 'off' ? 'MIC OFF · KEYS 1 TO 4' : micMode === 'ptt' ? (pttHeld ? (micReady ? 'LISTENING' : 'MIC STARTING…') : 'HOLD V TO SPEAK') : (recOn ? 'MIC ON · SPEAK A WORD' : 'MIC STARTING…'), W - 20, 40);
-  ctx.fillText(`TAB: GEAR · M: MAP · ${isNight() ? 'NIGHT' : 'DAY'}`, W - 20, 56);
+  ctx.fillText(`${p.bless ? `${CHANT(p.bless.el).name.split(' ')[0].toUpperCase()} ${Math.ceil(p.bless.t)}s · ` : ''}${SUMMONS.length ? `${SUMMONS[0].id.toUpperCase()} ${Math.ceil(SUMMONS[0].t)}s · ` : ''}TAB · M · C: CHANT · ${isNight() ? 'NIGHT' : 'DAY'}`, W - 20, 56);
   const LD = loadNow(); ctx.fillStyle = LD.cls === 'over' ? RED : INK2; ctx.fillText(`LOAD ${LD.full ? 'PACK FULL' : LD.cls.toUpperCase()} · PACK ${Math.round(LD.pack)}/${P.packMax} · PROTECTION ${protNow()}%`, W - 20, 72);
   if (p.mount) { ctx.textAlign = 'left'; bar(W - 220, 84, 200, horse.hp, horse.hpMax, '', INK2); ctx.textAlign = 'right'; ctx.fillStyle = INK; ctx.fillText('HORSE', W - 226, 93); }
   // hotbar
@@ -1963,6 +2144,8 @@ function drawHUD() {
     let fs = 28; ctx.font = `${fs}px ${FD}`; while (ctx.measureText(banner.top).width > W - 80 && fs > 14) { fs -= 2; ctx.font = `${fs}px ${FD}`; }
     ctx.fillText(banner.top, W / 2, by + 44); ctx.font = `18px ${FH}`; lines.forEach((l, i) => ctx.fillText(l, W / 2, by + 74 + i * 24)); ctx.globalAlpha = 1;
   }
+  drawChantHUD();
+
 }
 function render() {
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
@@ -1999,7 +2182,7 @@ window.__life = {
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };
