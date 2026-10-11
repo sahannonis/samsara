@@ -193,7 +193,11 @@ const EDGES = [];
 })();
 
 /* ---------- canvas & input ---------- */
-const cv = $('cv'), ctx = cv.getContext('2d');
+const cv = $('cv'), mainCtx = cv.getContext('2d');
+let ctx = mainCtx;
+// at night, living things are drawn on their own layer and given a pale moonlit edge so they stand out
+const uLayer = document.createElement('canvas'), uctx = uLayer.getContext('2d');
+let unitsPending = false;
 const dk = document.createElement('canvas'), dctx = dk.getContext('2d');
 let scale = 1;
 function fit() { const r = cv.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2); cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); dk.width = cv.width; dk.height = cv.height; scale = cv.width / W; }
@@ -1666,10 +1670,6 @@ function drawWorld() {
   ctx.textAlign = 'center';
   for (const b of soul.bodies) if (!b.taken && b.life !== life.n) { ctx.save(); ctx.globalAlpha = 0.85; stick(b.x, b.y, POSE.kneel(), 1, PENCIL, b.looks.build, { hair: b.looks.hair, robe: b.looks.robe }); ctx.restore(); ctx.font = `15px ${FH}`; ctx.fillStyle = PENCIL; ctx.fillText('a body you once wore', b.x, b.y - 70); }
   for (const s of shades) if (!s.taken) { ctx.fillStyle = INK; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(clock * 4); ctx.beginPath(); ctx.ellipse(s.x, s.y - 30, 10, 24, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; ctx.font = `14px ${FH}`; ctx.fillStyle = INK2; ctx.fillText(`${s.seeds} seeds`, s.x, s.y - 66); }
-  // villager
-  stick(villager.x, villager.gy, POSE.sit(), -1, INK2, 3, { hollow: true, s: 0.95 });
-  if (!villager.helped && life.n === 1) { ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(villager.x + 4, villager.gy - 26, 4, 0, Math.PI * 2); ctx.fill(); }
-  if (villager.talkT > 0) speech(villager.x, villager.gy - 110, villager.line);
   drawMagic();
   for (const n of NODES) if (n.k !== 'petal' && visible({ x: n.x - 40, y: n.gy - 120, w: 80, h: 120 })) drawNode(n);
   for (const f of FORGES) if (visible({ x: f.x - 40, y: f.gy - 80, w: 80, h: 80 })) drawForge(f);
@@ -1681,6 +1681,12 @@ function drawWorld() {
     ctx.save(); ctx.translate(c.x - 17, c.gy - 20); if (open) ctx.rotate(-1.1); ctx.fillStyle = PAPER; ctx.fillRect(0, -8, 34, 8); ctx.strokeRect(0, -8, 34, 8); ctx.restore();
     if (!open) { ctx.fillStyle = INK; ctx.fillRect(c.x - 3, c.gy - 16, 6, 7); }
   }
+  const nightUnits = skyState().dark > 0.25;
+  if (nightUnits) { if (uLayer.width !== cv.width || uLayer.height !== cv.height) { uLayer.width = cv.width; uLayer.height = cv.height; } const m = ctx.getTransform(); uctx.setTransform(1, 0, 0, 1, 0, 0); uctx.clearRect(0, 0, uLayer.width, uLayer.height); uctx.setTransform(m); ctx = uctx; }
+  // villager
+  stick(villager.x, villager.gy, POSE.sit(), -1, INK2, 3, { hollow: true, s: 0.95 });
+  if (!villager.helped && life.n === 1) { ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(villager.x + 4, villager.gy - 26, 4, 0, Math.PI * 2); ctx.fill(); }
+  if (villager.talkT > 0) speech(villager.x, villager.gy - 110, villager.line);
   if (horse && horse.state !== 'ridden' && horse.state !== 'away' && !(horse.state === 'fled' && horse.fleeT <= 0)) {
     const fl = horse.state === 'fled', hx = fl ? horse.fleeX : horse.x;
     if (visible({ x: hx - 60, y: horse.gy - 90, w: 120, h: 90 })) drawHorse(hx, horse.gy, horse.face, clock * 14, fl, { alpha: fl ? horse.fleeT / 1.4 : horse.arriveT > 0 ? 1 - horse.arriveT / 0.8 : 1, graze: !fl && Math.sin(horse.graze * 0.5) > -0.3, saddle: horse.state !== 'wild', ink: horse.state === 'wild' ? INK2 : INK });
@@ -1691,6 +1697,7 @@ function drawWorld() {
     else { const sp = Math.hypot(s.vx, s.vy) || 1; ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); for (let i = 1; i < 4; i++) { ctx.globalAlpha = 0.5 / i; ctx.beginPath(); ctx.arc(s.x - s.vx / sp * i * 12, s.y - s.vy / sp * i * 12, s.r * (1 - i * 0.18), 0, Math.PI * 2); ctx.fill(); } ctx.globalAlpha = 1; }
   }
   drawPlayer();
+  if (nightUnits) { ctx = mainCtx; unitsPending = true; }
   // water over the player
   for (const w of WATERS) if (visible(w)) {
     ctx.fillStyle = 'rgba(140,137,127,0.22)'; ctx.fillRect(w.x, w.y, w.w, w.h);
@@ -1966,6 +1973,7 @@ function render() {
   const sx = shake ? rnd(-shake, shake) : 0, sy = shake ? rnd(-shake, shake) * 0.6 : 0;
   ctx.save(); ctx.translate(sx, sy); drawWorld(); ctx.restore();
   drawSkyBehind();
+  if (unitsPending) { unitsPending = false; const g = mainCtx; g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.shadowColor = 'rgba(251,250,246,0.95)'; g.shadowBlur = 6 * scale; g.drawImage(uLayer, 0, 0); g.shadowBlur = 2 * scale; g.drawImage(uLayer, 0, 0); g.restore(); }
   drawDark(); drawOverDark();
   drawHUD();
   cv.style.cursor = mode === 'play' && mouse.in ? 'none' : mode === 'map' && mapHits.some(m => P.visited.has(m.i) && Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18) ? 'pointer' : 'default';
