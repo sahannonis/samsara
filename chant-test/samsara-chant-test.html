@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Samsara Chant Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&family=Kalam:wght@400;700&display=swap">
+<style>
+/* Layout: the shrine scene on top, the grimoire and controls beside it, the attempt log below.
+   Paper and ink only, same world as Ink Tower and the Star Panel. Red = danger or a broken chant. */
+:root{
+  --paper:#fbfaf6; --wash:#f3f0e7; --ink:#151513; --ink-2:#3d3b35; --pencil:#8c897f; --rule:#e2ded3; --red:#c4252b;
+  --f-display:"Rubik Mono One","Arial Black",Impact,sans-serif;
+  --f-body:"Literata",Georgia,"Times New Roman",serif;
+  --f-mono:"DM Mono",ui-monospace,Menlo,Consolas,monospace;
+  --f-hand:"Kalam","Comic Sans MS","Segoe Print",cursive;
+  color-scheme:light;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:20px;padding-block:24px 56px;display:flex;flex-direction:column;gap:28px}
+header{display:flex;flex-direction:column;gap:6px;border-bottom:2px solid var(--ink);padding-bottom:16px}
+.eyebrow{font-family:var(--f-display);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--pencil)}
+h1{font-family:var(--f-display);font-weight:400;font-size:clamp(28px,4.6vw,48px);line-height:1;margin:0}
+header p{margin:0;max-width:70ch;color:var(--ink-2)}
+h2{font-family:var(--f-display);font-weight:400;font-size:14px;letter-spacing:.08em;text-transform:uppercase;margin:0}
+.lbl{font-family:var(--f-display);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:24px;align-items:start}
+@media (max-width:980px){.main{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;flex-direction:column;gap:12px;min-width:0}
+.frame{position:relative;width:100%;aspect-ratio:16/9;border:2px solid var(--ink);background:var(--paper)}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font-family:var(--f-display);font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:13px 18px;border:2px solid var(--ink);cursor:pointer;background:var(--paper);color:var(--ink);box-shadow:4px 4px 0 var(--ink);touch-action:none;user-select:none;-webkit-user-select:none}
+.btn.primary{background:var(--ink);color:var(--paper)}
+.btn.on{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+.btn:focus-visible,select:focus-visible,input:focus-visible{outline:3px dashed var(--ink);outline-offset:3px}
+.keys{font-size:14px;color:var(--ink-2)}
+kbd{font-family:var(--f-display);font-size:10px;border:1.5px solid var(--ink);padding:2px 6px;background:var(--paper)}
+.heard{border:1.5px solid var(--ink);padding:10px 14px;display:flex;flex-direction:column;gap:2px;min-height:64px}
+.heard .t{font-family:var(--f-mono);font-size:15px;word-break:break-word}
+.status{font-family:var(--f-hand);font-size:18px;margin:0;min-height:1.4em}
+.status.bad{color:var(--red)}
+aside{display:flex;flex-direction:column;gap:16px}
+.book{display:flex;flex-direction:column;gap:8px}
+.spell{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:1.5px solid var(--ink);background:var(--paper)}
+.spell[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.spell .nm{font-family:var(--f-display);font-size:12px;letter-spacing:.06em}
+.spell .ch{font-family:var(--f-hand);font-size:17px;line-height:1.25}
+.spell .meta{font-family:var(--f-mono);font-size:12px;opacity:.75}
+.spell:focus-visible{outline:3px dashed var(--ink);outline-offset:3px}
+.settings{display:flex;flex-direction:column;gap:10px;border-top:1px dashed var(--rule);padding-top:14px}
+.settings label{display:flex;flex-direction:column;gap:6px}
+select{font-family:var(--f-mono);font-size:14px;padding:8px;border:1.5px solid var(--ink);background:var(--paper);color:var(--ink)}
+.check{flex-direction:row!important;align-items:center;gap:10px!important;font-size:15px}
+.check input{width:18px;height:18px;accent-color:#151513}
+.how{background:var(--wash);border-left:4px solid var(--ink);padding:12px 14px;font-size:14px;display:flex;flex-direction:column;gap:6px}
+.how p{margin:0}
+section{display:flex;flex-direction:column;gap:12px;min-width:0}
+.sechead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:1.5px solid var(--ink);padding-bottom:8px}
+.sechead p{margin:0;font-size:14px;color:var(--pencil)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:14px}
+th{font-family:var(--f-display);font-weight:400;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:left;color:var(--ink-2);padding:8px 10px;border-bottom:1.5px solid var(--ink)}
+td{padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.heardcell{font-family:var(--f-mono);font-size:13px;color:var(--ink-2)}
+.empty{font-family:var(--f-hand);font-size:17px;color:var(--pencil)}
+.fail{color:var(--red)}
+footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);padding-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Samsara · test build 2</span>
+    <h1>Chant Test</h1>
+    <p>Pick an incantation, hold the chant key and speak it out loud. Each word lights up as the game hears it. A full spoken chant casts at 100%. Casting with the button and no voice casts at 80%.</p>
+  </header>
+
+  <div class="main">
+    <div class="stage">
+      <div class="frame"><canvas id="cv" aria-label="Training shrine: your character and a stone golem"></canvas></div>
+      <div class="controls">
+        <button class="btn primary" id="chantBtn" type="button">Hold to chant</button>
+        <button class="btn" id="silentBtn" type="button">Cast without voice</button>
+        <span class="keys">Keys: hold <kbd>V</kbd> to chant · <kbd>B</kbd> cast without voice · <kbd>Space</kbd> dodge · <kbd>1</kbd>–<kbd>5</kbd> pick a spell</span>
+      </div>
+      <p class="status" id="status" role="status">Pick an incantation, then hold V and speak.</p>
+      <div class="heard"><span class="lbl">What the browser heard</span><span class="t" id="heard">Nothing yet.</span></div>
+    </div>
+
+    <aside>
+      <div class="book" id="book" role="group" aria-label="Incantations"></div>
+      <div class="settings">
+        <label><span class="lbl">Speech language</span>
+          <select id="lang">
+            <option value="en-IN">English (India / Sri Lanka accent)</option>
+            <option value="en-US">English (United States)</option>
+            <option value="en-GB">English (United Kingdom)</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" id="golemOn"> The golem fights back</label>
+        <p class="keys" style="margin:0">With it on, the golem winds up (red) and slams. A hit while chanting breaks the chant. Dodge with Space, but dodging also stops your chant.</p>
+      </div>
+      <div class="how">
+        <p><b>Before you start.</b> Open this file in Chrome or Edge on a computer. Allow the microphone when asked.</p>
+        <p>You need internet: Chrome and Edge send your speech to Google or Microsoft to turn it into text. Firefox does not support this.</p>
+      </div>
+    </aside>
+  </div>
+
+  <section>
+    <div class="sechead"><h2>Attempts</h2><p>Send me this list after testing so I can tune the matching</p></div>
+    <div class="tbl"><table><thead><tr><th scope="col">#</th><th scope="col">Incantation</th><th scope="col">Cast by</th><th scope="col">Words</th><th scope="col">Time</th><th scope="col">Power</th><th scope="col">Heard</th></tr></thead><tbody id="log"><tr><td colspan="7" class="empty">No attempts yet.</td></tr></tbody></table></div>
+  </section>
+
+  <footer>Incantations are original lines written for Samsara, inspired by Hindu and Buddhist teaching. Speech is turned into text by your browser's built-in speech service. This page stores nothing.</footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const W = 960, H = 540, GROUND = 448;
+const INK = '#151513', INK2 = '#3d3b35', PENCIL = '#8c897f', PAPER = '#fbfaf6', RULE = '#ebe8de', FAINT = '#e2ded3', RED = '#c4252b', HATCH = '#cfcbc0';
+const FD = '"Rubik Mono One","Arial Black",sans-serif', FH = '"Kalam","Comic Sans MS",cursive', FM = '"DM Mono",ui-monospace,monospace';
+
+/* ---------- incantations ---------- */
+const SPELLS = [
+  { id: 'agni', name: 'AGNI · FIRE', chant: 'Fire of the first morning, burn what binds me', cost: 20, effect: 'Burns the golem' },
+  { id: 'jala', name: 'JALA · WATER', chant: 'Water remembers every wound, let it close', cost: 20, effect: 'Heals you' },
+  { id: 'vayu', name: 'VAYU · AIR', chant: 'Wind without a home, carry me now', cost: 15, effect: 'Knocks the golem back, stops its attack' },
+  { id: 'prithvi', name: 'PRITHVI · EARTH', chant: 'Mountain under my feet, stand before me', cost: 20, effect: 'Stone wall that blocks the next slam' },
+  { id: 'akasha', name: 'AKASHA · ETHER', chant: 'Silence holds every sound, let the sky open', cost: 60, effect: 'Slows time, heavy damage' },
+];
+SPELLS.forEach(s => { s.words = s.chant.toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean); });
+let sel = 0;
+const book = $('book');
+SPELLS.forEach((s, i) => {
+  const b = document.createElement('button');
+  b.className = 'spell'; b.type = 'button'; b.setAttribute('aria-pressed', i === sel ? 'true' : 'false');
+  b.innerHTML = `<span class="nm">${i + 1}. ${s.name}</span><span class="ch">“${s.chant}”</span><span class="meta">${s.cost} mana · ${s.effect}</span>`;
+  b.addEventListener('click', () => select(i));
+  book.append(b);
+});
+function select(i) {
+  if (chant) return;
+  sel = i; [...book.children].forEach((b, k) => b.setAttribute('aria-pressed', k === i ? 'true' : 'false'));
+  matched = SPELLS[sel].words.map(() => false);
+  setStatus(`${SPELLS[sel].name.split(' · ')[0]} selected. Hold V and say: “${SPELLS[sel].chant}”`);
+}
+
+/* ---------- word matching (tolerant of accents) ---------- */
+function lev(a, b) {
+  const m = a.length, n = b.length; if (!m) return n; if (!n) return m;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; }
+  return prev[n];
+}
+const phon = w => w.replace(/ph/g, 'f').replace(/th/g, 't').replace(/wh/g, 'w').replace(/ck/g, 'k').replace(/v/g, 'w').replace(/z/g, 's').replace(/[aeiouy]+/g, 'a').replace(/(.)\1+/g, '$1');
+function sim(a, b) { const pa = phon(a), pb = phon(b); return 1 - lev(pa, pb) / Math.max(pa.length, pb.length, 1); }
+const tokens = t => t.toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean);
+function matchWords(target, heard) {
+  const out = target.map(() => false); let j = 0;
+  for (let i = 0; i < target.length; i++) {
+    let best = -1, bs = 0;
+    for (let k = j; k < Math.min(heard.length, j + 4); k++) { const s = sim(target[i], heard[k]); if (s > bs) { bs = s; best = k; } }
+    const need = target[i].length <= 3 ? 0.5 : 0.62;
+    if (bs >= need) { out[i] = true; j = best + 1; }
+  }
+  return out;
+}
+
+/* ---------- speech ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, holding = false, heardText = '', bestMatch = [];
+if (!SR) setTimeout(() => setStatus('This browser cannot turn speech into text. Open the file in Chrome or Edge on a computer. You can still test “Cast without voice”.', true), 0);
+function startRec() {
+  if (!SR) return;
+  try { rec && rec.abort(); } catch (_) {}
+  rec = new SR();
+  rec.lang = $('lang').value; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 3;
+  rec.onaudiostart = () => { if (chant) setStatus('Listening… speak the incantation.'); };
+  rec.onresult = e => {
+    if (!chant) return;
+    const parts = []; for (let i = 0; i < e.results.length; i++) parts.push(e.results[i]);
+    const base = parts.map(r => r[0].transcript).join(' ');
+    const cands = [base];
+    const lastR = parts[parts.length - 1];
+    for (let a = 1; a < lastR.length; a++) cands.push(parts.slice(0, -1).map(r => r[0].transcript).concat(lastR[a].transcript).join(' '));
+    let best = null, bc = -1, bt = base;
+    for (const c of cands) { const m = matchWords(SPELLS[chant.spell].words, tokens(c)); const n = m.filter(Boolean).length; if (n > bc) { bc = n; best = m; bt = c; } }
+    // never un-light a word already heard
+    matched = matched.map((v, i) => v || best[i]);
+    heardText = bt.trim(); $('heard').textContent = heardText || '…';
+    if (matched.every(Boolean)) finishChant('voice');
+  };
+  rec.onerror = e => {
+    const msg = { 'not-allowed': 'The microphone is blocked. Click the camera/mic icon in the address bar, allow the microphone, then try again.', 'service-not-allowed': 'The microphone is blocked for this page. Allow it in the browser settings.', 'network': 'The speech service could not be reached. Chrome needs internet for this.', 'audio-capture': 'No microphone was found. Plug one in or check your sound settings.', 'language-not-supported': 'That speech language is not supported here. Pick another one.' }[e.error];
+    if (msg) { setStatus(msg, true); if (chant) breakChant('', true); }
+  };
+  rec.onend = () => { if (chant && holding) { try { rec.start(); } catch (_) {} } };
+  try { rec.start(); } catch (_) {}
+}
+function stopRec() { try { rec && rec.stop(); } catch (_) {} }
+
+/* ---------- game state ---------- */
+const cv = $('cv'), ctx = cv.getContext('2d');
+let scale = 1;
+function fit() { const r = cv.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2); cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); scale = cv.width / W; }
+addEventListener('resize', fit);
+
+const P = { x: 250, hp: 100, max: 100, hurtT: 0, dodgeT: 0, dodgeDir: -1, castT: 0, shieldT: 0, shieldPow: 0 };
+const G = { x: 700, hp: 400, max: 400, state: 'idle', t: 3.5, flash: 0, kb: 0, slow: 0 };
+let mana = 100, chant = null, matched = SPELLS[0].words.map(() => false), attempts = [], fx = [], floaters = [], shake = 0, slowT = 0, clock = 0;
+let audio = null;
+
+function setStatus(t, bad) { const s = $('status'); s.textContent = t; s.classList.toggle('bad', !!bad); }
+function floater(x, y, t, c = INK) { floaters.push({ x, y, t, c, life: 1.2 }); }
+function tone(f1, f2, d, type = 'sine', v = 0.05) {
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const t = audio.currentTime, o = audio.createOscillator(), g = audio.createGain();
+    o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t + d);
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g).connect(audio.destination); o.start(t); o.stop(t + d + 0.05);
+  } catch (_) {}
+}
+
+function beginChant(mode) {
+  if (chant || P.dodgeT > 0) return;
+  const s = SPELLS[sel];
+  if (mana < s.cost) { setStatus(`Not enough mana for ${s.name.split(' · ')[0]} (needs ${s.cost}).`, true); return; }
+  chant = { spell: sel, mode, t: 0, need: mode === 'button' ? 0.35 * s.words.length + 0.4 : 12 };
+  matched = s.words.map(() => false); heardText = '';
+  if (mode === 'voice') {
+    if (!SR) { chant = null; setStatus('Voice is not available in this browser. Use “Cast without voice”.', true); return; }
+    $('heard').textContent = '…'; setStatus('Starting the microphone…'); startRec();
+  } else setStatus('Casting without voice (80% power)…');
+  tone(110, 165, 0.6, 'triangle', 0.04);
+}
+function finishChant(reason) {
+  if (!chant) return;
+  const s = SPELLS[chant.spell], n = matched.filter(Boolean).length, total = s.words.length, frac = n / total, time = chant.t, mode = chant.mode;
+  let power;
+  if (mode === 'button') power = 0.8;
+  else power = frac >= 1 ? 1 : frac >= 0.8 ? 0.9 : frac >= 0.6 ? 0.7 : 0;
+  stopRec();
+  chant = null; holding = false; $('chantBtn').classList.remove('on');
+  if (power === 0) {
+    record(s, mode, n, total, time, 0, heardText);
+    setStatus(`The chant fizzled: ${n} of ${total} words heard. You need at least 60%.`, true);
+    tone(300, 90, 0.3, 'sawtooth', 0.03); burst(P.x + 30, GROUND - 90, 10, PENCIL); return;
+  }
+  mana -= s.cost;
+  cast(s, power);
+  record(s, mode, n, total, time, power, heardText);
+  setStatus(mode === 'voice' ? `${s.name.split(' · ')[0]} cast by voice: ${n}/${total} words in ${time.toFixed(1)} s, ${Math.round(power * 100)}% power.` : `${s.name.split(' · ')[0]} cast without voice: 80% power.`);
+}
+function breakChant(why, silent) {
+  if (!chant) return;
+  const s = SPELLS[chant.spell];
+  if (!silent) record(s, chant.mode, matched.filter(Boolean).length, s.words.length, chant.t, 0, heardText + (why ? ` [${why}]` : ''));
+  try { rec && rec.abort(); } catch (_) {}
+  chant = null; holding = false; $('chantBtn').classList.remove('on');
+  if (why) setStatus(`Chant broken: ${why}.`, true);
+  tone(400, 80, 0.35, 'sawtooth', 0.04);
+}
+function cast(s, pow) {
+  P.castT = 0.5; shake = 6 + 8 * pow; tone(220, 60, 0.7, 'sawtooth', 0.06); tone(330, 990, 0.25, 'square', 0.03);
+  const gx = G.x, gy = GROUND - 90;
+  switch (s.id) {
+    case 'agni': { const d = Math.round(40 * pow); hurtGolem(d); for (let i = 0; i < 26; i++) fx.push({ k: 'ember', x: P.x + 40, y: GROUND - 70, vx: 600 + Math.random() * 300, vy: -120 + Math.random() * 240, life: 0.6 + Math.random() * 0.4 }); fx.push({ k: 'ring', x: gx, y: gy, r: 90, life: 0.4 }); break; }
+    case 'jala': { const h = Math.round(35 * pow); P.hp = Math.min(P.max, P.hp + h); floater(P.x, GROUND - 150, `+${h}`); for (let i = 0; i < 18; i++) fx.push({ k: 'drop', x: P.x - 40 + Math.random() * 80, y: GROUND - 160 - Math.random() * 60, vx: 0, vy: 80 + Math.random() * 80, life: 1 }); break; }
+    case 'vayu': { const d = Math.round(18 * pow); hurtGolem(d); G.kb = 520 * pow; if (G.state === 'wind') { G.state = 'idle'; G.t = 2.5; floater(gx, GROUND - 200, 'ATTACK STOPPED'); } for (let i = 0; i < 14; i++) fx.push({ k: 'gust', x: P.x + 40, y: GROUND - 30 - Math.random() * 140, vx: 900, vy: 0, life: 0.5, len: 40 + Math.random() * 50 }); break; }
+    case 'prithvi': { P.shieldT = 8; P.shieldPow = pow; floater(P.x + 80, GROUND - 170, pow >= 0.9 ? 'FULL WALL' : 'CRACKED WALL'); fx.push({ k: 'rise', x: P.x + 80, life: 0.35 }); break; }
+    case 'akasha': { const d = Math.round(70 * pow); slowT = 3; hurtGolem(d); fx.push({ k: 'ring', x: gx, y: gy, r: 160, life: 0.7 }); fx.push({ k: 'ring', x: P.x, y: gy, r: 220, life: 0.9 }); break; }
+  }
+}
+function hurtGolem(d) {
+  G.hp = Math.max(0, G.hp - d); G.flash = 0.15; floater(G.x, GROUND - 210, `-${d}`);
+  burst(G.x - 30, GROUND - 100, 14, INK);
+  if (G.hp === 0) { floater(G.x, GROUND - 240, 'GOLEM BROKEN'); setTimeout(() => { G.hp = G.max; floater(G.x, GROUND - 240, 'IT REFORMS'); }, 1500); }
+}
+function burst(x, y, n, c) { for (let i = 0; i < n; i++) fx.push({ k: 'dot', x, y, vx: (Math.random() - 0.5) * 420, vy: -Math.random() * 360, life: 0.5 + Math.random() * 0.4, c }); }
+function record(s, mode, n, total, time, power, heard) {
+  attempts.unshift({ i: attempts.length + 1, name: s.name.split(' · ')[0], mode, n, total, time, power, heard });
+  const tb = $('log');
+  tb.innerHTML = attempts.map(a => `<tr><td class="num">${a.i}</td><td>${a.name}</td><td>${a.mode === 'voice' ? 'Voice' : 'Button'}</td><td class="num">${a.mode === 'voice' ? `${a.n}/${a.total}` : '–'}</td><td class="num">${a.time.toFixed(1)} s</td><td class="num${a.power ? '' : ' fail'}">${a.power ? Math.round(a.power * 100) + '%' : 'failed'}</td><td class="heardcell">${esc(a.heard || '')}</td></tr>`).join('');
+}
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------- input ---------- */
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'SELECT' || (e.target.tagName === 'INPUT' && e.target.type !== 'checkbox')) return;
+  if (e.repeat) return;
+  if (e.code === 'KeyV') { e.preventDefault(); holding = true; $('chantBtn').classList.add('on'); beginChant('voice'); }
+  else if (e.code === 'KeyB') { e.preventDefault(); beginChant('button'); }
+  else if (e.code === 'Space') { e.preventDefault(); dodge(); }
+  else if (/^Digit[1-5]$/.test(e.code)) select(+e.code.slice(5) - 1);
+});
+addEventListener('keyup', e => { if (e.code === 'KeyV' && holding) { holding = false; $('chantBtn').classList.remove('on'); if (chant && chant.mode === 'voice') setTimeout(() => chant && chant.mode === 'voice' && !holding && finishChant('release'), 700); } });
+const cb = $('chantBtn');
+cb.addEventListener('pointerdown', e => { e.preventDefault(); try { cb.setPointerCapture(e.pointerId); } catch (_) {} holding = true; cb.classList.add('on'); beginChant('voice'); });
+const up = () => { if (!holding) return; holding = false; cb.classList.remove('on'); if (chant && chant.mode === 'voice') setTimeout(() => chant && chant.mode === 'voice' && !holding && finishChant('release'), 700); };
+cb.addEventListener('pointerup', up); cb.addEventListener('pointercancel', up); cb.addEventListener('contextmenu', e => e.preventDefault());
+$('silentBtn').addEventListener('click', () => beginChant('button'));
+function dodge() { if (P.dodgeT > 0) return; if (chant) breakChant('you dodged'); P.dodgeT = 0.45; P.dodgeDir = P.x > 200 ? -1 : 1; tone(900, 300, 0.12, 'triangle', 0.03); }
+
+/* ---------- update ---------- */
+function update(dt) {
+  clock += dt;
+  const gdt = slowT > 0 ? dt * 0.3 : dt; slowT = Math.max(0, slowT - dt);
+  mana = Math.min(100, mana + 8 * dt);
+  P.hurtT = Math.max(0, P.hurtT - dt); P.castT = Math.max(0, P.castT - dt); P.shieldT = Math.max(0, P.shieldT - dt);
+  if (P.dodgeT > 0) { P.dodgeT -= dt; P.x += P.dodgeDir * 380 * dt; P.x = Math.max(120, Math.min(330, P.x)); } else P.x += (250 - P.x) * Math.min(1, dt * 3);
+  if (chant) {
+    chant.t += dt;
+    if (chant.mode === 'button' && chant.t >= chant.need) { matched = matched.map(() => true); finishChant('button'); }
+    else if (chant && chant.mode === 'voice' && chant.t > chant.need) finishChant('timeout');
+  }
+  G.flash = Math.max(0, G.flash - dt);
+  if (G.kb > 0) { G.x += G.kb * dt; G.kb = Math.max(0, G.kb - 1600 * dt); }
+  G.x += (700 - G.x) * Math.min(1, dt * 1.5);
+  if ($('golemOn').checked) {
+    G.t -= gdt;
+    if (G.state === 'idle' && G.t <= 0) { G.state = 'wind'; G.t = 1.15; tone(880, 880, 0.08, 'square', 0.02); }
+    else if (G.state === 'wind' && G.t <= 0) {
+      G.state = 'slam'; G.t = 0.35; shake = 10; tone(90, 30, 0.4, 'sine', 0.2);
+      fx.push({ k: 'wave', x: G.x - 70, life: 0.6 });
+      if (P.dodgeT > 0) floater(P.x, GROUND - 150, 'DODGED');
+      else if (P.shieldT > 0) { const blocked = P.shieldPow >= 0.9 ? 1 : 0.5; P.shieldT = 0; floater(P.x + 80, GROUND - 170, blocked === 1 ? 'BLOCKED' : 'HALF BLOCKED'); if (blocked < 1) hurtPlayer(8); }
+      else hurtPlayer(15);
+    } else if (G.state === 'slam' && G.t <= 0) { G.state = 'idle'; G.t = 4 + Math.random() * 2.5; }
+  } else { G.state = 'idle'; G.t = 2.5; }
+  for (const f of fx) { f.life -= dt; if (f.vx !== undefined) { f.x += f.vx * dt; f.y += (f.vy || 0) * dt; if (f.k === 'dot') f.vy += 900 * dt; } }
+  fx = fx.filter(f => f.life > 0);
+  for (const f of floaters) { f.life -= dt; f.y -= 40 * dt; } floaters = floaters.filter(f => f.life > 0);
+  shake = Math.max(0, shake - dt * 30);
+}
+function hurtPlayer(d) {
+  P.hp = Math.max(0, P.hp - d); P.hurtT = 0.4; floater(P.x, GROUND - 150, `-${d}`, RED); burst(P.x, GROUND - 60, 12, RED);
+  if (chant) breakChant('the golem hit you');
+  if (P.hp === 0) { floater(P.x, GROUND - 190, 'YOU FELL. BACK AT THE SHRINE'); P.hp = P.max; mana = 100; }
+}
+
+/* ---------- drawing ---------- */
+function stick(x, y, pose, face, ink, lw) {
+  const L1 = 21, L2 = 19, A1 = 20, A2 = 19, hr = 13;
+  const ext = l => Math.cos(l[0]) * L1 + Math.cos(l[1]) * L2, hipY = -Math.max(ext(pose.lF), ext(pose.lB));
+  const hip = { x, y: y + hipY }, neck = { x: x + Math.sin(pose.lean) * face * 36, y: hip.y - Math.cos(pose.lean) * 36 };
+  const head = { x: neck.x + Math.sin(pose.lean) * face * (hr + 3), y: neck.y - Math.cos(pose.lean) * (hr + 3) };
+  const sh = { x: hip.x + (neck.x - hip.x) * 0.86, y: hip.y + (neck.y - hip.y) * 0.86 };
+  ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const limb = (r, a, l1, l2) => { const k = { x: r.x + Math.sin(a[0]) * face * l1, y: r.y + Math.cos(a[0]) * l1 }, e = { x: k.x + Math.sin(a[1]) * face * l2, y: k.y + Math.cos(a[1]) * l2 }; ctx.beginPath(); ctx.moveTo(r.x, r.y); ctx.lineTo(k.x, k.y); ctx.lineTo(e.x, e.y); ctx.stroke(); return e; };
+  limb(hip, pose.lB, L1, L2); const hB = limb(sh, pose.aB, A1, A2);
+  ctx.beginPath(); ctx.moveTo(hip.x, hip.y); ctx.lineTo(neck.x, neck.y); ctx.stroke();
+  limb(hip, pose.lF, L1, L2); const hF = limb(sh, pose.aF, A1, A2);
+  ctx.beginPath(); ctx.arc(head.x, head.y, hr, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = PAPER; ctx.fillRect(head.x + face * 2, head.y - 4, face * 8, 3.5);
+  return { hF, hB, head, neck };
+}
+const POSE = {
+  idle: t => ({ lean: 0.04 + Math.sin(t * 2) * 0.02, aF: [0.25, 0.45], aB: [-0.2, 0.05], lF: [0.14, 0.02], lB: [-0.14, -0.02] }),
+  chant: t => ({ lean: -0.04, aF: [2.6 + Math.sin(t * 7) * 0.05, 3.0], aB: [-2.6, -3.0], lF: [0.25, 0.05], lB: [-0.25, -0.05] }),
+  cast: () => ({ lean: 0.2, aF: [1.57, 1.57], aB: [1.4, 1.5], lF: [0.5, 0.2], lB: [-0.45, -0.1] }),
+  hurt: () => ({ lean: -0.35, aF: [2.5, 2.2], aB: [-2.4, -2.8], lF: [0.45, 0.15], lB: [-0.2, 0.25] }),
+  dodge: () => ({ lean: 0.6, lF: [0.95, 0.25], lB: [-0.95, -0.45], aF: [-1.3, -1.0], aB: [-1.6, -1.2] }),
+};
+function hatch(x, y, w, h, gap = 10) {
+  ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.strokeStyle = HATCH; ctx.lineWidth = 1.2; ctx.beginPath();
+  for (let k = x - h; k < x + w; k += gap) { ctx.moveTo(k, y + h); ctx.lineTo(k + h, y); } ctx.stroke(); ctx.restore();
+}
+function drawGolem() {
+  const x = G.x, wind = G.state === 'wind', slam = G.state === 'slam', ink = G.flash > 0 ? PENCIL : INK;
+  const lift = wind ? (1 - G.t / 1.15) * 50 : 0;
+  ctx.fillStyle = PAPER; ctx.strokeStyle = ink; ctx.lineWidth = 4;
+  const block = (bx, by, bw, bh) => { ctx.fillStyle = PAPER; ctx.fillRect(bx, by, bw, bh); hatch(bx, by, bw, bh, 8); ctx.strokeRect(bx, by, bw, bh); };
+  block(x - 34, GROUND - 70, 26, 70); block(x + 8, GROUND - 70, 26, 70);
+  block(x - 52, GROUND - 175, 104, 108);
+  block(x - 28, GROUND - 222, 56, 46);
+  ctx.fillStyle = wind || slam ? RED : INK; ctx.fillRect(x - 18, GROUND - 205, 12, 6); ctx.fillRect(x + 4, GROUND - 205, 12, 6);
+  const armY = GROUND - 165 - lift * 2;
+  block(x - 92, armY + (slam ? 90 : 0), 36, 92); block(x + 56, GROUND - 165, 30, 86);
+  if (wind) { ctx.save(); ctx.strokeStyle = RED; ctx.lineWidth = 3; ctx.setLineDash([10, 8]); ctx.strokeRect(x - 330, GROUND - 120, 260, 120); ctx.restore(); ctx.fillStyle = RED; ctx.font = `30px ${FD}`; ctx.textAlign = 'center'; ctx.fillText('!', x - 74, armY - 14); }
+}
+function render() {
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = RULE; ctx.lineWidth = 1; ctx.beginPath(); for (let y = 40; y < GROUND; y += 34) { ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); } ctx.stroke();
+  const sx = shake ? (Math.random() - 0.5) * shake : 0, sy = shake ? (Math.random() - 0.5) * shake * 0.6 : 0;
+  ctx.save(); ctx.translate(sx, sy);
+  // shrine
+  ctx.strokeStyle = FAINT; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(60, GROUND); ctx.lineTo(60, 170); ctx.moveTo(440, GROUND); ctx.lineTo(440, 170); ctx.moveTo(30, 170); ctx.quadraticCurveTo(250, 140, 470, 170); ctx.moveTo(50, 200); ctx.lineTo(450, 200); ctx.stroke();
+  // ground
+  hatch(0, GROUND, W, H - GROUND, 13); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, GROUND + 1.5); ctx.lineTo(W, GROUND + 1.5); ctx.stroke();
+  drawGolem();
+  // earth wall
+  if (P.shieldT > 0) { const wx = P.x + 64, full = P.shieldPow >= 0.9; ctx.fillStyle = PAPER; ctx.fillRect(wx, GROUND - 130, 34, 130); hatch(wx, GROUND - 130, 34, 130, 6); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(wx, GROUND - 130, 34, 130); if (!full) { ctx.beginPath(); ctx.moveTo(wx + 8, GROUND - 120); ctx.lineTo(wx + 22, GROUND - 80); ctx.lineTo(wx + 12, GROUND - 40); ctx.stroke(); } }
+  // player
+  const pose = P.hurtT > 0 ? POSE.hurt() : P.dodgeT > 0 ? POSE.dodge() : P.castT > 0 ? POSE.cast() : chant ? POSE.chant(clock) : POSE.idle(clock);
+  if (chant) { const k = chant.mode === 'voice' ? matched.filter(Boolean).length / matched.length : Math.min(1, chant.t / chant.need); for (let i = 0; i < 3; i++) { const r = 40 + ((clock * 60 + i * 30) % 90); ctx.strokeStyle = INK; ctx.globalAlpha = 0.15 + 0.5 * k * (1 - (r - 40) / 90); ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(P.x, GROUND - 60, r, r * 0.5, 0, 0, Math.PI * 2); ctx.stroke(); } ctx.globalAlpha = 1; }
+  stick(P.x, GROUND, pose, 1, INK, 6);
+  // fx
+  for (const f of fx) {
+    ctx.globalAlpha = Math.min(1, f.life * 2.5);
+    if (f.k === 'ember') { ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(f.x, f.y, 5, 0, Math.PI * 2); ctx.fill(); }
+    else if (f.k === 'dot') { ctx.fillStyle = f.c || INK; ctx.beginPath(); ctx.arc(f.x, f.y, 3, 0, Math.PI * 2); ctx.fill(); }
+    else if (f.k === 'drop') { ctx.fillStyle = INK2; ctx.beginPath(); ctx.ellipse(f.x, f.y, 3, 6, 0, 0, Math.PI * 2); ctx.fill(); }
+    else if (f.k === 'gust') { ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x - f.len, f.y); ctx.stroke(); }
+    else if (f.k === 'ring') { const p = 1 - f.life / 0.7; ctx.strokeStyle = INK; ctx.lineWidth = 5 * (1 - p) + 1; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.3 + p), 0, Math.PI * 2); ctx.stroke(); }
+    else if (f.k === 'wave') { const p = 1 - f.life / 0.6; ctx.fillStyle = RED; ctx.beginPath(); const wx = f.x - p * 420; ctx.moveTo(wx - 20, GROUND); ctx.lineTo(wx, GROUND - 26); ctx.lineTo(wx + 20, GROUND); ctx.fill(); }
+    else if (f.k === 'rise') { ctx.fillStyle = PENCIL; for (let i = 0; i < 8; i++) { ctx.beginPath(); ctx.arc(f.x + Math.random() * 40, GROUND - Math.random() * 20, 3, 0, Math.PI * 2); ctx.fill(); } }
+  }
+  ctx.globalAlpha = 1;
+  if (slowT > 0) { ctx.fillStyle = 'rgba(21,21,19,0.06)'; ctx.fillRect(0, 0, W, H); }
+  for (const f of floaters) { ctx.globalAlpha = Math.min(1, f.life * 2); ctx.fillStyle = f.c; ctx.font = `15px ${FD}`; ctx.textAlign = 'center'; ctx.fillText(f.t, f.x, f.y); }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  // chant words
+  const s = SPELLS[chant ? chant.spell : sel];
+  ctx.font = `30px ${FH}`; ctx.textBaseline = 'alphabetic';
+  const spaces = 14, widths = s.words.map(w => ctx.measureText(w).width), total = widths.reduce((a, b) => a + b, 0) + spaces * (s.words.length - 1);
+  let x = Math.max(20, W / 2 - total / 2); const y = 92;
+  const fs = total > W - 40 ? (W - 40) / total : 1;
+  ctx.save(); ctx.translate(W / 2, 0); ctx.scale(fs, 1); ctx.translate(-W / 2, 0);
+  s.words.forEach((w, i) => {
+    const on = matched[i];
+    ctx.fillStyle = on ? INK : chant ? PENCIL : '#b9b6ac'; ctx.textAlign = 'left'; ctx.fillText(w, x, y);
+    if (on) { ctx.fillStyle = INK; ctx.fillRect(x, y + 7, widths[i], 3); }
+    x += widths[i] + spaces;
+  });
+  ctx.restore();
+  ctx.font = `11px ${FD}`; ctx.fillStyle = PENCIL; ctx.textAlign = 'center';
+  ctx.fillText(chant ? (chant.mode === 'voice' ? 'SPEAK THE WORDS' : 'CASTING WITHOUT VOICE · 80%') : `${s.name} · HOLD V TO CHANT`, W / 2, 46);
+  // bars
+  const bar = (bx, by, w, v, max, label, red) => { ctx.font = `10px ${FD}`; ctx.textAlign = 'left'; ctx.fillStyle = INK; ctx.fillText(label, bx, by - 6); ctx.fillStyle = FAINT; ctx.fillRect(bx, by, w, 12); ctx.fillStyle = red ? RED : INK; ctx.fillRect(bx, by, w * v / max, 12); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(bx, by, w, 12); };
+  bar(24, 150 - 16, 180, P.hp, P.max, 'YOU');
+  bar(24, 150 + 16, 180, mana, 100, `MANA ${Math.floor(mana)}`);
+  bar(W - 224, 150 - 16, 200, G.hp, G.max, 'STONE GOLEM');
+}
+
+let last = performance.now();
+function loop(now) { const dt = Math.min(0.033, (now - last) / 1000); last = now; update(dt); render(); requestAnimationFrame(loop); }
+fit(); requestAnimationFrame(loop);
+window.__chant = { matchWords, tokens, SPELLS, beginChant, finishChant, get matched() { return matched; } };
+})();
+</script>
+</body>
+</html>

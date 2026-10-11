@@ -1,0 +1,149 @@
+<title>Ink Tower</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Rubik+Mono+One&display=swap">
+<style>
+/* Layout: one 16:9 sheet of paper as the game frame, centered, key legend underneath.
+   Single light look by choice: white paper, black ink, red only for danger. */
+:root{
+  --paper:#fbfaf6; --ink:#121212; --ink-2:#3a3934; --pencil:#8d8b82; --rule:#e8e6de; --danger:#d7262c;
+  --f-display:"Rubik Mono One","Arial Black",Impact,sans-serif;
+  --f-hand:"Kalam","Comic Sans MS","Segoe Print",cursive;
+  --tb:64px;
+  color-scheme:light;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-hand);box-sizing:border-box;
+  padding-inline:16px;padding-block:16px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.frame{position:relative;width:100%;max-width:100%;aspect-ratio:16/9;border:2px solid var(--ink);background:var(--paper);
+  touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overflow:hidden;box-sizing:border-box;container-type:inline-size}
+#game{position:absolute;inset:0;width:100%;height:100%;display:block}
+.overlay{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;overflow-y:auto;
+  background:rgba(251,250,246,.92);text-align:center;padding:16px;box-sizing:border-box}
+.ov-in{margin:auto;display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.6cqw,16px);max-width:100%}
+.overlay h1{font-family:var(--f-display);font-weight:400;font-size:clamp(30px,8.5cqw,84px);line-height:.92;margin:0;letter-spacing:.01em;text-wrap:balance}
+.overlay h2{font-family:var(--f-display);font-weight:400;font-size:clamp(20px,4.6cqw,46px);line-height:1;margin:0;text-wrap:balance}
+.overlay p{margin:0;font-size:clamp(15px,2.1cqw,21px);color:var(--ink-2);max-width:38ch;line-height:1.3}
+.tag{font-family:var(--f-display);font-size:clamp(9px,1.15cqw,12px);letter-spacing:.12em;text-transform:uppercase;color:var(--pencil)}
+.stats{font-family:var(--f-display);font-size:clamp(11px,1.6cqw,15px);letter-spacing:.06em;color:var(--ink);font-variant-numeric:tabular-nums}
+.row{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+.btn{font-family:var(--f-display);font-size:clamp(10px,1.45cqw,14px);letter-spacing:.06em;text-transform:uppercase;color:var(--ink);
+  background:var(--paper);border:2.5px solid var(--ink);padding:.85em 1.5em;cursor:pointer;box-shadow:4px 4px 0 var(--ink);
+  transition:transform .08s ease,box-shadow .08s ease}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:5px 5px 0 var(--ink)}
+.btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+.btn.primary{background:var(--ink);color:var(--paper)}
+.btn:focus-visible,.corner button:focus-visible,.floors button:focus-visible,.card:focus-visible{outline:3px dashed var(--ink);outline-offset:4px}
+.floors-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:4px}
+.floors{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.floors button{width:clamp(28px,4cqw,38px);height:clamp(28px,4cqw,38px);border:2px solid var(--ink);background:var(--paper);color:var(--ink);
+  font-family:var(--f-display);font-size:clamp(9px,1.2cqw,12px);cursor:pointer;padding:0}
+.floors button:hover:not(:disabled){background:var(--ink);color:var(--paper)}
+.floors button:disabled{border-style:dashed;color:var(--pencil);border-color:var(--pencil);cursor:not-allowed}
+.learned{border:2px dashed var(--ink);padding:10px 16px;display:flex;flex-direction:column;gap:4px;align-items:center;max-width:46ch}
+.learned strong{font-family:var(--f-display);font-weight:400;font-size:clamp(14px,2.4cqw,22px)}
+.learned em{font-size:clamp(15px,2cqw,19px);color:var(--ink)}
+.learned span.how{font-size:clamp(13px,1.7cqw,16px);color:var(--ink-2)}
+.cards{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+.card{width:clamp(150px,28cqw,240px);text-align:left;background:var(--paper);border:2.5px solid var(--ink);box-shadow:4px 4px 0 var(--ink);
+  padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;gap:4px;color:var(--ink);transition:transform .08s ease,box-shadow .08s ease}
+.card:hover{transform:translate(-1px,-1px);box-shadow:6px 6px 0 var(--ink)}
+.card b{font-family:var(--f-display);font-weight:400;font-size:clamp(11px,1.5cqw,14px);letter-spacing:.04em}
+.card span{font-family:var(--f-hand);font-size:clamp(14px,1.8cqw,17px);line-height:1.25;color:var(--ink-2)}
+.corner{position:absolute;top:8px;right:8px;z-index:4;display:flex;gap:6px}
+.corner button{width:34px;height:34px;border:2px solid var(--ink);background:var(--paper);color:var(--ink);cursor:pointer;
+  font-family:var(--f-display);font-size:11px;display:grid;place-items:center;padding:0}
+.corner button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.touch{position:absolute;inset:0;z-index:2;pointer-events:none}
+.touch button{pointer-events:auto;position:absolute;width:var(--tb);height:var(--tb);border-radius:50%;border:2.5px solid var(--ink);
+  background:rgba(251,250,246,.55);color:var(--ink);font-family:var(--f-display);font-size:calc(var(--tb)*.17);padding:0;touch-action:none;
+  -webkit-user-select:none;user-select:none}
+.touch button.on,.touch button.ready{background:var(--ink);color:var(--paper)}
+.legend{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 18px;font-size:15px;color:var(--ink-2);max-width:1280px}
+.legend span{white-space:nowrap}
+.legend kbd{font-family:var(--f-display);font-size:10px;border:1.5px solid var(--ink);padding:2px 6px;margin-right:3px;background:var(--paper);color:var(--ink)}
+.note{margin:0;font-size:15px;color:var(--ink-2);text-align:center}
+@media (prefers-reduced-motion: reduce){.btn,.card{transition:none}}
+</style>
+
+<div class="frame" id="frame">
+  <canvas id="game" aria-label="Ink Tower game screen"></canvas>
+
+  <div class="touch" id="touch" hidden>
+    <button data-a="left" aria-label="Move left">◀</button>
+    <button data-a="right" aria-label="Move right">▶</button>
+    <button data-a="jump">JUMP</button>
+    <button data-a="attack">HIT</button>
+    <button data-a="shoot">SHOT</button>
+    <button data-a="dash">DASH</button>
+    <button data-a="ult" id="tUlt">ULT</button>
+  </div>
+
+  <div class="corner">
+    <button id="btnPause" aria-label="Pause" hidden>II</button>
+    <button id="btnSound" aria-label="Sound on" aria-pressed="false">♪</button>
+  </div>
+
+  <div class="overlay" id="ovMenu"><div class="ov-in">
+    <span class="tag">Ten floors · ten bosses · four ultimates</span>
+    <h1>INK<br>TOWER</h1>
+    <p>Climb ten floors. Beat ten bosses. Red means danger.</p>
+    <div class="row">
+      <button class="btn primary" id="btnContinue">Start climbing</button>
+      <button class="btn" id="btnNew" hidden>New game</button>
+    </div>
+    <div class="floors-wrap" id="floorsWrap" hidden><span class="tag">Jump to a floor you have reached</span><div class="floors" id="floors"></div></div>
+  </div></div>
+
+  <div class="overlay" id="ovPause" hidden><div class="ov-in">
+    <h2>Paused</h2>
+    <div class="row">
+      <button class="btn primary" id="btnResume">Resume</button>
+      <button class="btn" id="btnRestart">Restart floor</button>
+      <button class="btn" id="btnMenu1">Main menu</button>
+    </div>
+  </div></div>
+
+  <div class="overlay" id="ovDead" hidden><div class="ov-in">
+    <h2>You fell.</h2>
+    <p id="deadMsg">Back to the last checkpoint.</p>
+    <div class="row"><button class="btn primary" id="btnRetry">Try again</button><button class="btn" id="btnMenu2">Main menu</button></div>
+  </div></div>
+
+  <div class="overlay" id="ovClear" hidden><div class="ov-in">
+    <span class="tag" id="clearTag">Boss down</span>
+    <h2 id="clearTitle">Floor 1 cleared</h2>
+    <div class="stats" id="clearStats">Time 0:00 · Deaths 0</div>
+    <div class="learned" id="learned" hidden>
+      <span class="tag">New ultimate learned</span>
+      <strong id="learnedName"></strong>
+      <em id="learnedChant"></em>
+      <span class="how" id="learnedHow"></span>
+    </div>
+    <p>Pick one upgrade to carry up the tower.</p>
+    <div class="cards" id="cards"></div>
+  </div></div>
+
+  <div class="overlay" id="ovWin" hidden><div class="ov-in">
+    <span class="tag">All ten bosses are down</span>
+    <h1>YOU<br>CLIMBED IT</h1>
+    <div class="stats" id="winStats"></div>
+    <p>Ink Tower is yours. Play again and beat your time.</p>
+    <div class="row"><button class="btn primary" id="btnWinMenu">Main menu</button></div>
+  </div></div>
+</div>
+
+<p class="note" id="rotate" hidden>Turn your phone sideways for a bigger screen.</p>
+
+<div class="legend" id="legend">
+  <span><kbd>A</kbd><kbd>D</kbd> move</span>
+  <span><kbd>W</kbd> or <kbd>Space</kbd> jump</span>
+  <span><kbd>J</kbd> attack</span>
+  <span><kbd>K</kbd> shoot</span>
+  <span><kbd>L</kbd> dash</span>
+  <span><kbd>U</kbd> ultimate</span>
+  <span><kbd>S</kbd>+<kbd>W</kbd> drop off a ledge</span>
+  <span><kbd>Esc</kbd> pause</span>
+  <span><kbd>M</kbd> sound</span>
+</div>

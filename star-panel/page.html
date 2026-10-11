@@ -1,0 +1,438 @@
+<title>Samsara Star Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&family=Kalam:wght@400&display=swap">
+<style>
+/* Layout: an astrologer's ledger page. Input card on the left, the drawn chart beside it,
+   then full-width ledger sections. Single paper-and-ink look by choice, same world as Ink Tower. */
+:root{
+  --paper:#fbfaf6; --wash:#f3f0e7; --ink:#151513; --ink-2:#3d3b35; --pencil:#8c897f; --rule:#e2ded3; --red:#c4252b;
+  --f-display:"Rubik Mono One","Arial Black",Impact,sans-serif;
+  --f-body:"Literata",Georgia,"Times New Roman",serif;
+  --f-mono:"DM Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --f-hand:"Kalam","Comic Sans MS","Segoe Print",cursive;
+  color-scheme:light;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:28px 64px;display:flex;flex-direction:column;gap:36px}
+header{display:flex;flex-direction:column;gap:8px;border-bottom:2px solid var(--ink);padding-bottom:18px}
+.eyebrow{font-family:var(--f-display);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--pencil)}
+h1{font-family:var(--f-display);font-weight:400;font-size:clamp(30px,5vw,52px);line-height:1;margin:0;letter-spacing:.01em}
+header p{margin:0;max-width:62ch;color:var(--ink-2)}
+h2{font-family:var(--f-display);font-weight:400;font-size:15px;letter-spacing:.08em;text-transform:uppercase;margin:0}
+.top{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:32px;align-items:start}
+@media (max-width:860px){.top{grid-template-columns:minmax(0,1fr)}}
+form{border:2px solid var(--ink);background:var(--paper);padding:20px;display:flex;flex-direction:column;gap:16px;box-shadow:5px 5px 0 var(--ink)}
+.field{display:flex;flex-direction:column;gap:6px;position:relative}
+label,.lbl{font-family:var(--f-display);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+input,select{font:inherit;font-family:var(--f-mono);font-size:15px;color:var(--ink);background:var(--paper);border:1.5px solid var(--ink);border-radius:0;padding:9px 10px;width:100%;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:3px dashed var(--ink);outline-offset:3px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hint{font-size:13px;color:var(--pencil);margin:0;line-height:1.4}
+.results{position:absolute;left:0;right:0;top:100%;z-index:5;margin:2px 0 0;padding:0;list-style:none;background:var(--paper);border:1.5px solid var(--ink);max-height:260px;overflow-y:auto}
+.results li button{all:unset;display:block;width:100%;padding:8px 10px;cursor:pointer;font-size:14px;box-sizing:border-box}
+.results li button:hover,.results li button:focus-visible{background:var(--ink);color:var(--paper)}
+.results small{color:var(--pencil)}
+details{border-top:1px dashed var(--rule);padding-top:12px}
+summary{cursor:pointer;font-family:var(--f-display);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+details[open] summary{margin-bottom:12px}
+.adv{display:flex;flex-direction:column;gap:12px}
+.btn{font-family:var(--f-display);font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper);background:var(--ink);border:2px solid var(--ink);padding:13px 16px;cursor:pointer;box-shadow:4px 4px 0 var(--pencil);transition:transform .08s ease,box-shadow .08s ease}
+.btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--pencil)}
+.privacy{font-family:var(--f-hand);font-size:15px;color:var(--ink-2);margin:0;line-height:1.3}
+
+.reading{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:1060px){.reading{grid-template-columns:minmax(0,1fr)}}
+.chartbox{display:flex;flex-direction:column;gap:10px}
+.chartbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.toggle{display:flex;border:1.5px solid var(--ink)}
+.toggle button{font-family:var(--f-display);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:7px 10px;background:var(--paper);color:var(--ink);border:0;cursor:pointer}
+.toggle button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+svg.chart{width:100%;max-width:520px;aspect-ratio:1/1;height:auto;display:block}
+.example{font-family:var(--f-hand);font-size:16px;color:var(--red);margin:0}
+.facts{display:flex;flex-direction:column;gap:18px}
+.big{display:flex;flex-direction:column;gap:4px}
+.big .v{font-family:var(--f-display);font-size:clamp(22px,3vw,30px);line-height:1.05}
+.big .s{font-family:var(--f-mono);font-size:14px;color:var(--ink-2)}
+.factgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px;border-top:1.5px solid var(--ink);padding-top:16px}
+.factgrid .k{font-family:var(--f-display);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--pencil)}
+.factgrid .v{font-family:var(--f-mono);font-size:15px}
+.warn{border-left:4px solid var(--red);padding:8px 12px;background:var(--wash);font-size:14px;margin:0}
+.ok{border-left:4px solid var(--ink);padding:8px 12px;background:var(--wash);font-size:14px;margin:0}
+
+section{display:flex;flex-direction:column;gap:14px;min-width:0}
+.sechead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1.5px solid var(--ink);padding-bottom:8px}
+.sechead p{margin:0;font-size:14px;color:var(--pencil)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15px;min-width:560px}
+th{font-family:var(--f-display);font-weight:400;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:left;color:var(--ink-2);padding:8px 10px;border-bottom:1.5px solid var(--ink)}
+td{padding:9px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td .sa{color:var(--pencil);font-size:13px}
+.tag{display:inline-block;font-family:var(--f-mono);font-size:12px;border:1px solid var(--ink);padding:0 6px;margin-right:4px;white-space:nowrap}
+.tag.red{border-color:var(--red);color:var(--red)}
+.cols2{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:32px;align-items:start}
+@media (max-width:900px){.cols2{grid-template-columns:minmax(0,1fr)}}
+.now{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:1.5px solid var(--ink)}
+.now>div{padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.now>div+div{border-left:1.5px solid var(--ink)}
+@media (max-width:640px){.now{grid-template-columns:minmax(0,1fr)}.now>div+div{border-left:0;border-top:1.5px solid var(--ink)}}
+.now .k{font-family:var(--f-display);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--pencil)}
+.now .v{font-family:var(--f-display);font-size:17px;line-height:1.15}
+.now .s{font-family:var(--f-mono);font-size:13px;color:var(--ink-2)}
+svg.timeline{width:100%;height:96px;display:block}
+.adlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px}
+.adlist div{font-family:var(--f-mono);font-size:13px;padding:6px 8px;border:1px solid var(--rule)}
+.adlist div.cur{border:1.5px solid var(--ink);background:var(--wash)}
+.game{border:2px solid var(--ink);padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px 28px;background:var(--wash)}
+.game .k{font-family:var(--f-display);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--pencil)}
+.game .v{font-family:var(--f-display);font-size:18px;line-height:1.15;margin-top:4px}
+.game .s{font-size:14px;color:var(--ink-2);margin-top:4px}
+.pips{display:flex;gap:6px;margin-top:8px}
+.pips i{width:22px;height:10px;border:1.5px solid var(--ink);display:block}
+.pips i.on{background:var(--ink)}
+.note{font-family:var(--f-hand);font-size:16px;color:var(--ink-2);margin:0}
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 28px;font-size:14px}
+.checks div{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--rule);padding-top:8px}
+.checks .k{font-family:var(--f-display);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--pencil)}
+.checks .v{font-family:var(--f-mono)}
+.fail{border:2px solid var(--red);padding:16px;color:var(--red)}
+footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);padding-top:14px}
+@media (prefers-reduced-motion:reduce){.btn{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Samsara · test build 1</span>
+    <h1>Star Panel</h1>
+    <p>Enter a birth moment and place. The panel casts the Vedic chart (sidereal, Lahiri), checks the real time zone of that date, and reads it the way the game will.</p>
+  </header>
+
+  <div class="top">
+    <form id="form" autocomplete="off">
+      <div class="field">
+        <label for="f-date">Date of birth</label>
+        <input id="f-date" type="date" required min="1800-01-01" max="2100-12-31">
+      </div>
+      <div class="field">
+        <label for="f-time">Time of birth (local clock time)</label>
+        <input id="f-time" type="time" step="60" required>
+      </div>
+      <div class="field">
+        <label for="f-city">Place of birth</label>
+        <input id="f-city" type="text" placeholder="Start typing a city" aria-autocomplete="list" aria-controls="cityList">
+        <ul class="results" id="cityList" role="listbox" hidden></ul>
+        <p class="hint" id="placeHint">Choose a city from the list, or set the place by hand below.</p>
+      </div>
+      <details id="adv">
+        <summary>Place and time zone by hand</summary>
+        <div class="adv">
+          <div class="pair">
+            <div class="field"><label for="f-lat">Latitude (N +)</label><input id="f-lat" type="number" step="0.0001" min="-89.9" max="89.9" required></div>
+            <div class="field"><label for="f-lon">Longitude (E +)</label><input id="f-lon" type="number" step="0.0001" min="-180" max="180" required></div>
+          </div>
+          <div class="field">
+            <label for="f-tz">Time zone</label>
+            <input id="f-tz" type="text" list="tzList" required>
+            <datalist id="tzList"></datalist>
+          </div>
+          <div class="field">
+            <label for="f-off">Override UTC offset (optional)</label>
+            <input id="f-off" type="text" placeholder="e.g. +05:30" pattern="[+\-]?\d{1,2}(:\d{2})?">
+            <p class="hint">Only if the official offset was not used where you were born, for example areas that kept +5:30 during 1996 to 2006.</p>
+          </div>
+        </div>
+      </details>
+      <button class="btn" type="submit" id="castBtn">Cast the chart</button>
+      <p class="privacy">Everything is worked out on this page. Nothing you enter is sent or saved.</p>
+    </form>
+
+    <div class="reading" id="reading">
+      <div class="chartbox">
+        <div class="chartbar">
+          <span class="lbl">Rashi chart (D1)</span>
+          <div class="toggle" role="group" aria-label="Chart style">
+            <button type="button" id="styN" aria-pressed="true">North Indian</button>
+            <button type="button" id="styS" aria-pressed="false">South Indian</button>
+          </div>
+        </div>
+        <svg class="chart" id="chartSvg" viewBox="0 0 400 400" role="img" aria-label="Birth chart"></svg>
+        <p class="example" id="exampleNote">Example chart: Colombo, 1 January 2000, 6:00 am. Enter your own details to replace it.</p>
+      </div>
+      <div class="facts" id="facts"></div>
+    </div>
+  </div>
+
+  <section>
+    <div class="sechead"><h2>The nine grahas</h2><p>Sidereal positions, whole-sign houses from the lagna</p></div>
+    <div class="tbl"><table id="planetTable"></table></div>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>Vimshottari dasha</h2><p id="dashaSub">Life chapters from the Moon's nakshatra</p></div>
+    <div class="now" id="dashaNow"></div>
+    <svg class="timeline" id="timeline" viewBox="0 0 1000 96" role="img" aria-label="Mahadasha timeline"></svg>
+    <span class="lbl" id="adHead">Antardashas</span>
+    <div class="adlist" id="adList"></div>
+  </section>
+
+  <div class="cols2">
+    <section>
+      <div class="sechead"><h2>The sky right now</h2><p id="skySub"></p></div>
+      <div class="tbl"><table id="skyTable"></table></div>
+      <p class="ok" id="sadeSati"></p>
+    </section>
+    <section>
+      <div class="sechead"><h2>In the game</h2><p>Draft rules from the game bible</p></div>
+      <div class="game" id="game"></div>
+      <p class="note">These are game rules, not a traditional reading. They are tuned so about 1 in 5 charts has no mana, and each school and play style shows up often enough.</p>
+    </section>
+  </div>
+
+  <section>
+    <div class="sechead"><h2>How this was worked out</h2><p>Check these against a chart you trust</p></div>
+    <div class="checks" id="checks"></div>
+  </section>
+
+  <footer>
+    Planet positions: Astronomy Engine by Don Cross (MIT license). City list: city-timezones (MIT license). Accuracy check: 300 random charts from 1900 to 2030 compared with Swiss Ephemeris. Planets matched within 20 arcseconds, the lagna within 33 arcseconds, with no sign or nakshatra differences.
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+<script>
+/*ENGINE*/
+</script>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+if (!window.Astronomy) {
+  $('reading').innerHTML = '<div class="fail">The star library did not load, so the chart cannot be cast. Check your internet connection and reload the page.</div>';
+  return;
+}
+const E = createStarEngine(window.Astronomy);
+const AB = { Sun: 'Su', Moon: 'Mo', Mars: 'Ma', Mercury: 'Me', Jupiter: 'Ju', Venus: 'Ve', Saturn: 'Sa', Rahu: 'Ra', Ketu: 'Ke' };
+const SCHOOL_STYLE = { Agni: 'Attack and burning', Jala: 'Healing, flow and illusion', Vayu: 'Speed, movement and wind', Prithvi: 'Shields, stone and the ground', Akasha: 'Sound, space and time. The rarest school' };
+const dms = d => { const a = Math.floor(d), m = Math.floor((d - a) * 60); return `${a}°${String(m).padStart(2, '0')}′`; };
+const fmtDate = ms => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+const yearOf = ms => new Date(ms).getUTCFullYear();
+const signName = i => `${E.SIGNS[i].en} <span class="sa">${E.SIGNS[i].sa}</span>`;
+const ord = n => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
+
+/* ---------- time zone list ---------- */
+try { const dl = $('tzList'); for (const z of Intl.supportedValuesOf('timeZone')) { const o = document.createElement('option'); o.value = z; dl.append(o); } } catch (_) {}
+
+/* ---------- city search ---------- */
+let cities = [];
+fetch('cities.json').then(r => r.ok ? r.json() : []).then(d => { cities = d.map(r => ({ name: r[0], prov: r[1], country: r[2], lat: r[3], lon: r[4], tz: r[5], key: (r[0] + ' ' + r[2]).toLowerCase() })); }).catch(() => { $('placeHint').textContent = 'The city list did not load. Set the place by hand below.'; $('adv').open = true; });
+const list = $('cityList'), cityIn = $('f-city');
+function pickCity(c) {
+  cityIn.value = `${c.name}, ${c.country}`;
+  $('f-lat').value = c.lat; $('f-lon').value = c.lon; $('f-tz').value = c.tz;
+  $('placeHint').textContent = `${c.lat.toFixed(3)}, ${c.lon.toFixed(3)} · ${c.tz}`;
+  list.hidden = true;
+}
+cityIn.addEventListener('input', () => {
+  const q = cityIn.value.trim().toLowerCase();
+  list.textContent = '';
+  if (q.length < 2 || !cities.length) { list.hidden = true; return; }
+  const starts = [], has = [];
+  for (const c of cities) { const n = c.name.toLowerCase(); if (n.startsWith(q)) starts.push(c); else if (c.key.includes(q)) has.push(c); if (starts.length >= 8) break; }
+  const hits = starts.concat(has).slice(0, 8);
+  if (!hits.length) { list.hidden = true; return; }
+  for (const c of hits) {
+    const li = document.createElement('li'), b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('role', 'option');
+    b.innerHTML = `${esc(c.name)} <small>${esc([c.prov, c.country].filter(Boolean).join(', '))}</small>`;
+    b.addEventListener('click', () => pickCity(c));
+    li.append(b); list.append(li);
+  }
+  list.hidden = false;
+});
+cityIn.addEventListener('keydown', e => { if (e.key === 'ArrowDown' && !list.hidden) { e.preventDefault(); list.querySelector('button')?.focus(); } if (e.key === 'Escape') list.hidden = true; });
+list.addEventListener('keydown', e => {
+  const items = [...list.querySelectorAll('button')], i = items.indexOf(document.activeElement);
+  if (e.key === 'ArrowDown') { e.preventDefault(); items[Math.min(items.length - 1, i + 1)]?.focus(); }
+  if (e.key === 'ArrowUp') { e.preventDefault(); (i <= 0 ? cityIn : items[i - 1]).focus(); }
+  if (e.key === 'Escape') { list.hidden = true; cityIn.focus(); }
+});
+document.addEventListener('click', e => { if (!list.contains(e.target) && e.target !== cityIn) list.hidden = true; });
+
+/* ---------- chart drawing ---------- */
+let style = 'N', last = null;
+const NI = { // North Indian: label centre and sign-number spot for each house
+  1: [200, 96, 200, 176], 2: [100, 38, 100, 84], 3: [38, 100, 84, 100], 4: [100, 200, 176, 200], 5: [38, 300, 84, 300], 6: [100, 362, 100, 316],
+  7: [200, 304, 200, 224], 8: [300, 362, 300, 316], 9: [362, 300, 316, 300], 10: [300, 200, 224, 200], 11: [362, 100, 316, 100], 12: [300, 38, 300, 84] };
+const SI = [[0, 0], [1, 0], [2, 0], [3, 0], [3, 1], [3, 2], [3, 3], [2, 3], [1, 3], [0, 3], [0, 2], [0, 1]]; // Pisces..Aquarius cells
+const SI_SIGN = [11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+function plabel(p) { return AB[p.name] + (p.retro && p.name !== 'Rahu' && p.name !== 'Ketu' ? '℞' : ''); }
+function stack(x, y, labels, size) {
+  if (!labels.length) return '';
+  const cols = labels.length > 3 ? 2 : 1, rows = Math.ceil(labels.length / cols), lh = size + 3, out = [];
+  labels.forEach((t, i) => {
+    const c = cols === 1 ? 0 : (i % 2 ? 1 : -1), r = Math.floor(i / cols);
+    out.push(`<text x="${x + c * 17}" y="${y - (rows - 1) * lh / 2 + r * lh}" font-size="${size}" text-anchor="middle" dominant-baseline="middle" font-family="DM Mono, ui-monospace, monospace" fill="#151513">${t}</text>`);
+  });
+  return out.join('');
+}
+function drawChart(c) {
+  const svg = $('chartSvg'), L = c.lagna.sign, ink = '#151513';
+  let s = `<rect x="2" y="2" width="396" height="396" fill="#fbfaf6" stroke="${ink}" stroke-width="3"/>`;
+  if (style === 'N') {
+    s += `<path d="M2 2 L398 398 M398 2 L2 398 M200 2 L398 200 L200 398 L2 200 Z" fill="none" stroke="${ink}" stroke-width="2"/>`;
+    for (let h = 1; h <= 12; h++) {
+      const [x, y, nx, ny] = NI[h], sign = (L + h - 1) % 12;
+      s += `<text x="${nx}" y="${ny}" font-size="12" text-anchor="middle" dominant-baseline="middle" font-family="DM Mono, monospace" fill="#8c897f">${sign + 1}</text>`;
+      const labels = c.planets.filter(p => p.house === h).map(plabel);
+      if (h === 1) labels.unshift('Asc');
+      s += stack(x, y, labels, h === 1 || h === 4 || h === 7 || h === 10 ? 16 : 14);
+    }
+  } else {
+    s += `<path d="M102 2 V398 M198 2 V102 M198 298 V398 M298 2 V398 M2 102 H398 M2 298 H398 M2 198 H102 M298 198 H398" fill="none" stroke="${ink}" stroke-width="2"/>`;
+    s += `<rect x="102" y="102" width="196" height="196" fill="#f3f0e7"/>`;
+    s += `<text x="200" y="186" font-size="13" text-anchor="middle" font-family="Rubik Mono One, Arial Black, sans-serif" fill="${ink}">RASHI</text><text x="200" y="214" font-size="14" text-anchor="middle" font-family="DM Mono, monospace" fill="#3d3b35">${E.SIGNS[L].en} lagna</text>`;
+    SI.forEach(([cx, cy], i) => {
+      const sign = SI_SIGN[i], x = cx * 100 + 50, y = cy * 100 + 50;
+      s += `<text x="${cx * 100 + 92}" y="${cy * 100 + 16}" font-size="11" text-anchor="end" font-family="DM Mono, monospace" fill="#8c897f">${E.SIGNS[sign].en.slice(0, 3)}</text>`;
+      if (sign === L) s += `<path d="M${cx * 100 + 2} ${cy * 100 + 30} L${cx * 100 + 30} ${cy * 100 + 2}" stroke="${ink}" stroke-width="2"/>`;
+      const labels = c.planets.filter(p => p.sign === sign).map(plabel);
+      if (sign === L) labels.unshift('Asc');
+      s += stack(x, y + 6, labels, 15);
+    });
+  }
+  svg.innerHTML = s;
+  svg.setAttribute('aria-label', `Birth chart: ${E.SIGNS[L].en} lagna. ` + c.planets.map(p => `${p.name} in ${E.SIGNS[p.sign].en}, house ${p.house}`).join('; '));
+}
+$('styN').addEventListener('click', () => { style = 'N'; $('styN').setAttribute('aria-pressed', 'true'); $('styS').setAttribute('aria-pressed', 'false'); if (last) drawChart(last.c); });
+$('styS').addEventListener('click', () => { style = 'S'; $('styS').setAttribute('aria-pressed', 'true'); $('styN').setAttribute('aria-pressed', 'false'); if (last) drawChart(last.c); });
+
+/* ---------- sections ---------- */
+function renderFacts(c, meta) {
+  const m = c.by.Moon, w = c.lagnaWindow, near = Math.min(w.back ?? 999, w.fwd ?? 999);
+  let warn;
+  if (near <= 12) warn = `<p class="warn">The lagna sits close to a sign border. It changes ${w.back !== null && w.back <= 12 ? `if the birth time is ${w.back} min earlier` : ''}${w.back !== null && w.back <= 12 && w.fwd !== null && w.fwd <= 12 ? ' or ' : ''}${w.fwd !== null && w.fwd <= 12 ? `if it is ${w.fwd} min later` : ''}. Check the birth time if you can.</p>`;
+  else warn = `<p class="ok">The lagna stays in ${E.SIGNS[c.lagna.sign].en} for ${w.back} min before and ${w.fwd} min after this time, so small errors in the birth time won't change it.</p>`;
+  $('facts').innerHTML = `
+    <div class="big"><span class="lbl">Lagna (ascendant)</span><span class="v">${E.SIGNS[c.lagna.sign].en} · ${E.SIGNS[c.lagna.sign].sa}</span><span class="s">${dms(c.lagna.deg)} · ${c.lagna.nakName} pada ${c.lagna.pada}</span></div>
+    <div class="big"><span class="lbl">Moon sign (rashi) and nakshatra</span><span class="v">${E.SIGNS[m.sign].en} · ${m.nakName}</span><span class="s">pada ${m.pada} · nakshatra lord ${m.nakLord}</span></div>
+    <div class="factgrid">
+      <div><div class="k">Sun sign</div><div class="v">${E.SIGNS[c.by.Sun.sign].en}</div></div>
+      <div><div class="k">Tithi</div><div class="v">${c.tithi <= 15 ? c.tithi : c.tithi - 15} · ${c.paksha}</div></div>
+      <div><div class="k">Local time used</div><div class="v">${esc(meta.local)}</div></div>
+      <div><div class="k">UTC offset</div><div class="v">${E.fmtOffset(meta.offset)}${meta.manual ? ' (set by hand)' : ''}</div></div>
+    </div>
+    ${warn}`;
+}
+function renderPlanets(c) {
+  let h = '<thead><tr><th scope="col">Graha</th><th scope="col">Sign</th><th scope="col">Degree</th><th scope="col">Nakshatra</th><th scope="col">House</th><th scope="col">Notes</th></tr></thead><tbody>';
+  h += `<tr><td>Lagna</td><td>${signName(c.lagna.sign)}</td><td class="num">${dms(c.lagna.deg)}</td><td>${c.lagna.nakName} <span class="sa">pada ${c.lagna.pada}</span></td><td class="num">1</td><td></td></tr>`;
+  for (const p of c.planets) {
+    const tags = [];
+    if (p.retro && p.name !== 'Rahu' && p.name !== 'Ketu') tags.push('<span class="tag">retrograde</span>');
+    if (p.dignity) tags.push(`<span class="tag${p.dignity === 'debilitated' ? ' red' : ''}">${p.dignity}</span>`);
+    if (p.name === 'Rahu' || p.name === 'Ketu') tags.push('<span class="tag">mean node</span>');
+    h += `<tr><td>${p.name} <span class="sa">${p.sa}</span></td><td>${signName(p.sign)}</td><td class="num">${dms(p.deg)}</td><td>${p.nakName} <span class="sa">pada ${p.pada}</span></td><td class="num">${p.house}</td><td>${tags.join('')}</td></tr>`;
+  }
+  $('planetTable').innerHTML = h + '</tbody>';
+}
+function renderDasha(c) {
+  const d = E.dashas(c.utc, c.by.Moon.lon), now = Date.now(), at = E.dashaAt(d, now);
+  const bal = d.balanceYears, y = Math.floor(bal), mo = Math.floor((bal - y) * 12);
+  const left = y ? `${y} year${y > 1 ? 's' : ''} ${mo} month${mo === 1 ? '' : 's'}` : mo ? `${mo} month${mo === 1 ? '' : 's'}` : `${Math.max(1, Math.round(bal * 365.25))} days`;
+  $('dashaSub').textContent = `Born in ${d.list[0].lord} mahadasha with ${left} left`;
+  if (at) {
+    $('dashaNow').innerHTML = [['Mahadasha now', at.md], ['Antardasha', at.ad], ['Pratyantar', at.pd]].map(([k, x]) =>
+      `<div><span class="k">${k}</span><span class="v">${x.lord}</span><span class="s">${fmtDate(x.start)} – ${fmtDate(x.end)}</span></div>`).join('');
+  } else $('dashaNow').innerHTML = '<div><span class="k">Now</span><span class="v">Outside the 120-year cycle</span></div>';
+  const svgEl = $('timeline'), VW = Math.max(320, Math.round(svgEl.getBoundingClientRect().width) || 1000), pad = 18;
+  svgEl.setAttribute('viewBox', `0 0 ${VW} 96`);
+  const t0 = c.utc, span = 100 * 365.25 * 864e5, X = ms => pad + (VW - 2 * pad) * (ms - t0) / span;
+  let s = '';
+  for (const md of d.list) {
+    if (md.start > t0 + span) break;
+    const x1 = Math.max(pad, X(md.start)), x2 = Math.min(VW - pad, X(md.end)); if (x2 <= x1) continue;
+    const cur = at && md === at.md;
+    s += `<rect x="${x1}" y="22" width="${x2 - x1}" height="34" fill="${cur ? '#151513' : '#fbfaf6'}" stroke="#151513" stroke-width="1.5"/>`;
+    if (x2 - x1 > 22) s += `<text x="${(x1 + x2) / 2}" y="44" font-size="13" text-anchor="middle" font-family="DM Mono, monospace" fill="${cur ? '#fbfaf6' : '#151513'}">${AB[md.lord]}</text>`;
+  }
+  const by = yearOf(t0), step = VW < 640 ? 20 : 10;
+  for (let k = 0; k <= 100; k += step) { const x = pad + (VW - 2 * pad) * k / 100, anchor = k === 0 ? 'start' : k === 100 ? 'end' : 'middle'; s += `<line x1="${x}" y1="56" x2="${x}" y2="64" stroke="#8c897f"/><text x="${k === 0 ? x - 4 : k === 100 ? x + 4 : x}" y="80" font-size="12" text-anchor="${anchor}" font-family="DM Mono, monospace" fill="#8c897f">${by + k}</text>`; }
+  if (now > t0 && now < t0 + span) { const x = X(now); s += `<path d="M${x - 6} 6 L${x + 6} 6 L${x} 18 Z" fill="#c4252b"/><text x="${Math.min(VW - 50, Math.max(50, x))}" y="94" font-size="12" text-anchor="middle" font-family="Kalam, cursive" fill="#c4252b">you are here</text>`; }
+  $('timeline').innerHTML = s;
+  const md = at ? at.md : d.list[0];
+  $('adHead').textContent = `Antardashas in ${md.lord} mahadasha`;
+  $('adList').innerHTML = md.sub.map(a => `<div class="${at && a === at.ad ? 'cur' : ''}">${md.lord}–${a.lord}<br>${fmtDate(a.start)}</div>`).join('');
+}
+function renderSky(c) {
+  const now = Date.now(), s = E.chart(now, c.lat, c.lon), L = c.lagna.sign, M = c.by.Moon.sign;
+  $('skySub').textContent = `${new Date(now).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · Moon in ${s.by.Moon.nakName} · tithi ${s.tithi <= 15 ? s.tithi : s.tithi - 15} ${s.elong < 180 ? 'waxing' : 'waning'}`;
+  let h = '<thead><tr><th scope="col">Graha</th><th scope="col">Sign now</th><th scope="col">Nakshatra</th><th scope="col">From your lagna</th><th scope="col">From your Moon</th></tr></thead><tbody>';
+  for (const p of s.planets) {
+    const fl = ((p.sign - L + 12) % 12) + 1, fm = ((p.sign - M + 12) % 12) + 1;
+    h += `<tr><td>${p.name}${p.retro && p.name !== 'Rahu' && p.name !== 'Ketu' ? ' <span class="tag">℞</span>' : ''}</td><td>${E.SIGNS[p.sign].en} <span class="sa">${dms(p.deg)}</span></td><td>${p.nakName}</td><td class="num">${ord(fl)}</td><td class="num">${ord(fm)}</td></tr>`;
+  }
+  $('skyTable').innerHTML = h + '</tbody>';
+  const sat = ((s.by.Saturn.sign - M + 12) % 12) + 1;
+  const phase = { 12: 'rising phase (Saturn in the 12th from your Moon)', 1: 'peak phase (Saturn over your Moon sign)', 2: 'setting phase (Saturn in the 2nd from your Moon)' }[sat];
+  const ss = $('sadeSati');
+  ss.className = phase ? 'warn' : 'ok';
+  ss.textContent = phase ? `Sade Sati is on: ${phase}. In the game this is a harsh Saturn season for this character.` : `Sade Sati is not running. Saturn is in the ${ord(sat)} house from your Moon.`;
+}
+function renderGame(c) {
+  const g = E.game(c);
+  const pips = [0, 1, 2, 3].map(i => `<i class="${g.manaTierIndex > i ? 'on' : ''}"></i>`).join('');
+  $('game').innerHTML = `
+    <div><div class="k">Mana</div><div class="v">${g.manaTier}</div><div class="pips" aria-hidden="true">${pips}</div><div class="s">${g.manaTierIndex === 0 ? 'No mana: the path of weapons and body arts.' : `${g.manaTierIndex} incantation slot${g.manaTierIndex > 1 ? 's' : ''} to start.`}</div></div>
+    <div><div class="k">School</div><div class="v">${g.school ? `${g.school.id} · ${g.school.el}` : 'None'}</div><div class="s">${g.school ? SCHOOL_STYLE[g.school.id] : 'Cannot cast. Gets techniques casters never learn.'}</div></div>
+    <div><div class="k">Born in</div><div class="v">${g.region}</div><div class="s">From a ${E.SIGNS[c.lagna.sign].en} lagna (${g.regionElement})</div></div>
+    <div><div class="k">People</div><div class="v">${g.civilization}</div><div class="s">${g.civLord}'s civilization, from the Moon in ${c.by.Moon.nakName}</div></div>
+    <div><div class="k">Play style</div><div class="v">${g.social.split(':')[0]}</div><div class="s">${g.social.split(':')[1].trim().replace(/^./, x => x.toUpperCase())}</div></div>`;
+}
+function renderChecks(c, meta) {
+  const items = [
+    ['Moment in UTC', new Date(c.utc).toISOString().replace('T', ' ').slice(0, 16)],
+    ['Time zone', `${meta.tz} · ${E.fmtOffset(meta.offset)}${meta.manual ? ' set by hand' : ' from the time zone database'}`],
+    ['Place', `${c.lat.toFixed(4)}°, ${c.lon.toFixed(4)}°`],
+    ['Ayanamsa', `Lahiri (Chitrapaksha) · ${dms(c.ayanamsa)}`],
+    ['Houses', 'Whole sign, counted from the lagna'],
+    ['Rahu and Ketu', 'Mean node'],
+    ['Dasha year', '365.25 days'],
+    ['Lagna to the arcsecond', `${dms(c.lagna.deg)} ${E.SIGNS[c.lagna.sign].en} (${c.lagna.lon.toFixed(4)}° sidereal)`],
+  ];
+  $('checks').innerHTML = items.map(([k, v]) => `<div><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`).join('');
+}
+
+/* ---------- cast ---------- */
+function parseOffset(s) { const m = String(s).trim().match(/^([+\-])?(\d{1,2})(?::?(\d{2}))?$/); if (!m) return null; const v = (+m[2]) * 60 + (+(m[3] || 0)); return m[1] === '-' ? -v : v; }
+function cast(example) {
+  const [y, mo, d] = $('f-date').value.split('-').map(Number), [hh, mi] = $('f-time').value.split(':').map(Number);
+  const lat = parseFloat($('f-lat').value), lon = parseFloat($('f-lon').value), tz = $('f-tz').value.trim();
+  if (!y || isNaN(hh) || isNaN(lat) || isNaN(lon)) return false;
+  let utc, offset, manual = false;
+  const man = parseOffset($('f-off').value);
+  if ($('f-off').value.trim() && man !== null) { offset = man; manual = true; utc = Date.UTC(y, mo - 1, d, hh, mi) - man * 60000; }
+  else { try { const r = E.localToUTC(y, mo, d, hh, mi, tz); utc = r.utc; offset = r.offset; } catch (_) { $('placeHint').textContent = `"${tz}" is not a time zone name this browser knows. Pick one from the list, or set the offset by hand.`; $('adv').open = true; return false; } }
+  const c = E.chart(utc, lat, lon);
+  const meta = { tz, offset, manual, local: `${String(d).padStart(2, '0')}-${String(mo).padStart(2, '0')}-${y} ${String(hh).padStart(2, '0')}:${String(mi).padStart(2, '0')}` };
+  last = { c, meta };
+  drawChart(c); renderFacts(c, meta); renderPlanets(c); renderDasha(c); renderSky(c); renderGame(c); renderChecks(c, meta);
+  $('exampleNote').hidden = !example;
+  return true;
+}
+$('form').addEventListener('submit', e => {
+  e.preventDefault();
+  if (!$('f-lat').value || !$('f-lon').value || !$('f-tz').value) { $('placeHint').textContent = 'Choose a city from the list first, or open "Place and time zone by hand".'; return; }
+  if (cast(false) && matchMedia('(max-width: 860px)').matches) $('reading').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+/* example on first load */
+$('f-date').value = '2000-01-01'; $('f-time').value = '06:00';
+$('f-city').value = 'Colombo, Sri Lanka'; $('f-lat').value = 6.932; $('f-lon').value = 79.858; $('f-tz').value = 'Asia/Colombo';
+$('placeHint').textContent = '6.932, 79.858 · Asia/Colombo';
+cast(true);
+})();
+</script>
