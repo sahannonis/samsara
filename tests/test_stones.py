@@ -60,6 +60,13 @@ async def main():
         # the day's gift carries into the next life; the body reading does not
         await ev("__life.P.prana=1; __life.fall('test')"); await run(200); await pg.locator('#deathIn .card').first.click(); await pg.wait_for_timeout(200); await ev("__life.freeze(true)")
         R['next_life'] = await ev("__life.P.boons.map(b=>b.src).join(',')+' bodyRead '+!!__life.life.bodyRead")
+        # a body without mana never gets a mana gift: Jupiter's day turns to breath
+        R['fit_gift'] = await ev("(()=>{const L=__life; L.P.noMana=true; const keep=JSON.stringify(L.READS); localStorage.setItem('samsara.readings', keep); return 1;})()")
+        R['fit_gift'] = await ev("(()=>{const L=__life, P=L.P; P.noMana=true; P.boons=[]; const b={kind:'mana',v:0.2,text:'x'}; L.READS.boon=b; L.READS.day=(()=>{const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})(); L.applyDayBoon(); return JSON.stringify(P.boons);})()")
+        # the stones say whose birth they read
+        await ev("(()=>{const L=__life,n=L.NAVAGRAHA[0]; L.put(n.x-30,n.gy);})()"); await run(3); await run(1, {}, {'use': 1}); await run(1)
+        R['whose_birth'] = await ev("document.getElementById('gearIn').innerText.match(/know you as born[^.]*/)[0]")
+        await pg.keyboard.press('Escape'); await run(2)
         # a player with no kept birth: the stones ask for it
         pg2 = await b.new_page(); errs2 = []; pg2.on('pageerror', lambda e: errs2.append(str(e)))
         await pg2.route('https://cdn.jsdelivr.net/**', lambda r: r.fulfill(path=LIB, content_type='application/javascript')); await pg2.route('https://fonts.googleapis.com/**', lambda r: r.abort())

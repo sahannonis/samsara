@@ -2685,7 +2685,13 @@ const boonV = k => (P && P.boons ? P.boons.filter(b => b.kind === k).reduce((a, 
 const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 let READS = {}; try { READS = JSON.parse(localStorage.getItem(READ_KEY)) || {}; } catch (_) { READS = {}; }
 function saveReads() { try { localStorage.setItem(READ_KEY, JSON.stringify(READS)); } catch (_) {} }
-function applyDayBoon() { if (!P) return; P.boons = (P.boons || []).filter(b => b.src !== 'day'); if (READS.day === todayKey() && READS.boon) P.boons.push({ src: 'day', ...READS.boon }); }
+function fitBoon(b) {
+  if (!P || !P.noMana) return b;
+  if (b.kind === 'mana') return { kind: 'st', v: 0.12, text: 'This body holds no mana, so the gift turns to breath: stamina returns 12% faster' + (b.src === 'body' ? ' for the rest of this life.' : ' until midnight.') };
+  if (b.kind === 'spell') return { kind: 'chant', v: 0.1, text: 'This body holds no mana, so the gift turns to voice: chants are 10% stronger' + (b.src === 'body' ? ' for the rest of this life.' : ' until midnight.') };
+  return b;
+}
+function applyDayBoon() { if (!P) return; P.boons = (P.boons || []).filter(b => b.src !== 'day'); if (READS.day === todayKey() && READS.boon) P.boons.push({ src: 'day', ...fitBoon(READS.boon) }); }
 function strengthOf(p) { let s = 1; if (p.dignity === 'exalted') s += 2; else if (p.dignity === 'own sign') s += 1.5; else if (p.dignity === 'debilitated') s -= 1; if ([1, 4, 7, 10].includes(p.house)) s += 1; if ([1, 5, 9].includes(p.house)) s += 0.75; if ([6, 8, 12].includes(p.house)) s -= 0.5; return s; }
 function soulChart() {
   // the player's own birth: from this session, or from what was kept
@@ -2702,7 +2708,7 @@ function readSoul(now = Date.now()) {
   const tara = (((tm.nak - nat.nak) % 27) + 27) % 27 % 9, TR = TARAS[tara];
   const fromMoon = p => (((p.sign - nat.sign) % 12) + 12) % 12 + 1;
   const mh = fromMoon(tm), dow = new Date(now).getDay(), lord = DAY_LORD[dow];
-  const out = { when: now, sections: [], tara: TR[0], taraKind: TR[2], moonHouse: mh, dayLord: lord };
+  const out = { when: now, who: birthLine(sc.src), sections: [], tara: TR[0], taraKind: TR[2], moonHouse: mh, dayLord: lord };
   out.sections.push({ title: 'Today', calc: `Today's Moon is in ${tm.nakName} (${E.SIGNS[tm.sign].en}), the ${ORD(tara + 1)} star counted from your birth star ${nat.nakName}: ${TR[0]}, ${TR[1]}. It walks the ${ORD(mh)} house from your Moon. It is ${DAY_NAME[dow]}, the day of ${the(lord)} (${E.SANSKRIT[lord]}).`, text: `${TR[3]} ${MOON_HOUSE[mh]}` });
   if (soul.tablets.has('wanderers')) {
     const sh = fromMoon(T.by.Saturn), jh = fromMoon(T.by.Jupiter), rh = fromMoon(T.by.Rahu), kh = fromMoon(T.by.Ketu), S = SATURN_FROM_MOON[sh];
@@ -2734,34 +2740,37 @@ function readBody() {
       text: `${The(top.name)} is the strong one in this body: ${LORD_THEME[top.name]}. ${LORD_PARABLE[top.name]} ${The(low.name)} is faint here, so ${WEAK_AT[low.name]} will not come easily in this life; what does not come easily can still be earned.` }] };
 }
 let lastReading = null;
+function birthLine(src) { const [y, mo, d] = src.date.split('-').map(Number); const day = new Date(Date.UTC(y, mo - 1, d)).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); return `${day}${src.time ? ', ' + src.time : ' (hour unknown)'}, ${[src.city.name, src.city.country].filter(Boolean).join(', ')}`; }
 function openStones() {
   banner = null; mode = 'stone'; clearHeld(); renderStones(); $('ovGear').hidden = false;
 }
 function readingHTML(r, who) {
+  const gift = who === 'soul' ? fitBoon(r.boon) : r.boon;
   return `<div class="reading">${r.sections.map(s => `<div class="rsec"><span class="lbl">${esc(s.title)}</span><span class="calc">${esc(s.calc)}</span><p class="hand">${esc(s.text)}</p></div>`).join('')}
-    <div class="rsec gift"><span class="lbl">The stones' gift</span><p>${esc(r.boon.text)}</p></div></div>`;
+    <div class="rsec gift"><span class="lbl">The stones' gift</span><p>${esc(gift.text)}</p></div></div>`;
 }
 function renderStones(view) {
   const day = todayKey(), readToday = READS.day === day && READS.soul, bodyDone = !!life.bodyRead, sc = soulChart();
   const locked = TABLETS.filter(t => !soul.tablets.has(t.id));
   if (view === 'soul' && READS.soul) {
-    $('gearIn').innerHTML = `<span class="eyebrow">The nine stones · the one who dreams · Esc to leave</span><h2>What the stones say to you</h2>${readingHTML(READS.soul)}
+    $('gearIn').innerHTML = `<span class="eyebrow">The nine stones · the one who dreams · Esc to leave</span><h2>What the stones say to you</h2>${READS.soul.who ? `<p class="note">Read from your own birth: ${esc(READS.soul.who)}</p>` : ''}${readingHTML(READS.soul, 'soul')}
       ${locked.length ? `<p class="note">The stones are quiet about the longer seasons. ${locked.map(t => esc(t.name)).join(' and ')} would let them say more.</p>` : ''}
       <p class="note">The stones speak in the old way: tradition to reflect on, not a promise of what will happen. What you do with it is yours.</p><div class="row"><button class="btn ghost" type="button" id="stBack">Back to the stones</button></div>`;
     $('stBack').addEventListener('click', () => renderStones()); return;
   }
   if (view === 'body' && life.bodyRead) {
-    $('gearIn').innerHTML = `<span class="eyebrow">The nine stones · this body · Esc to leave</span><h2>What the stones say of this body</h2>${readingHTML(life.bodyRead)}
+    $('gearIn').innerHTML = `<span class="eyebrow">The nine stones · this body · Esc to leave</span><h2>What the stones say of this body</h2>${readingHTML(life.bodyRead, 'body')}
       <p class="note">This reading is of the body you wear in the game, not of you.</p><div class="row"><button class="btn ghost" type="button" id="stBack">Back to the stones</button></div>`;
     $('stBack').addEventListener('click', () => renderStones()); return;
   }
   const soulBox = !sc ? `<p>The stones can only read you if they know the moment you were born.</p><div class="row"><button class="btn" type="button" id="stTell">Tell them your birth</button></div>`
-    : readToday ? `<p>The stones have spoken to you today. Come back tomorrow: the sky will have moved.</p><div class="row"><button class="btn ghost" type="button" id="stSoulAgain">Read again what they said</button></div>`
-    : `<p>Your own birth, read against the sky of today.</p><span class="m">Offering: ${esc(costText(SOUL_COST))} · once a day</span><div class="row"><button class="btn" type="button" id="stSoul"${canPay(SOUL_COST) ? '' : ' disabled'}>Make the offering</button></div>${canPay(SOUL_COST) ? '' : '<span class="m">You do not have the offering yet. Seeds come from the Grasping; petals from lotus flowers on water; ember stones from the hot rocks in the dark.</span>'}`;
+    : readToday ? `<p>The stones have spoken to you today. Come back tomorrow: the sky will have moved.</p><span class="m">They know you as born ${esc(birthLine(sc.src))}.</span><div class="row"><button class="btn ghost" type="button" id="stSoulAgain">Read again what they said</button></div>`
+    : `<p>Your own birth, read against the sky of today.</p><span class="m">The stones know you as born ${esc(birthLine(sc.src))}. <button class="link" type="button" id="stFix">That is not right</button></span><span class="m">Offering: ${esc(costText(SOUL_COST))} · once a day</span><div class="row"><button class="btn" type="button" id="stSoul"${canPay(SOUL_COST) ? '' : ' disabled'}>Make the offering</button></div>${canPay(SOUL_COST) ? '' : '<span class="m">You do not have the offering yet. Seeds come from the Grasping; petals from lotus flowers on water; ember stones from the hot rocks in the dark.</span>'}`;
   const bodyBox = bodyDone ? `<p>The stones have read this body. They read each body once.</p><div class="row"><button class="btn ghost" type="button" id="stBodyAgain">Read again what they said</button></div>`
     : `<p>The chart of the body you wear in this life (life ${life.n}).</p><span class="m">Offering: ${esc(costText(BODY_COST))} · once a life</span><div class="row"><button class="btn" type="button" id="stBody"${canPay(BODY_COST) ? '' : ' disabled'}>Make the offering</button></div>`;
   $('gearIn').innerHTML = `<span class="eyebrow">The nine stones · Navagraha · Esc to leave</span><h2>The nine stones</h2>
     <p class="hand">Nine stones for the nine wanderers of the sky: Sun, Moon, Mars, Mercury, Jupiter, Venus, Saturn, Rahu and Ketu. Bring an offering, and they will read.</p>
+    <p class="note">The one who dreams is you, the player: your own birth, whichever life you are in now. This body is the life you wear now, life ${life.n}, and each body is read only once.</p>
     <div class="gear"><div class="gcol"><span class="lbl">The one who dreams · you</span><div class="item">${soulBox}</div></div>
       <div class="gcol"><span class="lbl">This body · life ${life.n}</span><div class="item">${bodyBox}</div></div></div>
     <div class="stats"><span><b>Tablets</b> ${soul.tablets.size} of ${TABLETS.length} found · ${TABLETS.map(t => `${soul.tablets.has(t.id) ? '✓' : '·'} ${esc(t.name)}: ${esc(t.what)}`).join(' · ')}</span>
@@ -2769,8 +2778,9 @@ function renderStones(view) {
     <p class="note">You carry ${P.seeds} seeds, ${P.mats.petal} lotus petals and ${P.mats.ember} ember stones. The stones speak in the old way: tradition to reflect on, not a promise of what will happen.</p>`;
   const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
   on('stSoul', () => { if (!canPay(SOUL_COST)) return; const r = readSoul(); if (!r) return; pay(SOUL_COST); READS = { day, soul: r, boon: r.boon }; saveReads(); applyDayBoon(); stonesGlow(); renderStones('soul'); });
+  on('stFix', () => { $('ovGear').hidden = true; openCreate({ forStones: true }); });
   on('stSoulAgain', () => renderStones('soul'));
-  on('stBody', () => { if (!canPay(BODY_COST)) return; const r = readBody(); if (!r) return; pay(BODY_COST); life.bodyRead = r; P.boons = (P.boons || []).filter(b => b.src !== 'body'); P.boons.push({ src: 'body', ...r.boon }); stonesGlow(); renderStones('body'); });
+  on('stBody', () => { if (!canPay(BODY_COST)) return; const r = readBody(); if (!r) return; r.boon = fitBoon({ ...r.boon, src: 'body' }); pay(BODY_COST); life.bodyRead = r; P.boons = (P.boons || []).filter(b => b.src !== 'body'); P.boons.push({ src: 'body', ...r.boon }); stonesGlow(); renderStones('body'); });
   on('stBodyAgain', () => renderStones('body'));
   on('stTell', () => { $('ovGear').hidden = true; openCreate({ forStones: true }); });
 }
@@ -3056,7 +3066,7 @@ window.__life = {
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, readSoul: t => readSoul(t), readBody: () => readBody(), soulChart: () => soulChart(), NAVAGRAHA, TABLETS, get READS() { return READS; }, boonV: k => boonV(k), openStones: () => openStones(), E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, readSoul: t => readSoul(t), readBody: () => readBody(), soulChart: () => soulChart(), NAVAGRAHA, TABLETS, get READS() { return READS; }, boonV: k => boonV(k), applyDayBoon: () => applyDayBoon(), openStones: () => openStones(), E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };
