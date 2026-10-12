@@ -161,24 +161,34 @@
     const bright = (1 - Math.cos(c.elong * D2R)) / 2; // 0 at new Moon, 1 at full
     const moonStr = strength(by.Moon);
     let mana = 2.2 * bright + 0.5 * moonStr;
-    if (KENDRA.includes(by.Jupiter.house) || TRIKONA.includes(by.Jupiter.house)) mana += 0.8;
-    if (by.Jupiter.dignity === 'exalted' || by.Jupiter.dignity === 'own sign') mana += 0.5;
-    if ([4, 8, 12].includes(by.Ketu.house)) mana += 0.7;
-    mana += 0.35 * Math.min(4, c.planets.filter(p => p.name !== 'Ketu' && [4, 8, 12].includes(p.house)).length);
+    // the reasons, in plain words, for the player to read (each with its weight)
+    const ord = n => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
+    const dig = p => p.dignity && p.dignity !== 'neutral' ? `, ${p.dignity}` : '';
+    const manaWhy = [[`The Moon was ${Math.round(bright * 100)}% lit when you were born`, 2.2 * bright], [`The Moon sits in ${SIGNS[by.Moon.sign].en}, in your ${ord(by.Moon.house)} house${dig(by.Moon)}`, 0.5 * moonStr]];
+    if (KENDRA.includes(by.Jupiter.house) || TRIKONA.includes(by.Jupiter.house)) { mana += 0.8; manaWhy.push([`Jupiter, the teacher, stands strong in your ${ord(by.Jupiter.house)} house`, 0.8]); }
+    if (by.Jupiter.dignity === 'exalted' || by.Jupiter.dignity === 'own sign') { mana += 0.5; manaWhy.push([`Jupiter is ${by.Jupiter.dignity}`, 0.5]); }
+    if ([4, 8, 12].includes(by.Ketu.house)) { mana += 0.7; manaWhy.push([`Ketu, the mystic, sits in your ${ord(by.Ketu.house)} house, a hidden house`, 0.7]); }
+    const hid = c.planets.filter(p => p.name !== 'Ketu' && [4, 8, 12].includes(p.house));
+    mana += 0.35 * Math.min(4, hid.length); if (hid.length) manaWhy.push([`${hid.map(p => p.name).join(', ')} in the hidden houses (4th, 8th, 12th)`, 0.35 * Math.min(4, hid.length)]);
     const tiers = ['None', 'Low', 'Medium', 'High', 'Great'];
     let tier = 0; while (tier < 4 && mana >= T.mana[tier]) tier++;
 
+    const pl = n => ({ planet: n, where: `${n} in ${SIGNS[by[n].sign].en}, your ${ord(by[n].house)} house${dig(by[n])}` });
     const schools = [
-      { id: 'Agni', el: 'Fire', s: strength(by.Mars) + T.lum * strength(by.Sun) },
-      { id: 'Jala', el: 'Water', s: strength(by.Venus) + T.lum * strength(by.Moon) },
-      { id: 'Vayu', el: 'Air', s: strength(by.Saturn) },
-      { id: 'Prithvi', el: 'Earth', s: strength(by.Mercury) + T.earth },
-      { id: 'Akasha', el: 'Ether', s: strength(by.Jupiter) - T.akasha },
+      { id: 'Agni', el: 'Fire', s: strength(by.Mars) + T.lum * strength(by.Sun), ...pl('Mars') },
+      { id: 'Jala', el: 'Water', s: strength(by.Venus) + T.lum * strength(by.Moon), ...pl('Venus') },
+      { id: 'Vayu', el: 'Air', s: strength(by.Saturn), ...pl('Saturn') },
+      { id: 'Prithvi', el: 'Earth', s: strength(by.Mercury) + T.earth, ...pl('Mercury') },
+      { id: 'Akasha', el: 'Ether', s: strength(by.Jupiter) - T.akasha, ...pl('Jupiter') },
     ].sort((a, b) => b.s - a.s);
 
     const group = c.planets.filter(p => [7, 11].includes(p.house)).length * 0.9 + 0.5 * (strength(by[SIGNS[(c.lagna.sign + 6) % 12].lord]) + strength(by[SIGNS[(c.lagna.sign + 10) % 12].lord]));
     const solo = c.planets.filter(p => [1, 10].includes(p.house)).length * 0.9 + 0.5 * (strength(by.Sun) + strength(by.Mars));
     const diff = group - solo;
+    const in711 = c.planets.filter(p => [7, 11].includes(p.house)).map(p => p.name), in110 = c.planets.filter(p => [1, 10].includes(p.house)).map(p => p.name);
+    const socialWhy = { group: Math.round(group * 100) / 100, solo: Math.round(solo * 100) / 100,
+      groupSays: in711.length ? `${in711.join(', ')} in your houses of partners and friends (7th and 11th)` : 'no planets in your houses of partners and friends (7th and 11th)',
+      soloSays: `${in110.length ? `${in110.join(', ')} in your houses of self and deeds (1st and 10th), ` : ''}the Sun and Mars ${strength(by.Sun) + strength(by.Mars) >= 3.5 ? 'strong' : strength(by.Sun) + strength(by.Mars) >= 2 ? 'steady' : 'quiet'}` };
     const social = diff > T.social ? 'Sangha: stronger with others' : diff < -T.social ? 'Sovereign: stronger alone' : 'Balanced: strong either way';
 
     const regions = { fire: 'Deserts and volcanic lands', earth: 'Mountains, forests and farmland', air: 'Highlands, cliffs and sky cities', water: 'Coasts, rivers and marshes' };
@@ -186,7 +196,7 @@
     return {
       manaScore: mana, manaTier: tiers[tier], manaTierIndex: tier,
       school: tier === 0 ? null : schools[0],
-      social,
+      social, why: { mana: manaWhy.map(([t, v]) => [t, Math.round(v * 100) / 100]), manaScore: Math.round(mana * 100) / 100, next: tier < 4 ? Math.round((T.mana[tier] - mana) * 100) / 100 : null, schools: schools.map(x => ({ id: x.id, s: Math.round(x.s * 100) / 100, where: x.where })), social: socialWhy },
       region: regions[SIGNS[c.lagna.sign].el], regionElement: SIGNS[c.lagna.sign].el,
       civilization: civ[by.Moon.nakLord], civLord: by.Moon.nakLord,
     };

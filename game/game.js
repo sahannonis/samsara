@@ -28,7 +28,7 @@ const SKILLS = {
   forager: { name: 'Forager', what: 'Gathering gives one extra material.' },
 };
 const SKILL_LEVELS = { 5: ['light_feet', 'iron_lungs', 'killing_edge'], 10: ['second_wind', 'strong_back', 'forager'] };
-const SCHOOL_PERK = { Agni: 'Ignite hits 25% harder. Burning ground cannot hurt you', Jala: 'Restore heals 40% more', Vayu: 'Rolls cost 30% less stamina', Prithvi: 'Shield lasts twice as long', Akasha: 'Mana returns 50% faster' };
+const SCHOOL_PERK = { Agni: 'Agni school: Ignite hits 25% harder, and burning ground cannot hurt you', Jala: 'Jala school: Restore heals 40% more, and your lotus 15% more', Vayu: 'Vayu school: rolls cost 30% less stamina, and you walk 8% faster', Prithvi: 'Prithvi school: Shield lasts twice as long, and blows are 5% lighter', Akasha: 'Akasha school: mana returns 50% faster, and spells grow in rank faster' };
 // how turned inward a chart is, in the old way of reading: a strong Jupiter (the teacher), Ketu in the houses of
 // release (12th, 4th, 8th) or of dharma (9th), and planets in the twelfth, the house of moksha. 0 to 2
 function inwardOf(c) {
@@ -50,7 +50,7 @@ function makeBirth() {
   }
   const c = E.chart(ms, pl[1], pl[2]), g = E.game(c);
   const fortune = c.planets.filter(p => p.dignity === 'exalted' || p.dignity === 'own sign').length - 0.5 * c.planets.filter(p => p.dignity === 'debilitated').length + ([1, 4, 7, 10].includes(c.by.Jupiter.house) ? 1 : 0) + ([1, 4, 7, 10].includes(c.by.Venus.house) ? 0.5 : 0) + ([1, 5, 9].includes(c.by.Moon.house) ? 0.5 : 0);
-  return { fortune, inward: inwardOf(c), ms, geo: { lat: pl[1], lon: pl[2] }, place: pl[0], local, age, looks, lagna: E.SIGNS[c.lagna.sign].en, moon: `${E.SIGNS[c.by.Moon.sign].en}, ${c.by.Moon.nakName}`, tier: g.manaTierIndex, tierName: g.manaTier, school: g.school ? g.school.id : null, style: g.social.split(':')[0], region: g.region, people: g.civilization };
+  return { fortune, inward: inwardOf(c), ms, geo: { lat: pl[1], lon: pl[2] }, place: pl[0], local, age, looks, lagna: E.SIGNS[c.lagna.sign].en, moon: `${E.SIGNS[c.by.Moon.sign].en}, ${c.by.Moon.nakName}`, tier: g.manaTierIndex, tierName: g.manaTier, school: g.school ? g.school.id : null, style: g.social.split(':')[0], styleFull: g.social, why: g.why, region: g.region, people: g.civilization };
 }
 const STATS = {
   vit: { name: 'Vitality', what: '+8 health' },
@@ -74,7 +74,9 @@ function perks(b) {
   if (b.tier === 0) out.push('No mana: no battle words, but 25% more stamina and 15% more damage');
   else out.push(`${b.tierName} mana: ${[0, 40, 60, 80, 100][b.tier]} max`);
   if (b.school) out.push(SCHOOL_PERK[b.school]);
-  if (b.style === 'Sovereign') out.push('Sovereign: 10% more damage alone');
+  if (b.style === 'Sovereign') out.push('Sovereign: alone, 10% more damage, one more prana, and wider senses');
+  if (b.style === 'Sangha') out.push('Sangha: with others beside you, harder blows, wounds that close, and longer callings');
+  if (b.style === 'Balanced') out.push('Balanced: a little stronger alone, and callings stay a little longer');
   if (b.inward) out.push(b.inward > 1 ? 'Deeply turned inward (Jupiter, Ketu and the twelfth house): stillness comes very easily' : 'Turned inward (Jupiter, Ketu or the twelfth house): stillness comes easily');
   return out;
 }
@@ -416,7 +418,7 @@ function newLife(birth) {
     mana: manaMax, manaMax, prana: 3, pranaMax: 3, lotus: 3, lotusMax: 3, seeds: 0, slots: [0, 2], slotIdx: 0, swapT: 0, mT: 0, mDown: false, chargeSrc: null, bufLight: 0,
     chantSlots: noMana ? 5 : 3, prepared: new Set(CHANTS.filter(c => soul.chants.has(c.id)).slice(0, noMana ? 5 : 3).map(c => c.id)), scrolls: {}, arrows: { iron: 0, ember: 0, ink: 0 }, arrowKind: 'reed', wordSlots: noMana ? [null, null, null, null] : Array.from({ length: [0, 1, 2, 3, 4][b.tier] }, (_, i) => (WORDS.filter(w => soul.spells.has(w.id))[i] || {}).id || null),
     atk: null, charge: 0, charging: false, rollT: 0, rollIF: 0, parryT: 0, parryCd: 0, healT: 0, hitT: 0, inv: 0, shieldT: 0, riposte: 0, dead: false, deadT: 0,
-    dmgMul: (noMana ? 1.15 : 1) * (b.style === 'Sovereign' ? 1.1 : 1), looks: b.looks, school: b.school, noMana, run: 0,
+    dmgMul: noMana ? 1.15 : 1, looks: b.looks, school: b.school, noMana, run: 0,
     stBase: noMana ? 125 : 100, visited: new Set([0]), weapons: new Set([0, 2]), stats: birthStats(b), stats0: birthStats(b), skills: new Set(), skillPending: null, wtier: {}, mats: { wood: 0, iron: 0, ink: 0, petal: 0, ember: 0 }, knivesMax: KNIVES, torchMax: TORCH, made: new Set(), manaTierMax: manaMax, garb: { head: null, body: 'wrap', feet: 'sandals' }, garbOwned: new Set(['wrap', 'sandals']), loadMax: 20, combo: 0, comboT: 0, rollV: 0, mount: false, trampleCd: 0,
     relics: new Set(sr), equip: sr.concat([null, null, null, null]).slice(0, 4), shrine: 0, safe: { x: SHRINES[0].x + 40, y: SHRINES[0].gy },
     jumpsLeft: 0, jumping: false, coy: 0, jbuf: 0, dropT: 0, grabCd: 0, kickT: 0, clingMem: 0, clingDir: 0, cling: 0, hang: null, climbT: 0, climb: null, ladder: null, glide: false, plunge: false, landT: 0,
@@ -431,6 +433,7 @@ function newLife(birth) {
   }
   life.carried = carried;
   if (pathAt('bhakti') >= 1) { P.lotusMax++; P.lotus++; }
+  if (b.style === 'Sovereign') { P.pranaMax++; P.prana++; }
   P.artCd = {}; P.ironT = 0; P.stepT = 0; P.spark = false;
   if (P.noMana) for (const a of ART_FOR_STEP) if (soul.arts.has(a)) putArt(a);
   resetNodes();
@@ -617,6 +620,7 @@ const capF = t => t.charAt(0).toUpperCase() + t.slice(1);
 const pathAt = k => (k === 'alone' && soul.aloneClosed) ? 0 : (soul.pathStep && soul.pathStep[k]) || 0;
 function walk(k, n) {
   if (!soul.paths || !n || !life) return; if (k === 'alone' && soul.aloneClosed) return;
+  if (k === 'bhakti' && wayOf() === 'Sangha') n = Math.ceil(n * 1.5);
   soul.paths[k] += n; const L = soul.pathLives[k] = soul.pathLives[k] || []; if (!L.includes(life.n)) L.push(life.n);
   checkPath(k);
 }
@@ -754,6 +758,88 @@ function drawSeat() {
   ctx.beginPath(); for (let i = 0; i < 8; i++) { const a = -Math.PI + i / 7 * Math.PI; ctx.moveTo(x + Math.cos(a) * 14, g - 12 + Math.sin(a) * 8); ctx.quadraticCurveTo(x + Math.cos(a) * 26, g - 14 + Math.sin(a) * 22, x + Math.cos(a) * 30, g - 10 + Math.sin(a) * 12); } ctx.stroke();
 }
 
+/* ---------- mana, schools and the way of play, read from the chart (Phase 3) ----------
+   The chart already sets how much mana a body has, its school and its way. Here each school gets its own
+   signature, mana grows a little with stillness and realization and swells under a full Moon, and the way of
+   play matters: a Sovereign is stronger alone, a Sangha stronger with others, a Balanced body a little of both.
+   Until co-op, "others" are the beings you call and the shade of a past life fighting beside you. */
+const SCHOOLS = {
+  Agni: { el: 'Fire', planet: 'Mars', style: 'attack and burning', sig: 'Ignite hits 25% harder, and burning ground cannot hurt you.' },
+  Jala: { el: 'Water', planet: 'Venus', style: 'healing, flow and illusion', sig: 'Restore heals 40% more, and your lotus heals 15% more.' },
+  Vayu: { el: 'Air', planet: 'Saturn', style: 'speed, movement and wind', sig: 'Rolls cost 30% less stamina, and you walk 8% faster.' },
+  Prithvi: { el: 'Earth', planet: 'Mercury', style: 'shields, stone and the ground', sig: 'Shield lasts twice as long, and every blow you take is 5% lighter.' },
+  Akasha: { el: 'Ether', planet: 'Jupiter', style: 'sound, space and time; the rarest', sig: 'Mana returns 50% faster, and your spells grow in rank half again as fast.' },
+};
+const SCHOOL_ALL = 'Spells of your own school cost 20% less and hit 15% harder. Spells of other schools cost 25% more.';
+const WAYS = {
+  Sovereign: { short: 'stronger alone', alone: ['10% more damage', 'one more prana in this life', 'wider senses: you feel foes beyond what you can see'], together: [], from: 'a strong 1st and 10th house, with a strong Sun or Mars' },
+  Sangha: { short: 'stronger with others', alone: [], together: ['beings you call stay 40% longer and strike 25% harder', 'while someone fights beside you, your blows land 10% harder and your wounds slowly close', 'bonds grow faster: the road of love is walked half again as fast'], from: 'a strong 7th and 11th house, the houses of partners and friends' },
+  Balanced: { short: 'strong either way', alone: ['5% more damage'], together: ['beings you call stay 20% longer'], from: 'neither side of the chart outweighs the other' },
+};
+const wayOf = () => (life && life.birth && WAYS[life.birth.style]) ? life.birth.style : 'Balanced';
+const companions = () => SUMMONS.filter(s => s.t > 0).length + (ALLY ? 1 : 0);
+const aloneNow = () => companions() === 0;
+function wayBoon(k) {
+  if (!P || !life) return 0; const w = wayOf(), alone = aloneNow();
+  if (k === 'dmg') return w === 'Sovereign' ? (alone ? 0.10 : 0) : w === 'Balanced' ? (alone ? 0.05 : 0) : (alone ? 0 : 0.10);
+  return 0;
+}
+function schoolBoon(k) {
+  if (!P || !P.school || P.noMana) return 0;
+  if (k === 'heal' && P.school === 'Jala') return 0.15;
+  if (k === 'prot' && P.school === 'Prithvi') return 0.05;
+  return 0;
+}
+const summonLast = () => ({ Sangha: 1.4, Balanced: 1.2 })[wayOf()] || 1;
+const summonPow = () => wayOf() === 'Sangha' ? 1.25 : 1;
+let moonTest = null;
+const moonIllum = () => moonTest !== null ? moonTest : (skyState().illum || 0);
+const moonRegen = () => moonIllum() >= 0.85 ? 1.25 : 1;
+// mana grows a little with each deep stillness (up to +10 a body) and with the first realization (+5 every body)
+const manaGrowth = () => (life && life.medMana || 0) + (soul.realized && soul.realized.has('mind') ? 5 : 0);
+function tickWay(dt) {
+  if (wayOf() === 'Sangha' && !aloneNow() && !P.dead && P.hp < P.hpMax) P.hp = Math.min(P.hpMax, P.hp + 2 * dt);
+}
+// a Sovereign alone feels foes beyond the edge of sight
+function drawSenses() {
+  if (wayOf() !== 'Sovereign' || !aloneNow() || P.dead) return;
+  for (const f of foes) {
+    if (!f.alive || f.hidden || f.state === 'kneel') continue;
+    const fx0 = f.x + (f.w || 24) / 2 - camX, fy0 = f.y + (f.h || 52) / 2 - camY;
+    if (fx0 > -10 && fx0 < W + 10 && fy0 > -10 && fy0 < H + 10) continue;
+    const d = fx0 < 0 ? -fx0 : fx0 > W ? fx0 - W : 0, dv = fy0 < 0 ? -fy0 : fy0 > H ? fy0 - H : 0; if (d > 700 || dv > 400) continue;
+    const x = clamp(fx0, 14, W - 14), y = clamp(fy0, 160, H - 90), a = 1 - Math.max(d, dv) / 760, s = f.boss ? 13 : 9;
+    ctx.save(); ctx.globalAlpha = clamp(a, 0.35, 0.95); ctx.fillStyle = f.boss ? RED : INK; ctx.beginPath();
+    if (fx0 < 0) { ctx.moveTo(x - 4, y); ctx.lineTo(x + s, y - s); ctx.lineTo(x + s, y + s); }
+    else if (fx0 > W) { ctx.moveTo(x + 4, y); ctx.lineTo(x - s, y - s); ctx.lineTo(x - s, y + s); }
+    else if (fy0 < 0) { ctx.moveTo(x, y - 4); ctx.lineTo(x - s, y + s); ctx.lineTo(x + s, y + s); }
+    else { ctx.moveTo(x, y + 4); ctx.lineTo(x - s, y - s); ctx.lineTo(x + s, y - s); }
+    ctx.closePath(); ctx.strokeStyle = PAPER; ctx.lineWidth = 3; ctx.stroke(); ctx.fill(); ctx.restore();
+  }
+}
+const pct = v => `${Math.round(v * 100)}%`;
+function bodyHTML() {
+  const b = life.birth, why = b.why, w = wayOf(), Wd = WAYS[w], alone = aloneNow(), sc = P.school && SCHOOLS[P.school];
+  const manaLines = P.noMana && !P.spark ? `<span>This body was born with no mana. It is its own way, not a weaker one: more stamina and damage, scrolls, body arts, and weapons only it can hold.</span>`
+    : `<span>${b.tierName} mana · ${P.manaMax} at most${manaGrowth() ? ` (stillness and realization have added ${manaGrowth()})` : ''}${P.spark ? ' · a spark woke in this body' : ''}.</span>`;
+  const reasons = why && why.mana ? why.mana.filter(r => r[1] > 0.05).sort((x, y) => y[1] - x[1]).map(r => `<span>${esc(r[0])}${r[1] >= 1 ? ' · a large part' : r[1] >= 0.5 ? ' · a fair part' : ' · a small part'}</span>`).join('') : '<span>This body\'s chart could not be read in detail.</span>';
+  const nextTier = why && why.next !== null && why.next !== undefined && b.tier < 4 ? `<span class="m">A little more light in the chart and this body would have reached ${['Low', 'Medium', 'High', 'Great'][b.tier]} mana.</span>` : '';
+  const schoolBox = sc ? `<span><b>${P.school}</b> · ${sc.el} · ${esc(sc.style)}</span><span>${esc(sc.sig)}</span><span>${esc(SCHOOL_ALL)}</span>${why && why.schools ? `<span class="m">Chosen by the strongest of the element planets: ${esc(why.schools[0].where)}. Next strongest: ${esc(why.schools[1].id)} (${esc(why.schools[1].where)}).</span>` : ''}` : '<span>No school: a body without mana belongs to none.</span>';
+  const moon = moonIllum(), moonLine = `<span>Tonight's Moon is ${pct(moon)} full where you are${moonRegen() > 1 ? ': full, so mana returns 25% faster for everyone.' : '. When it is full, mana returns 25% faster for everyone.'}</span>`;
+  const wayList = (arr, on) => arr.map(t => `<span>${on ? '● ' : '○ '}${esc(t)}</span>`).join('');
+  const sw = why && why.social ? `<span class="m">Partners and friends: ${esc(why.social.groupSays)}. Self and deeds: ${esc(why.social.soloSays)}.</span>` : '';
+  return `<div class="gear"><div class="gcol">
+      <span class="lbl">This body · born ${esc(b.local)} in ${esc(b.place)} · ${esc(b.lagna)} lagna</span>
+      <span class="lbl">Mana · what the chart gave</span><div class="stats">${manaLines}${P.noMana && !P.spark ? '' : reasons}${P.noMana ? '' : nextTier}</div>
+      <span class="lbl">The sky now</span><div class="stats">${moonLine}<span>Each deep stillness grows this body's mana a little (up to 10 more); the first realization adds 5 to every body after.</span></div>
+      <span class="lbl">School</span><div class="stats">${schoolBox}</div></div>
+    <div class="gcol"><span class="lbl">Way of play · ${w}: ${Wd.short}</span><div class="stats"><span>From the chart: ${esc(Wd.from)}.</span>${sw}
+      <span>Right now you are ${alone ? 'alone' : `with ${companions()} beside you`}.</span></div>
+      ${Wd.alone.length ? `<span class="lbl">Alone${alone ? ' · now' : ''}</span><div class="stats">${wayList(Wd.alone, alone)}</div>` : ''}
+      ${Wd.together.length ? `<span class="lbl">With others${alone ? '' : ' · now'}</span><div class="stats">${wayList(Wd.together, !alone)}</div>` : ''}
+      <p class="note">Until co-op comes, the others are the beings you call with chants and the shade of a past life (Echo). Playing together with friends, guiding them as a Sovereign, and matching charts come with co-op.</p></div></div>`;
+}
+
 /* ---------- effects ---------- */
 function floater(x, y, t, c = INK) { floaters.push({ x, y, t, c, life: 1.2 }); }
 function burst(x, y, n, c = INK, spd = 260) { for (let i = 0; i < n; i++) fx.push({ k: 'dot', x, y, vx: rnd(-1, 1) * spd, vy: -rnd(40, spd * 1.2), life: rnd(0.3, 0.8), c }); }
@@ -803,7 +889,7 @@ function applyStats(fill) {
   P.stBase = (P.noMana ? 125 : 100) + (s.end - 10) * 6 + (pathAt('alone') >= 2 ? 10 : 0);
   P.loadMax = 20 + (s.end - 10) * 2 + (P.skills.has('strong_back') ? 6 : 0);
   P.packMax = 30 + (s.end - 10) * 3 + (P.skills.has('strong_back') ? 6 : 0);
-  P.manaMax = P.manaTierMax ? Math.round((P.manaTierMax + (s.foc - 10) * 6) * (pathAt('dhyana') >= 3 ? 1.1 : 1)) : P.spark ? SPARK_MANA : 0;
+  P.manaMax = P.manaTierMax ? Math.round((P.manaTierMax + (s.foc - 10) * 6 + manaGrowth()) * (pathAt('dhyana') >= 3 ? 1.1 : 1)) : P.spark ? SPARK_MANA : 0;
   if (fill) { P.hp = P.hpMax; P.mana = P.manaMax; P.st = P.stBase; P.stMax = P.stBase; }
   else { P.hp += Math.max(0, P.hpMax - oldHp); P.mana += Math.max(0, P.manaMax - oldMana); }
 }
@@ -896,7 +982,7 @@ function updatePlayer(dt) {
   for (const k of ['inv', 'rollIF', 'parryT', 'parryCd', 'shieldT', 'riposte', 'hitT', 'swapT', 'dropT', 'grabCd', 'kickT', 'coy', 'jbuf', 'clingMem', 'knifeCd', 'landT', 'comboT', 'trampleCd']) P[k] = Math.max(0, P[k] - dt);
   P.stMax = P.stBase + (wears('band') ? 15 : 0); P.st = Math.min(P.st, P.stMax);
   if (P.stDelay > 0) P.stDelay -= dt; else P.st = Math.min(P.stMax, P.st + 48 * (P.noMana ? 1 + 0.04 * (P.stats.foc - 10) : 1) * (1 + boonV('st')) * dt);
-  if (P.manaMax) P.mana = Math.min(P.manaMax, P.mana + (P.school === 'Akasha' ? 6 : 4) * (inHand('staff') ? 1.5 : 1) * (wears('robe') ? 1.5 : 1) * (1 + boonV('mana')) * dt);
+  if (P.manaMax) P.mana = Math.min(P.manaMax, P.mana + (P.school === 'Akasha' ? 6 : 4) * (inHand('staff') ? 1.5 : 1) * (wears('robe') ? 1.5 : 1) * (1 + boonV('mana')) * moonRegen() * dt);
   if (P.torch.lit) { P.torch.fuel -= dt; if (P.torch.fuel <= 0) { P.torch.fuel = 0; P.torch.lit = false; floater(pcx(), P.y - 24, 'THE TORCH BURNS OUT', PENCIL); } }
   if (P.dead) { P.deadT += dt; P.vx *= 0.9; return; }
   const W8 = curW(), mx = (held.right ? 1 : 0) - (held.left ? 1 : 0);
@@ -931,7 +1017,7 @@ function updatePlayer(dt) {
   if (P.ladder) { ladderStep(dt, mx); afterMove(dt, mx, true); return; }
 
   if (pressed.chant && !CHS && !P.dead && !P.mount) openChantPick(); else if (CHS) chantStep(dt, mx);
-  tickArts(dt);
+  tickArts(dt); tickWay(dt);
   if (P.healT > 0) { P.healT -= dt; if (P.healT <= 0) { const hv = Math.round(40 * (1 + boonV('heal'))); P.hp = Math.min(P.hpMax, P.hp + hv); floater(pcx(), P.y - 20, `+${hv}`); } }
   if (P.atk) { const A = P.atk; A.t += dt; if (A.t >= A.a0 && A.t <= A.a1) doHits(A); if (A.t >= A.dur) P.atk = null; }
   if (!busy()) {
@@ -975,7 +1061,7 @@ function updatePlayer(dt) {
   // horizontal
   const surf = P.onG && P.groundS ? P.groundS.surf : null;
   const LD = loadNow();
-  let tgt = mx * 250 * LD.walk * (P.shaniT > 0 ? 0.7 : 1);
+  let tgt = mx * 250 * LD.walk * (P.shaniT > 0 ? 0.7 : 1) * (P.school === 'Vayu' && !P.noMana ? 1.08 : 1);
   if (P.charging) tgt = mx * 90;
   if (P.crouch) tgt = mx * 110;
   if (surf === 'mud') tgt *= wears('boots') ? 0.8 : 0.45;
@@ -1461,10 +1547,10 @@ function castWord(w, power) {
   if (w.id === 'vajra') { gt = frontFoe(380, 170); if (!gt) { floater(pcx(), P.y - 30, 'NO FOE IN REACH', PENCIL); return; } }
   P.mana -= cost; SFX.word(); shake = 5;
   const rk = rankOf(w.id);
-  power *= 1 + boonV('spell');
+  power *= (1 + boonV('spell')) * (1 + wayBoon('dmg'));
   if (scroll) { P.scrolls[w.id]--; power *= 1.15; for (let i = 0; i < 10; i++) fx.push({ k: 'leaf', x: pcx() + P.face * 14 + rnd(-8, 8), y: P.y + 14 + rnd(-6, 6), vx: rnd(-40, 40), vy: -rnd(30, 80), life: 0.7 }); }
-  else { power *= (1 + 0.04 * (P.stats.foc - 10)) * [1, 1, 1.2, 1.4][rk];
-    soul.ranks[w.id] = (soul.ranks[w.id] || 0) + 1; if (rankOf(w.id) > rk) floater(pcx(), P.y - 52, `${w.say.toUpperCase()} GROWS STRONGER`, INK2); }
+  else { power *= (1 + 0.04 * (P.stats.foc - 10)) * [1, 1, 1.2, 1.4][rk] * (w.school && w.school === P.school ? 1.15 : 1);
+    soul.ranks[w.id] = (soul.ranks[w.id] || 0) + (P.school === 'Akasha' ? 1.5 : 1); if (rankOf(w.id) > rk) floater(pcx(), P.y - 52, `${w.say.toUpperCase()} GROWS STRONGER`, INK2); }
   if (w.id !== 'unseen') P.unseenT = 0;
   floater(pcx(), P.y - 34, scroll ? `SCROLL · ${w.say.toUpperCase()} · ${P.scrolls[w.id]} LEFT` : `${w.say.toUpperCase()} · ${Math.round(power * 100)}%`);
   const cx = pcx(), dmgMul = P.dmgMul;
@@ -1611,7 +1697,7 @@ function finishChant(clean, pace) {
   voiceLog(`chant: ${c.name} at ${Math.round(pw * 100)}%`, true);
   if (c.kind === 'bless') { P.bless = { el: c.id, t: (30 + 60 * clamp(pw, 0, 1.2)) * (shrine ? 1.5 : 1) * (inHand('empty') ? 1.5 : 1), pow: pw }; return; }
   P.summoned = P.summoned || new Set(); P.summoned.add(c.id);
-  const sm = { id: c.id, x: pcx() - P.face * 40, y: P.y + 10, t: c.id === 'naraka' ? 5 : 20, cd: 0.5, pow: pw, face: P.face, swing: 0 };
+  const sm = { id: c.id, x: pcx() - P.face * 40, y: P.y + 10, t: (c.id === 'naraka' ? 5 : 20) * summonLast(), cd: 0.5, pow: pw * summonPow(), face: P.face, swing: 0 };
   SUMMONS.push(sm); tone(110, 330, 1.2, 'sine', 0.06);
   banner = { t: 2.4, top: c.name.toUpperCase(), sub: c.what };
 }
@@ -2275,6 +2361,9 @@ toolBtn('tEmpty', () => {
   for (const c of CHESTS) if (c.kind === 'spell') c.opened = false;
   banner = { t: 3, top: 'NO MANA IN THIS BODY', sub: 'Test tool: this body now has no mana. Spell chests hold scrolls for it, bosses leave scrolls of their move, it can turn magic back with a parry, and the sealed chest on the trial road opens for it.' };
 });
+toolBtn('tWay', () => { const ws = ['Sovereign', 'Sangha', 'Balanced'], nw = ws[(ws.indexOf(wayOf()) + 1) % 3]; const was = wayOf(); life.birth = Object.assign({}, life.birth, { style: nw, styleFull: `${nw}: ${WAYS[nw].short}` }); if (was === 'Sovereign') { P.pranaMax--; P.prana = Math.min(P.prana, P.pranaMax); } if (nw === 'Sovereign') { P.pranaMax++; P.prana++; } banner = { t: 3, top: nw.toUpperCase(), sub: `Test tool: this body's way is now ${nw}, ${WAYS[nw].short}. See it in Tab, on the Body page.` }; });
+toolBtn('tSchool', () => { if (P.noMana) return; const ks = Object.keys(SCHOOLS), nk = ks[(ks.indexOf(P.school) + 1) % ks.length]; P.school = nk; life.birth = Object.assign({}, life.birth, { school: nk }); banner = { t: 3, top: `${nk.toUpperCase()} SCHOOL`, sub: `Test tool: this body now belongs to the ${nk} school. ${SCHOOLS[nk].sig}` }; });
+toolBtn('tMoon', () => { moonTest = moonTest === null ? 1 : moonTest === 1 ? 0 : null; banner = { t: 2.6, top: moonTest === 1 ? 'A FULL MOON' : moonTest === 0 ? 'A NEW MOON' : 'THE REAL MOON', sub: moonTest === null ? 'Test tool: the Moon follows the real sky again.' : 'Test tool: the Moon is set by hand, for mana.' }; });
 toolBtn('tPaths', () => {
   for (const k of PATH_KEYS) { if (k === 'alone' && soul.aloneClosed) continue; const s = soul.pathStep[k]; if (s >= 3) continue; const L = soul.pathLives[k] = soul.pathLives[k] || []; if (s === 2 && L.length < 2) L.push(-1); soul.paths[k] = Math.max(soul.paths[k], PATH_STEPS[s] - 1); walk(k, 1); }
   BQ = []; banner = { t: 4, top: 'EVERY ROAD, ONE STEP', sub: `Test tool: each road you can still walk took one step (the third counts as if walked in another life too). Steps now: ${PATH_KEYS.map(k => `${PATHS[k].name} ${pathAt(k)}`).join(' · ')}${soul.aloneClosed ? ' (alone: closed)' : ''}. Rest at a shrine to feel them.` };
@@ -2343,7 +2432,7 @@ function renderSpellBook() {
   const card = w => { const miss = needsMissing(w), rk = rankOf(w.id), n = soul.ranks[w.id] || 0, next = rk === 1 ? 10 : rk === 2 ? 30 : null;
     const sch = w.school ? `${w.school}${P.school ? (w.school === P.school ? ' · your school, cheaper' : ' · another school, dearer') : ''}` : 'No school';
     const req = w.needs ? Object.entries(w.needs).map(([k, v]) => k === 'focus' ? `Focus ${v}` : k === 'night' ? 'night only' : 'a past life').join(', ') : '';
-    return `<div class="item"><b>${w.say} · rank ${rk}</b><span>${w.what}</span><span class="m">${sch} · ${spellCost(w)} mana${req ? ` · needs ${req}` : ''}${miss ? ` · ${miss.toLowerCase()}` : ''}</span><span class="m">Cast ${n} time${n === 1 ? '' : 's'}${next ? ` · rank ${rk + 1} at ${next}` : ' · full strength'}</span></div>`; };
+    return `<div class="item"><b>${w.say} · rank ${rk}</b><span>${w.what}</span><span class="m">${sch} · ${spellCost(w)} mana${req ? ` · needs ${req}` : ''}${miss ? ` · ${miss.toLowerCase()}` : ''}</span><span class="m">Cast ${Math.floor(n)} time${Math.floor(n) === 1 ? '' : 's'}${next ? ` · rank ${rk + 1} at ${next}` : ' · full strength'}</span></div>`; };
   const m = moonLight();
   return `
     <div class="gear">
@@ -2369,9 +2458,9 @@ function renderGear() {
   const words = P.noMana ? '<p class="note">This body has no mana: keys 1 to 4 hold scrolls (Spells page).</p>' : P.wordSlots.map((id, i) => `<label class="wslot"><span class="lbl">Key ${i + 1}</span><select data-ws="${i}">${WORDS.map(w => `<option value="${w.id}"${w.id === id ? ' selected' : ''}>${w.say} · ${w.cost} mana</option>`).join('')}</select></label>`).join('');
   const hs = horse.state, horseLine = hs === 'wild' ? 'No mount yet. A wild horse grazes by the hut.' : hs === 'ridden' ? `Riding · horse health ${Math.round(horse.hp)}/${horse.hpMax}` : hs === 'fled' ? 'Your horse is hurt and ran off. Rest at a shrine.' : `Befriended · horse health ${Math.round(horse.hp)}/${horse.hpMax}`;
   $('gearIn').innerHTML = `
-    <span class="eyebrow">Life ${life.n} · Tab or Esc to close</span><h2>${gearView === 'spells' ? 'Spells' : gearView === 'chants' ? 'Chants' : 'Gear'}</h2>
-    <div class="row"><button class="btn sm${gearView === 'gear' ? '' : ' ghost'}" type="button" data-view="gear">Gear</button><button class="btn sm${gearView === 'spells' ? '' : ' ghost'}" type="button" data-view="spells">Spells</button><button class="btn sm${gearView === 'chants' ? '' : ' ghost'}" type="button" data-view="chants">Chants</button></div>
-    ${gearView === 'spells' ? renderSpellBook() : gearView === 'chants' ? renderChantBook() : `<div class="gear">
+    <span class="eyebrow">Life ${life.n} · Tab or Esc to close</span><h2>${gearView === 'spells' ? 'Spells' : gearView === 'chants' ? 'Chants' : gearView === 'body' ? 'This body' : 'Gear'}</h2>
+    <div class="row"><button class="btn sm${gearView === 'gear' ? '' : ' ghost'}" type="button" data-view="gear">Gear</button><button class="btn sm${gearView === 'spells' ? '' : ' ghost'}" type="button" data-view="spells">Spells</button><button class="btn sm${gearView === 'chants' ? '' : ' ghost'}" type="button" data-view="chants">Chants</button><button class="btn sm${gearView === 'body' ? '' : ' ghost'}" type="button" data-view="body">Body</button></div>
+    ${gearView === 'spells' ? renderSpellBook() : gearView === 'chants' ? renderChantBook() : gearView === 'body' ? bodyHTML() : `<div class="gear">
       <div class="gcol">
         <span class="lbl">Load · what you carry in your hands and wear</span>
         <div class="stats"><span>${LD.w.toFixed(1)} of ${P.loadMax} · ${LD.cls.toUpperCase()}</span><span class="meter"><i style="width:${Math.min(100, LD.r * 100)}%"></i><b style="left:35%"></b><b style="left:70%"></b></span><span>${LD.say}</span><span>Pack ${LD.pack.toFixed(1)} of ${P.packMax}: weapons you are not holding, garments you are not wearing, spare relics and materials.</span></div>
@@ -2946,7 +3035,7 @@ function hotbarInfo(i) {
   const hs = horse.state; return { label: 'BELL', sub: hs === 'wild' ? 'no mount' : hs === 'ridden' ? 'riding' : hs === 'fled' ? 'hurt' : 'call', on: hs !== 'wild' && hs !== 'fled', lit: hs === 'ridden' };
 }
 function drawHUD() {
-  const p = P;
+  const p = P; drawSenses();
   const bar = (x, y, w, v, max, label, col = INK) => { ctx.font = `10px ${FD}`; ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.fillText(label, x, y - 4); ctx.fillStyle = FAINT; ctx.fillRect(x, y, w, 10); ctx.fillStyle = col; ctx.fillRect(x, y, w * clamp(v / max, 0, 1), 10); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, 10); };
   const plate = (x, y, w, h) => { ctx.fillStyle = 'rgba(251,250,246,0.88)'; ctx.fillRect(x, y, w, h); };
   plate(10, 6, 378, 136);
@@ -2968,6 +3057,7 @@ function drawHUD() {
     [micMode === 'off' ? 'MIC OFF · KEYS 1 TO 4' : micMode === 'ptt' ? (pttHeld ? (micReady ? 'LISTENING' : 'MIC STARTING…') : 'HOLD V TO SPEAK') : (recOn ? 'MIC ON · SPEAK A WORD' : 'MIC STARTING…'), PENCIL],
     [`LOAD ${LD.full ? 'PACK FULL' : LD.cls.toUpperCase()} · PACK ${Math.round(LD.pack)}/${P.packMax}`, LD.cls === 'over' || LD.full ? RED : INK2],
     [`PROTECTION ${protNow()}% · ${isNight() ? 'NIGHT' : 'DAY'}`, INK2],
+    [`${wayOf().toUpperCase()} · ${aloneNow() ? 'ALONE' : 'WITH ' + companions()}${moonRegen() > 1 && P.manaMax ? ' · FULL MOON' : ''}`, (wayOf() === 'Sovereign' && aloneNow()) || (wayOf() === 'Sangha' && !aloneNow()) ? INK : PENCIL],
   ];
   if (curW().long) RL.push([`ARROWS: ${ARROWS[p.arrowKind].name.toUpperCase()}${p.arrowKind === 'reed' ? '' : ' ×' + p.arrows[p.arrowKind]} · R CHANGES`, INK]);
   if (timers.length) RL.push([timers.join(' · '), INK]);
@@ -3081,8 +3171,10 @@ function finishMed() {
   P.mana = P.manaMax; mode = 'play'; MED = null; clearHeld();
   if (!deep) { walk('dhyana', 1); showBanner({ t: 3.4, top: 'YOUR MIND WANDERED', sub: `Calm ${Math.round(M.calm)} of 100. Your mana returns. Stillness comes to those who keep the breath and let the thoughts pass.` }); return; }
   soul.dhyana = (soul.dhyana || 0) + 1; life.deepMed = true;
+  let grew = false; if (P.manaTierMax && (life.medMana || 0) < 10) { life.medMana = (life.medMana || 0) + 2; applyStats(false); grew = true; }
   const gifts = [P.manaMax ? 'your mana returns' : 'your breath is your own again'];
   if (P.noMana && !P.spark && pathAt('dhyana') >= 3 && (soul.testSpark || Math.random() < SPARK_CHANCE)) { soul.testSpark = false; P.spark = true; applyStats(false); P.mana = P.manaMax; gifts.push('and something that was never in this body wakes: a spark of mana, small and real, for the rest of this life (keys 1 to 4 can now cast what you know, even with no scroll)'); }
+  if (grew) gifts.push(`this body's mana grows a little (${P.manaMax} now)`);
   if (!life.medPrana && P.prana < P.pranaMax) { life.medPrana = true; P.prana++; gifts.push('one prana returns'); }
   if (!life.clearEyes) { life.clearEyes = true; FAKES.forEach(f => f.found = true); gifts.push('your eyes are clearer: what is false in the walls shows itself for the rest of this life'); }
   showBanner({ t: 4.4, top: 'STILLNESS', sub: `Calm ${Math.round(M.calm)} of 100. ${gifts.join('; ').replace(/^./, c => c.toUpperCase())}. Deep stillness ${soul.dhyana} time${soul.dhyana === 1 ? '' : 's'} for this soul.` });
@@ -3119,7 +3211,7 @@ function openRiddle() {
   }));
 }
 function realize() {
-  soul.understood.add('mind'); soul.realized.add('mind'); colorK = colorK || 0.001; walk('jnana', 3);
+  soul.understood.add('mind'); soul.realized.add('mind'); colorK = colorK || 0.001; walk('jnana', 3); applyStats(false);
   showBanner({ t: 6, top: 'YOU REALIZED', sub: 'It is all in your mind. The winning and the falling, the friend and the enemy, the snake and the rope: all of it passed before the one who watches. And as the knot loosens, color begins to come back into the world.' });
   for (let i = 0; i < 60; i++) fx.push({ k: 'ink', x: pcx() + rnd(-200, 200), y: P.y + rnd(-200, 60), vx: rnd(-60, 60), vy: -rnd(40, 160), life: rnd(0.8, 2) });
   tone(392, 784, 2.5, 'sine', 0.05); tone(523, 1046, 2.5, 'sine', 0.03, 0.4);
@@ -3204,7 +3296,7 @@ const WEAK_AT = { Sun: 'standing tall', Moon: 'a calm mind', Mars: 'courage', Me
 const BOONS = { dmg: 'your blows land harder', prot: 'harm touches you less', st: 'your breath returns faster', heal: 'lotus heals more', mana: 'mana returns faster', chant: 'chants are stronger', spell: 'spells and scrolls are stronger' };
 const DAY_BOON = { Sun: ['dmg', 0.06], Moon: ['heal', 0.2], Mars: ['dmg', 0.1], Mercury: ['st', 0.12], Jupiter: ['mana', 0.2], Venus: ['chant', 0.1], Saturn: ['prot', 0.08] };
 const BODY_BOON = { Sun: ['dmg', 0.06], Moon: ['heal', 0.2], Mars: ['dmg', 0.08], Mercury: ['st', 0.12], Jupiter: ['mana', 0.2], Venus: ['chant', 0.1], Saturn: ['prot', 0.06], Rahu: ['dmg', 0.06], Ketu: ['spell', 0.1] };
-const boonV = k => (P && P.boons ? P.boons.filter(b => b.kind === k).reduce((a, b) => a + b.v, 0) : 0) + ((k === 'spell' || k === 'chant') && soul.understood && soul.understood.has('mind') ? 0.05 : 0) + roadBoon(k);
+const boonV = k => (P && P.boons ? P.boons.filter(b => b.kind === k).reduce((a, b) => a + b.v, 0) : 0) + ((k === 'spell' || k === 'chant') && soul.understood && soul.understood.has('mind') ? 0.05 : 0) + roadBoon(k) + wayBoon(k) + schoolBoon(k);
 const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 let READS = {}; try { READS = JSON.parse(localStorage.getItem(READ_KEY)) || {}; } catch (_) { READS = {}; }
 function saveReads() { try { localStorage.setItem(READ_KEY, JSON.stringify(READS)); } catch (_) {} }
@@ -3422,7 +3514,7 @@ function realBirth(date, time, city) {
   const local = new Intl.DateTimeFormat('en-GB', { timeZone: city.tz, day: 'numeric', month: 'short', year: 'numeric', ...(known ? { hour: '2-digit', minute: '2-digit' } : {}) }).format(new Date(utc));
   return { inward, ms: utc, geo: { lat: city.lat, lon: city.lon }, real: true, timeKnown: known, place: where, local: known ? local : `${local} (hour unknown)`, offset: E.fmtOffset(offset), age: Math.floor((now - utc) / yr), looks: null,
     lagna: `${E.SIGNS[c.lagna.sign].en}${known ? '' : ' (from the Moon)'}`, moon: `${E.SIGNS[c.by.Moon.sign].en}, ${c.by.Moon.nakName}`, sun: E.SIGNS[c.by.Sun.sign].en, moonNote,
-    tier: g.manaTierIndex, tierName: g.manaTier, school: g.school ? g.school.id : null, style: g.social.split(':')[0], styleFull: g.social, region: g.region, people: g.civilization,
+    tier: g.manaTierIndex, tierName: g.manaTier, school: g.school ? g.school.id : null, style: g.social.split(':')[0], styleFull: g.social, why: g.why, region: g.region, people: g.civilization,
     lagnaWindow: known ? c.lagnaWindow : null, chart: { lagna: c.lagna.sign, moonLon: c.by.Moon.lon, utc } };
 }
 let CR = null;
@@ -3590,7 +3682,7 @@ window.__life = {
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, PATHS, PATH_STEPS, walk: (k, n) => walk(k, n), pathAt: k => pathAt(k), ARTS, useArt: a => useArt(a), TEACHER, TASKS, openTeacher: () => openTeacher(), SEAT, roadsHTML: () => roadsHTML(), roadBoon: k => roadBoon(k), keepCount: () => keepCount(), SETTINGS, get banner2() { return banner; }, inwardOf: c => inwardOf(c), get MED() { return MED; }, openMeditation: i => openMeditation(i), get colorK() { return colorK; }, livedMind: () => livedMind(), openRiddle: () => openRiddle(), RIDDLES, readSoul: t => readSoul(t), readBody: () => readBody(), soulChart: () => soulChart(), NAVAGRAHA, TABLETS, get READS() { return READS; }, boonV: k => boonV(k), applyDayBoon: () => applyDayBoon(), openStones: () => openStones(), E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, lifeKarma: () => lifeKarma(), set autoAsk(v) { autoAsk = v; }, realmLean: () => realmLean(), DOG, nearDebt: () => nearDebt(), witnesses: t => witnesses(t), begChance: () => begChance(), spawnFoes: () => spawnFoes(), sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, SCHOOLS, WAYS, wayOf: () => wayOf(), aloneNow: () => aloneNow(), companions: () => companions(), wayBoon: k => wayBoon(k), schoolBoon: k => schoolBoon(k), moonRegen: () => moonRegen(), set moonTest(v) { moonTest = v; }, manaGrowth: () => manaGrowth(), bodyHTML: () => bodyHTML(), finishMed: () => finishMed(), PATHS, PATH_STEPS, walk: (k, n) => walk(k, n), pathAt: k => pathAt(k), ARTS, useArt: a => useArt(a), TEACHER, TASKS, openTeacher: () => openTeacher(), SEAT, roadsHTML: () => roadsHTML(), roadBoon: k => roadBoon(k), keepCount: () => keepCount(), SETTINGS, get banner2() { return banner; }, inwardOf: c => inwardOf(c), get MED() { return MED; }, openMeditation: i => openMeditation(i), get colorK() { return colorK; }, livedMind: () => livedMind(), openRiddle: () => openRiddle(), RIDDLES, readSoul: t => readSoul(t), readBody: () => readBody(), soulChart: () => soulChart(), NAVAGRAHA, TABLETS, get READS() { return READS; }, boonV: k => boonV(k), applyDayBoon: () => applyDayBoon(), openStones: () => openStones(), E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, lifeKarma: () => lifeKarma(), set autoAsk(v) { autoAsk = v; }, realmLean: () => realmLean(), DOG, nearDebt: () => nearDebt(), witnesses: t => witnesses(t), begChance: () => begChance(), spawnFoes: () => spawnFoes(), sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };
