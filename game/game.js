@@ -230,9 +230,10 @@ addEventListener('keydown', e => {
   if (e.code === 'Tab') { e.preventDefault(); if (mode === 'play') openGear(); else if (mode === 'gear') closePanel(); return; }
   if (mode === 'map' && /^Digit[1-9]$/.test(e.code)) { travelTo(+e.code.slice(5) - 1); return; }
   if (e.code === 'KeyM' && !e.repeat) { if (mode === 'play') { mode = 'map'; clearHeld(); } else if (mode === 'map') closePanel(); return; }
+  if (e.code === 'Escape' && mode === 'meditate') { leaveMeditation(); return; }
   if (e.code === 'Escape') { if (mode === 'gear' || mode === 'map' || mode === 'shrine' || mode === 'forge' || mode === 'chest' || mode === 'stone') { closePanel(); return; } if (mode === 'play') { mode = 'pause'; $('ovPause').hidden = false; } else if (mode === 'pause') resume(); return; }
   const a = KEYS[e.code]; if (!a) return;
-  if (mode === 'play') e.preventDefault();
+  if (mode === 'play' || mode === 'meditate') e.preventDefault();
   if (e.repeat) return;
   if (!held[a]) pressed[a] = true; held[a] = true;
 });
@@ -384,7 +385,7 @@ function startRec() {
 function stopRec() { try { rec && rec.stop(); } catch (_) {} }
 
 /* ---------- state ---------- */
-const soul = { chants: new Set(['agni']), spells: new Set(['ignite', 'shield', 'restore']), ranks: {}, kills: 0, home: null, karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set(), bossKills: {}, tablets: new Set() };
+const soul = { chants: new Set(['agni']), spells: new Set(['ignite', 'shield', 'restore']), ranks: {}, kills: 0, home: null, karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set(), bossKills: {}, tablets: new Set(), realized: new Set(), understood: new Set(), dhyana: 0, bossFalls: 0 };
 let life = null, P = null, foes = [], shots = [], fx = [], floaters = [], shades = [], drops = [], pots = [];
 let shake = 0, hitstop = 0, clock = 0, banner = null, pendingDeath = 0, zoneTag = null;
 const villager = { x: 560, gy: 1000, helped: false, talkT: 0, line: '' };
@@ -932,7 +933,7 @@ function drawNode(n) {
   ctx.strokeStyle = INK; ctx.fillStyle = INK; ctx.lineCap = 'round';
   if (n.k === 'tree') {
     ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(x, g); ctx.lineTo(x, g - (gone ? 16 : 60)); ctx.stroke();
-    if (!gone) { ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, g - 40); ctx.lineTo(x - 16, g - 60); ctx.moveTo(x, g - 50); ctx.lineTo(x + 14, g - 66); ctx.stroke(); ctx.fillStyle = PAPER; ctx.beginPath(); ctx.arc(x - 12, g - 72, 20, 0, Math.PI * 2); ctx.arc(x + 12, g - 76, 18, 0, Math.PI * 2); ctx.arc(x, g - 90, 18, 0, Math.PI * 2); ctx.fill(); ctx.save(); ctx.clip(); hatch(x - 34, g - 112, 68, 60, 5, INK2, 1); ctx.restore(); ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(x - 12, g - 72, 20, 0.8, 4.2); ctx.stroke(); ctx.beginPath(); ctx.arc(x + 12, g - 76, 18, -1.6, 1.8); ctx.stroke(); ctx.beginPath(); ctx.arc(x, g - 90, 18, 3.6, 6.0); ctx.stroke(); }
+    if (!gone) { ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, g - 40); ctx.lineTo(x - 16, g - 60); ctx.moveTo(x, g - 50); ctx.lineTo(x + 14, g - 66); ctx.stroke(); ctx.fillStyle = tint(PAPER, '#bcd99c'); ctx.beginPath(); ctx.arc(x - 12, g - 72, 20, 0, Math.PI * 2); ctx.arc(x + 12, g - 76, 18, 0, Math.PI * 2); ctx.arc(x, g - 90, 18, 0, Math.PI * 2); ctx.fill(); ctx.save(); ctx.clip(); hatch(x - 34, g - 112, 68, 60, 5, tint(INK2, '#3e7a36'), 1); ctx.restore(); ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(x - 12, g - 72, 20, 0.8, 4.2); ctx.stroke(); ctx.beginPath(); ctx.arc(x + 12, g - 76, 18, -1.6, 1.8); ctx.stroke(); ctx.beginPath(); ctx.arc(x, g - 90, 18, 3.6, 6.0); ctx.stroke(); }
     else { ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 4, g - 16); ctx.lineTo(x + 4, g - 16); ctx.stroke(); }
   } else if (n.k === 'ore' || n.k === 'ember') {
     if (gone) { ctx.fillStyle = PENCIL; for (const o of [-10, -2, 7]) { ctx.beginPath(); ctx.arc(x + o, g - 3, 3, 0, Math.PI * 2); ctx.fill(); } return; }
@@ -1019,7 +1020,8 @@ function renderShrine(i) {
       <div class="gcol"><span class="lbl">Level ${lv} · you carry ${P.seeds} seeds · the next point costs ${cost}</span>
         ${skillBox}${rows}
         <div class="stats"><span>Health ${P.hpMax} · Stamina ${P.stBase} · Mana ${P.manaMax} · Load ${P.loadMax}</span><span>${esc(W8.name)} ${TIER_NAME[tierOf(P.slots[P.slotIdx])]}: ${Math.round((wMul(W8) - 1) * 100)}% extra damage from stats and tier</span></div></div>
-      <div class="gcol"><div class="row"><button class="btn sm" type="button" id="shrineSpells">Spells on your keys</button><button class="btn sm" type="button" id="shrineChants">Prepare chants</button></div>
+      <div class="gcol"><div class="row"><button class="btn sm" type="button" id="shrineMed">Sit in stillness</button><button class="btn sm" type="button" id="shrineSpells">Spells on your keys</button><button class="btn sm" type="button" id="shrineChants">Prepare chants</button></div>
+        <p class="note">Stillness: hold Space to breathe in, let go to breathe out, with the guide. Let thoughts pass. About a minute; it cannot be rushed.</p>
         <span class="lbl">Skills</span><div class="stats"><span>${skills}</span></div>
         <span class="lbl">Shrine offering</span><div class="inv">${makeHTML('shrine')}<div class="item"><b>Leave seeds for whoever comes after</b><span>Fifty seeds left at the shrine, for a stranger you will never meet.</span><div class="row"><button class="btn ghost sm" type="button" id="dana"${P.seeds >= 50 && !life.dana ? '' : ' disabled'}>${life.dana ? 'Left' : 'Leave 50 seeds'}</button></div></div></div>
         <span class="lbl">Join spells</span><div class="inv"><div class="item"><b>Ignite + Gust → Fire wind</b><span>${SPELL('firewind').what}</span><span class="m">${soul.spells.has('firewind') ? 'Already joined' : `Needs Ignite and Gust · ${costText({ ember: 1, seeds: 40 })}`}</span><div class="row"><button class="btn ghost sm" type="button" id="joinFW"${!soul.spells.has('firewind') && soul.spells.has('ignite') && soul.spells.has('gust') && canPay({ ember: 1, seeds: 40 }) ? '' : ' disabled'}>Join</button></div></div></div>
@@ -1036,6 +1038,7 @@ function renderShrine(i) {
   $('gearIn').querySelectorAll('[data-skill]').forEach(bt => bt.addEventListener('click', () => { P.skills.add(bt.dataset.skill); P.skillPending = null; applyStats(false); SFX.relic(); renderShrine(i); }));
   bindMakes(() => renderShrine(i));
   $('gearIn').querySelectorAll('[data-scribe]').forEach(bt => bt.addEventListener('click', () => { if (!canPay(SCRIBE_COST)) return; pay(SCRIBE_COST); P.scrolls[bt.dataset.scribe] = (P.scrolls[bt.dataset.scribe] || 0) + 1; if (!P.wordSlots.includes(bt.dataset.scribe)) { const f = P.wordSlots.indexOf(null); if (f >= 0) P.wordSlots[f] = bt.dataset.scribe; } tone(600, 900, 0.2, 'triangle', 0.04); renderShrine(i); }));
+  $('shrineMed').addEventListener('click', () => openMeditation(i));
   $('shrineSpells').addEventListener('click', () => { gearView = 'spells'; mode = 'gear'; renderGear(); });
   $('shrineChants').addEventListener('click', () => { gearView = 'chants'; mode = 'gear'; renderGear(); });
   const dn = $('dana'); if (dn) dn.addEventListener('click', () => { if (P.seeds < 50 || life.dana) return; P.seeds -= 50; life.dana = true; closePanel(); deed('You left seeds at a shrine for a stranger.', 1, { kind: 'gift' }); });
@@ -1165,9 +1168,9 @@ function paintSky() {
   if (skyCv.width !== cv.width || skyCv.height !== cv.height) { skyCv.width = cv.width; skyCv.height = cv.height; }
   const k = skyState(), c = sctx, d = k.dark, south = SKY.lat >= 0;
   c.setTransform(scale, 0, 0, scale, 0, 0); c.clearRect(0, 0, W, H);
-  const g = c.createLinearGradient(0, 0, 0, HORIZON + 80); g.addColorStop(0, mix('#fbfaf6', '#121211', d)); g.addColorStop(1, mix('#fbfaf6', '#3d3b35', d)); c.fillStyle = g; c.fillRect(0, 0, W, H);
+  const g = c.createLinearGradient(0, 0, 0, HORIZON + 80); g.addColorStop(0, mix(tint('#fbfaf6', '#9fc4e6'), tint('#121211', '#0c1430'), d)); g.addColorStop(1, mix(tint('#fbfaf6', '#f1ede0'), tint('#3d3b35', '#2b3256'), d)); c.fillStyle = g; c.fillRect(0, 0, W, H);
   // dawn and dusk glow on the Sun's side
-  if (k.sun.alt > -14 && k.sun.alt < 12) { const sp = skyXY({ alt: 0, az: k.sun.az }), a = 0.55 * (1 - Math.abs(k.sun.alt + 1) / 13); const rg = c.createRadialGradient(sp.x, HORIZON, 10, sp.x, HORIZON, 520); rg.addColorStop(0, `rgba(214,196,170,${Math.max(0, a)})`); rg.addColorStop(1, 'rgba(214,196,170,0)'); c.fillStyle = rg; c.fillRect(0, 0, W, H); }
+  if (k.sun.alt > -14 && k.sun.alt < 12) { const sp = skyXY({ alt: 0, az: k.sun.az }), a = 0.55 * (1 - Math.abs(k.sun.alt + 1) / 13); const rg = c.createRadialGradient(sp.x, HORIZON, 10, sp.x, HORIZON, 520); rg.addColorStop(0, `rgba(${Math.round(214 + 26 * colorK)},${Math.round(196 - 70 * colorK)},${Math.round(170 - 90 * colorK)},${Math.max(0, a * (1 + 0.4 * colorK))})`); rg.addColorStop(1, 'rgba(214,196,170,0)'); c.fillStyle = rg; c.fillRect(0, 0, W, H); }
   // stars wheel around the hidden pole as the real sidereal time turns
   const sa = clamp((-4 - k.sun.alt) / 10, 0, 1);
   if (sa > 0) { const px = W / 2, py = HORIZON + Math.sin(Math.abs(SKY.lat) * Math.PI / 180) * (HORIZON - 46) + 60, ang = (south ? 1 : -1) * k.lst / 24 * Math.PI * 2;
@@ -1181,7 +1184,7 @@ function paintSky() {
     c.strokeStyle = mix('#8c897f', '#151513', 1 - d); c.lineWidth = 1.5; c.beginPath(); c.arc(m.x, m.y, r, 0, Math.PI * 2); c.stroke(); c.globalAlpha = 1; }
   // the Sun
   if (k.sun.alt > -2) { const sp = skyXY(k.sun), r = k.sun.alt < 8 ? 24 : 19;
-    c.strokeStyle = '#151513'; c.lineWidth = 2.2; c.fillStyle = '#fbfaf6'; c.beginPath(); c.arc(sp.x, sp.y, r, 0, Math.PI * 2); c.fill(); c.stroke();
+    c.strokeStyle = '#151513'; c.lineWidth = 2.2; c.fillStyle = tint('#fbfaf6', '#ffd36b'); c.beginPath(); c.arc(sp.x, sp.y, r, 0, Math.PI * 2); c.fill(); c.stroke();
     c.beginPath(); for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 + clock * 0.1; c.moveTo(sp.x + Math.cos(a) * (r + 6), sp.y + Math.sin(a) * (r + 6)); c.lineTo(sp.x + Math.cos(a) * (r + (i % 2 ? 12 : 17)), sp.y + Math.sin(a) * (r + (i % 2 ? 12 : 17))); } c.stroke(); }
   // where the directions are on the horizon
   c.font = `11px ${FD}`; c.textAlign = 'center'; c.fillStyle = mix('#8c897f', '#b9b6ac', d);
@@ -1191,7 +1194,7 @@ function paintSky() {
 function drawSkyBehind() {
   const k = skyState();
   if (k.dark > 0) { ctx.save(); ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = `rgba(21,21,19,${k.dark * 0.42})`; ctx.fillRect(0, 0, W, H); ctx.restore(); }
-  paintSky(); ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'destination-over'; ctx.drawImage(skyCv, 0, 0); ctx.restore();
+  paintSky(); if (!skyCv.width || !skyCv.height) return; ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'destination-over'; ctx.drawImage(skyCv, 0, 0); ctx.restore();
 }
 function skyText() {
   const k = skyState(), up = b => b.alt > 0;
@@ -1996,6 +1999,7 @@ function openChest(c) {
 /* ---------- falling & true death ---------- */
 function fall(why, useSafe) {
   if (P.dead) return;
+  if (ARENAS.some(a => a.fight)) soul.bossFalls = (soul.bossFalls || 0) + 1;
   if (P.mount) dismount(true);
   CHS = null; P.bless = null;
   P.dead = true; P.deadT = 0; P.why = why; P.fellSafe = !!useSafe; P.hang = null; P.ladder = null; P.torch.lit = false; SFX.death();
@@ -2078,6 +2082,8 @@ toolBtn('tEmpty', () => {
   for (const c of CHESTS) if (c.kind === 'spell') c.opened = false;
   banner = { t: 3, top: 'NO MANA IN THIS BODY', sub: 'Test tool: this body now has no mana. Spell chests hold scrolls for it, bosses leave scrolls of their move, it can turn magic back with a parry, and the sealed chest on the trial road opens for it.' };
 });
+toolBtn('tLived', () => { soul.testLived = true; soul.dhyana = Math.max(soul.dhyana || 0, 2); banner = { t: 3, top: 'THE LESSON, LIVED', sub: 'Test tool: the game now counts the first lesson as lived (as if you had been reborn, beaten a boss and fallen to one, and sat in stillness twice). One deep stillness at a shrine brings the question.' }; });
+toolBtn('tColor', () => { if (!realized('mind')) { soul.understood.add('mind'); soul.realized.add('mind'); } colorK = colorK > 0 ? 0 : 1; banner = { t: 2.4, top: colorK ? 'COLOR' : 'INK', sub: 'Test tool: the first color, on or off, without the riddle.' }; });
 toolBtn('tStones', () => { if (ARENAS.some(a => a.fight)) return; if (P.mount) dismount(false); P.x = NAVAGRAHA[0].x - 40; P.y = NAVAGRAHA[0].gy - PH; P.vx = P.vy = 0; P.hang = null; P.ladder = null; P.visited.add(5); snapCam(); P.mats.petal += 2; P.mats.ember += 1; P.seeds += 100; banner = { t: 3, top: 'THE NINE STONES', sub: 'Test tool: you stand before them with an offering for each reading (100 seeds, 2 petals, 1 ember stone). Press E.' }; });
 toolBtn('tTablets', () => { TABLETS.forEach(t => soul.tablets.add(t.id)); banner = { t: 2.6, top: 'BOTH TABLETS', sub: 'Test tool: the stones can now read the long seasons and the periods of your life.' }; });
 toolBtn('tReadReset', () => { READS = {}; saveReads(); life.bodyRead = null; P.boons = []; banner = { t: 2.4, top: 'THE STONES FORGET', sub: 'Test tool: today\'s reading and this body\'s reading are cleared, so you can read again.' }; });
@@ -2255,6 +2261,9 @@ function update(dt) {
   if (villager.talkT > 0) villager.talkT -= dt;
   if (hitstop > 0) { hitstop -= dt; return; }
   if (pendingDeath > 0) { pendingDeath -= dt; P.deadT += dt; if (pendingDeath <= 0) afterFall(); }
+  if (mode === 'meditate') { updateMed(dt); return; }
+  if (colorK > 0 && colorK < 1) colorK = Math.min(1, colorK + dt / 6);
+  if (life && life.riddleAt != null && mode === 'play') { life.riddleAt -= dt; if (life.riddleAt <= 0 && !banner && !BQ.length) openRiddle(); }
   if (mode !== 'play') return;
   if (micMode === 'ptt') {
     if (pressed.talk) { pttHeld = true; startRec(); }
@@ -2342,7 +2351,8 @@ function drawShrine(s, i) {
   ctx.font = `12px ${FD}`; ctx.fillStyle = cur ? INK : PENCIL; ctx.textAlign = 'center'; ctx.fillText(s.name.toUpperCase(), sx, g - 146);
 }
 function drawSolid(s) {
-  ctx.fillStyle = PAPER; ctx.fillRect(s.x, s.y, s.w, s.h); hatch(s.x, s.y, s.w, s.h, 13);
+  ctx.fillStyle = tint(PAPER, '#eadcbd'); ctx.fillRect(s.x, s.y, s.w, s.h); hatch(s.x, s.y, s.w, s.h, 13, tint(HATCH, '#bf9f6a'));
+  if (colorK > 0 && !s.surf && !pointSolid(s.x + s.w / 2, s.y - 3)) { ctx.globalAlpha = colorK; ctx.fillStyle = '#6fa356'; ctx.fillRect(s.x, s.y, s.w, 6); ctx.globalAlpha = 1; }
   if (s.surf === 'mud') { ctx.fillStyle = INK2; for (let x = s.x + 4; x < s.x + s.w; x += 7) for (let k = 0; k < 3; k++) { const yy = s.y + 3 + k * 5 + ((x * 7 + k * 13) % 4); ctx.fillRect(x + ((k * 3) % 5), yy, 2, 2); } ctx.strokeStyle = INK2; ctx.lineWidth = 2; ctx.beginPath(); for (let x = s.x; x <= s.x + s.w; x += 10) ctx.lineTo(x, s.y + 2 + Math.sin(x * 0.2 + clock * 1.5) * 1.5); ctx.stroke(); }
   if (s.surf === 'ice') { ctx.fillStyle = PAPER; ctx.fillRect(s.x, s.y, s.w, 14); ctx.strokeStyle = INK2; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(s.x, s.y + 14); ctx.lineTo(s.x + s.w, s.y + 14); for (let x = s.x + 20; x < s.x + s.w; x += 46) { ctx.moveTo(x, s.y + 11); ctx.lineTo(x + 14, s.y + 4); ctx.moveTo(x + 8, s.y + 12); ctx.lineTo(x + 16, s.y + 8); } ctx.stroke(); }
   if (s.surf === 'hot') { hatch(s.x, s.y, s.w, 16, 5, RED, 1.4); ctx.strokeStyle = RED; ctx.lineWidth = 1.5; ctx.beginPath(); for (let x = s.x + 12; x < s.x + s.w; x += 30) { const ph = (clock * 1.2 + x * 0.013) % 1, yy = s.y - 4 - ph * 26; ctx.globalAlpha = 1 - ph; ctx.moveTo(x, yy); ctx.quadraticCurveTo(x + 4, yy - 5, x, yy - 10); } ctx.stroke(); ctx.globalAlpha = 1; }
@@ -2426,7 +2436,7 @@ function drawWorld() {
   if (nightUnits) { ctx = mainCtx; unitsPending = true; }
   // water over the player
   for (const w of WATERS) if (visible(w)) {
-    ctx.fillStyle = 'rgba(140,137,127,0.22)'; ctx.fillRect(w.x, w.y, w.w, w.h);
+    ctx.fillStyle = `rgba(${Math.round(140 - 90 * colorK)},${Math.round(137 + 3 * colorK)},${Math.round(127 + 80 * colorK)},${0.22 + 0.1 * colorK})`; ctx.fillRect(w.x, w.y, w.w, w.h);
     ctx.strokeStyle = PENCIL; ctx.lineWidth = 1.2; ctx.beginPath(); for (let y = w.y + 30; y < w.y + w.h; y += 34) for (let x = w.x + ((y * 3) % 50); x < w.x + w.w - 20; x += 90) { ctx.moveTo(x, y); ctx.lineTo(x + 18, y); } ctx.stroke();
     if (w.top) { ctx.strokeStyle = INK2; ctx.lineWidth = 2; ctx.beginPath(); for (let x = w.x; x <= w.x + w.w; x += 8) { const yy = w.y + Math.sin(x * 0.05 + clock * 3) * 2.5; if (pointSolid(x, w.y + 4) || pointSolid(x - 8, w.y + 4)) ctx.moveTo(x, yy); else ctx.lineTo(x, yy); } ctx.stroke(); }
   }
@@ -2495,7 +2505,7 @@ function drawDark() {
   for (const s of shots) if (s.fire) hole(s.x - camX, s.y - camY, 90);
   for (const s of SHRINES) if (darkAt(s.x, s.gy - 20)) hole(s.x - camX, s.gy - 30 - camY, 140);
   dctx.globalCompositeOperation = 'source-over';
-  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(dk, 0, 0); ctx.restore();
+  if (dk.width && dk.height) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(dk, 0, 0); ctx.restore(); }
 }
 function wrapText(text, maxW) { const out = []; let cur = ''; for (const w of String(text).split(' ')) { const t = cur ? cur + ' ' + w : w; if (cur && ctx.measureText(t).width > maxW) { out.push(cur); cur = w; } else cur = t; } if (cur) out.push(cur); return out; }
 function speech(x, y, text) {
@@ -2788,10 +2798,12 @@ function render() {
   ctx.clearRect(0, 0, W, H); if (!P || mode === 'map') { ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H); }
   ctx.strokeStyle = RULE; ctx.lineWidth = 1; ctx.beginPath(); for (let y = 40 - (camY * 0.5) % 34; y < H; y += 34) { ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); } ctx.stroke();
   if (!P) return;
+  if (mode === 'meditate' && MED) { drawMed(); return; }
   if (mode === 'map') { drawMap(); cv.style.cursor = mapHits.some(m => P.visited.has(m.i) && Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18) ? 'pointer' : 'default'; return; }
   const sx = shake ? rnd(-shake, shake) : 0, sy = shake ? rnd(-shake, shake) * 0.6 : 0;
   ctx.save(); ctx.translate(sx, sy); drawWorld(); ctx.restore();
   drawSkyBehind();
+  if (unitsPending && (!uLayer.width || !uLayer.height)) unitsPending = false;
   if (unitsPending) { unitsPending = false; const g = mainCtx; g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.shadowColor = 'rgba(251,250,246,0.95)'; g.shadowBlur = 6 * scale; g.drawImage(uLayer, 0, 0); g.shadowBlur = 2 * scale; g.drawImage(uLayer, 0, 0); g.restore(); }
   drawDark(); drawOverDark();
   drawHUD();
@@ -2805,6 +2817,132 @@ function loop(now) {
   for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false;
   requestAnimationFrame(loop);
 }
+/* ---------- meditation and the first realization (Phase 3) ----------
+   Meditation is a breathing puzzle: hold Space to breathe in, keep holding, let go to breathe out, stay empty.
+   Thoughts drift in; following one (E) breaks the calm, letting it pass deepens it. It cannot be rushed.
+   Realization: a riddle at the end of a deep stillness. A right answer is "understood"; it is "realized" only
+   when the lesson has been lived. The first lesson: it is all in your mind. Its lived part: you have been
+   reborn, you have both beaten a boss and fallen to one, and you have sat in deep stillness three times. */
+const MED_PHASES = [['in', 'Breathe in', 4], ['full', 'Hold', 4], ['out', 'Breathe out', 4], ['empty', 'Rest', 4]], MED_CYCLES = 4;
+let MED = null, colorK = 0;
+const realized = id => soul.realized && soul.realized.has(id);
+const COLOR = () => colorK;
+function thoughtPool() {
+  const t = ['Did I leave something in the chest?', 'The next boss will be harder.', 'More seeds. I need more seeds.', 'What if I fall again?', 'Is this even working?', 'I should be fighting, not sitting.', 'Who would I be with more mana?', 'The stones said something about me.', 'Was that dog fed?', 'Am I doing this right?'];
+  if (life.end || soul.lives.length > 1) t.push('I remember dying.');
+  if (soul.bodies.length) t.push('That body by the road was me.');
+  if (soul.name) t.push(`${soul.name}. Is that really my name?`);
+  if (life.deeds.some(d => d.weight < 0)) t.push('I did something I am not proud of.');
+  return t;
+}
+function openMeditation(i) {
+  banner = null; $('ovGear').hidden = true; mode = 'meditate'; clearHeld();
+  MED = { shrine: i, t: 0, calm: 40, breath: 0, thoughts: [], nextT: 4, pool: thoughtPool().sort(() => Math.random() - 0.5), stir: 0, msg: null, done: false, followed: 0, passed: 0 };
+}
+function medPhase(t) { const cyc = Math.floor(t / 16), w = t % 16, i = Math.floor(w / 4); return { cyc, i, k: (w % 4) / 4, p: MED_PHASES[i] }; }
+function updateMed(dt) {
+  const M = MED; if (!M || M.done) return;
+  M.t += dt;
+  const ph = medPhase(M.t), want = ph.p[0] === 'in' || ph.p[0] === 'full', grace = ph.k < 0.12 && (ph.i === 0 || ph.i === 2);
+  const hold = !!held.jump;
+  M.breath = clamp(M.breath + (hold ? 1 : -1) * dt / 4, 0, 1);
+  if (!grace) M.calm = clamp(M.calm + (hold === want ? 2.4 : -9) * dt, 0, 100);
+  // fidgeting stirs the water
+  if (pressed.left || pressed.right || pressed.light || pressed.heavy || pressed.roll || pressed.parry) { M.calm = Math.max(0, M.calm - 6); M.stir = 0.6; M.msg = { t: 2, text: 'You stirred.' }; }
+  if (M.stir > 0) M.stir -= dt;
+  // thoughts drift in
+  M.nextT -= dt;
+  if (M.nextT <= 0 && M.t < MED_CYCLES * 16 - 8) { M.nextT = rnd(5, 8); const side = Math.random() < 0.5 ? -1 : 1; M.thoughts.push({ text: M.pool[(M.passed + M.followed) % M.pool.length], x: W / 2 + side * 420, y: rnd(150, 330), dir: -side, t: 0, life: 7, state: 'drift' }); }
+  for (const th of M.thoughts) {
+    th.t += dt; if (th.state === 'drift') th.x += th.dir * 80 * dt;
+    const near = th.state === 'drift' && th.t > 2 && th.t < 5.5;
+    if (near && pressed.use) { th.state = 'followed'; th.t = 0; th.life = 2.2; M.calm = Math.max(0, M.calm - 25); M.followed++; M.msg = { t: 2.4, text: 'You followed it, and lost the breath.' }; tone(200, 120, 0.4, 'sine', 0.04); }
+    if (th.state === 'drift' && th.t >= th.life) { th.state = 'gone'; M.calm = Math.min(100, M.calm + 6); M.passed++; M.msg = { t: 1.6, text: 'It passes.' }; }
+    if (th.state === 'followed' && th.t >= th.life) th.state = 'gone';
+  }
+  M.thoughts = M.thoughts.filter(th => th.state !== 'gone');
+  if (M.msg) { M.msg.t -= dt; if (M.msg.t <= 0) M.msg = null; }
+  if (M.t >= MED_CYCLES * 16) finishMed();
+}
+function leaveMeditation() { MED = null; mode = 'play'; clearHeld(); floater(pcx(), P.y - 30, 'YOU STAND UP', PENCIL); }
+function finishMed() {
+  const M = MED; M.done = true; const deep = M.calm >= 70;
+  P.mana = P.manaMax; mode = 'play'; MED = null; clearHeld();
+  if (!deep) { showBanner({ t: 3.4, top: 'YOUR MIND WANDERED', sub: `Calm ${Math.round(M.calm)} of 100. Your mana returns. Stillness comes to those who keep the breath and let the thoughts pass.` }); return; }
+  soul.dhyana = (soul.dhyana || 0) + 1;
+  const gifts = ['your mana returns'];
+  if (!life.medPrana && P.prana < P.pranaMax) { life.medPrana = true; P.prana++; gifts.push('one prana returns'); }
+  if (!life.clearEyes) { life.clearEyes = true; FAKES.forEach(f => f.found = true); gifts.push('your eyes are clearer: what is false in the walls shows itself for the rest of this life'); }
+  showBanner({ t: 4.4, top: 'STILLNESS', sub: `Calm ${Math.round(M.calm)} of 100. ${gifts.join('; ').replace(/^./, c => c.toUpperCase())}. Deep stillness ${soul.dhyana} time${soul.dhyana === 1 ? '' : 's'} for this soul.` });
+  for (let i = 0; i < 30; i++) fx.push({ k: 'ring', x: pcx(), y: P.y + P.h, life: 0.3 });
+  if (!realized('mind')) {
+    if (soul.understood.has('mind')) { if (livedMind()) realize(); }
+    else if (soul.dhyana >= 3 || soul.testLived) life.riddleAt = 2;
+  }
+}
+function livedMind() { return !!soul.testLived || (soul.lives.length >= 2 && Object.values(soul.bossKills).some(v => v > 0) && (soul.bossFalls || 0) > 0 && (soul.dhyana || 0) >= 3); }
+const RIDDLES = [
+  { q: 'A rope lies on a dark path, and a traveller takes it for a snake. His fear is real; his heart pounds. Where does the snake live?', a: ['In the rope', 'In the dark', 'In the mind that sees it', 'In the grass nearby'], r: 2 },
+  { q: 'Two travellers cross the same river. One calls it a blessing, the other a curse. Where are the blessing and the curse?', a: ['In the river', 'In the ones who cross it', 'In the sky above it', 'In the gods of the river'], r: 1 },
+  { q: 'You have won, and you have fallen. Which of the two was you?', a: ['The one who won', 'The one who fell', 'Whichever the wheel decides', 'Neither: both passed before the one who watched'], r: 3 },
+  { q: 'Heat and cold, praise and blame, gain and loss: they come, and they go. What stays?', a: ['The heat', 'The praise', 'The one who notices them come and go', 'Nothing at all'], r: 2 },
+  { q: 'An enemy struck you, and you burned with anger for three days. The blow lasted a moment. What hurt you for the other three days?', a: ['The enemy', 'The blow', 'Your own mind, holding it', 'The wheel'], r: 2 },
+];
+function openRiddle() {
+  life.riddleAt = null; soul.asked = soul.asked || [];
+  const left = RIDDLES.map((r, i) => i).filter(i => !soul.asked.includes(i)), i = (left.length ? left : RIDDLES.map((r, j) => j))[Math.floor(Math.random() * (left.length || RIDDLES.length))];
+  soul.asked.push(i); const R = RIDDLES[i];
+  banner = null; mode = 'ask'; clearHeld();
+  $('gearIn').innerHTML = `<span class="eyebrow">At the end of the stillness, a question rises</span><h2>${esc(R.q)}</h2>
+    <div class="choices">${R.a.map((t, j) => `<button class="choice" type="button" data-ans="${j}"><b>${esc(t)}</b></button>`).join('')}</div>
+    <p class="note">There is no hurry. A wrong answer loses nothing; the question will return in another form.</p>`;
+  $('ovGear').hidden = false;
+  $('gearIn').querySelectorAll('[data-ans]').forEach(b => b.addEventListener('click', () => {
+    closePanel(); const right = +b.dataset.ans === R.r;
+    if (!right) { showBanner({ t: 3.4, top: 'THE QUESTION SINKS BACK', sub: 'Nothing is lost. It will rise again, in another form, in another stillness.' }); return; }
+    soul.understood.add('mind');
+    if (livedMind()) realize();
+    else showBanner({ t: 5, top: 'YOU UNDERSTOOD', sub: 'It is all in your mind. You see it, the way one sees a map of a country never walked. The words are yours now (chants and spells are 5% stronger), but the world stays in ink. When you have lived it, the stillness will tell you.' });
+  }));
+}
+function realize() {
+  soul.understood.add('mind'); soul.realized.add('mind'); colorK = colorK || 0.001;
+  showBanner({ t: 6, top: 'YOU REALIZED', sub: 'It is all in your mind. The winning and the falling, the friend and the enemy, the snake and the rope: all of it passed before the one who watches. And as the knot loosens, color begins to come back into the world.' });
+  for (let i = 0; i < 60; i++) fx.push({ k: 'ink', x: pcx() + rnd(-200, 200), y: P.y + rnd(-200, 60), vx: rnd(-60, 60), vy: -rnd(40, 160), life: rnd(0.8, 2) });
+  tone(392, 784, 2.5, 'sine', 0.05); tone(523, 1046, 2.5, 'sine', 0.03, 0.4);
+}
+function drawMed() {
+  const M = MED; ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
+  const ph = medPhase(Math.min(M.t, MED_CYCLES * 16 - 0.001)), cx = W / 2, cy = 250, ideal = ph.i === 0 ? ph.k : ph.i === 1 ? 1 : ph.i === 2 ? 1 - ph.k : 0;
+  const rough = 1 - M.calm / 100 + (M.stir > 0 ? 0.6 : 0);
+  // the pond
+  ctx.strokeStyle = PENCIL; ctx.lineWidth = 1.4;
+  for (let r = 0; r < 7; r++) { ctx.beginPath(); for (let a = 0; a <= Math.PI * 2 + 0.01; a += 0.06) { const rr = 40 + r * 34 + ((M.t * 18) % 34) + Math.sin(a * 7 + M.t * 3 + r) * rough * 9, x = cx + Math.cos(a) * rr * 1.9, y = 420 + Math.sin(a) * rr * 0.32; a === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } ctx.globalAlpha = 1 - r / 7; ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  // the guide circle and your own breath
+  ctx.strokeStyle = HATCH; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(cx, cy, 40 + ideal * 80, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(cx, cy, 40 + M.breath * 80, 0, Math.PI * 2); ctx.stroke();
+  const old = ctx; stick(cx, 352, POSE.sit(), 1, INK, P.looks.build, { hair: P.looks.hair, robe: P.looks.robe, s: 1.4 });
+  ctx.textAlign = 'center'; ctx.fillStyle = INK; ctx.font = `20px ${FD}`; ctx.fillText(ph.p[1].toUpperCase(), cx, 92);
+  ctx.font = `15px ${FH}`; ctx.fillStyle = INK2; ctx.fillText(ph.p[0] === 'in' || ph.p[0] === 'full' ? 'Hold Space' : 'Let go of Space', cx, 116);
+  // thoughts
+  for (const th of M.thoughts) {
+    const a = th.state === 'followed' ? 1 : clamp(Math.min(th.t, th.life - th.t), 0, 1), big = th.state === 'followed';
+    ctx.globalAlpha = a * (big ? 1 : 0.8); ctx.fillStyle = big ? INK : 'rgba(21,21,19,0.12)'; ctx.beginPath(); ctx.ellipse(th.x, th.y, big ? 200 : 120, big ? 40 : 28, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = big ? PAPER : INK2; ctx.font = `${big ? 18 : 15}px ${FH}`; ctx.fillText(th.text, th.x, th.y + 5);
+    if (th.state === 'drift' && th.t > 2 && th.t < 5.5) { ctx.font = `11px ${FD}`; ctx.fillStyle = RED; ctx.fillText('E: LOOK CLOSER', th.x, th.y + 46); }
+    ctx.globalAlpha = 1;
+  }
+  // calm and time
+  const bw = 300, bx = cx - bw / 2; ctx.fillStyle = FAINT; ctx.fillRect(bx, H - 52, bw, 8); ctx.fillStyle = INK; ctx.fillRect(bx, H - 52, bw * M.calm / 100, 8); ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.strokeRect(bx, H - 52, bw, 8);
+  ctx.fillStyle = PENCIL; ctx.fillRect(bx + bw * 0.7, H - 56, 2, 16);
+  ctx.font = `10px ${FD}`; ctx.fillStyle = INK2; ctx.fillText(`CALM · BREATH ${Math.min(MED_CYCLES, ph.cyc + 1)} OF ${MED_CYCLES} · ESC TO STAND UP`, cx, H - 62);
+  if (M.msg) { ctx.font = `16px ${FH}`; ctx.fillStyle = INK2; ctx.globalAlpha = clamp(M.msg.t, 0, 1); ctx.fillText(M.msg.text, cx, H - 82); ctx.globalAlpha = 1; }
+}
+/* the first color: when the mind is realized, the ink world slowly takes color */
+const hexMix = (a, b, t) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t).toString(16).padStart(2, '0')).join('');
+const tint = (gray, col) => colorK > 0 ? hexMix(gray, col, colorK) : gray;
+
 /* ---------- the nine stones (Phase 3): Navagraha readings ----------
    Two readings: the one who dreams (the player's real birth against the real sky of today, once a real day)
    and this body (the chart of the current life, once a life). Calculations are standard Vedic ones:
@@ -2852,7 +2990,7 @@ const WEAK_AT = { Sun: 'standing tall', Moon: 'a calm mind', Mars: 'courage', Me
 const BOONS = { dmg: 'your blows land harder', prot: 'harm touches you less', st: 'your breath returns faster', heal: 'lotus heals more', mana: 'mana returns faster', chant: 'chants are stronger', spell: 'spells and scrolls are stronger' };
 const DAY_BOON = { Sun: ['dmg', 0.06], Moon: ['heal', 0.2], Mars: ['dmg', 0.1], Mercury: ['st', 0.12], Jupiter: ['mana', 0.2], Venus: ['chant', 0.1], Saturn: ['prot', 0.08] };
 const BODY_BOON = { Sun: ['dmg', 0.06], Moon: ['heal', 0.2], Mars: ['dmg', 0.08], Mercury: ['st', 0.12], Jupiter: ['mana', 0.2], Venus: ['chant', 0.1], Saturn: ['prot', 0.06], Rahu: ['dmg', 0.06], Ketu: ['spell', 0.1] };
-const boonV = k => (P && P.boons ? P.boons.filter(b => b.kind === k).reduce((a, b) => a + b.v, 0) : 0);
+const boonV = k => (P && P.boons ? P.boons.filter(b => b.kind === k).reduce((a, b) => a + b.v, 0) : 0) + ((k === 'spell' || k === 'chant') && soul.understood && soul.understood.has('mind') ? 0.05 : 0);
 const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 let READS = {}; try { READS = JSON.parse(localStorage.getItem(READ_KEY)) || {}; } catch (_) { READS = {}; }
 function saveReads() { try { localStorage.setItem(READ_KEY, JSON.stringify(READS)); } catch (_) {} }
@@ -3237,7 +3375,7 @@ window.__life = {
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, readSoul: t => readSoul(t), readBody: () => readBody(), soulChart: () => soulChart(), NAVAGRAHA, TABLETS, get READS() { return READS; }, boonV: k => boonV(k), applyDayBoon: () => applyDayBoon(), openStones: () => openStones(), E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, lifeKarma: () => lifeKarma(), set autoAsk(v) { autoAsk = v; }, realmLean: () => realmLean(), DOG, nearDebt: () => nearDebt(), witnesses: t => witnesses(t), begChance: () => begChance(), spawnFoes: () => spawnFoes(), sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, get MED() { return MED; }, openMeditation: i => openMeditation(i), get colorK() { return colorK; }, livedMind: () => livedMind(), openRiddle: () => openRiddle(), RIDDLES, readSoul: t => readSoul(t), readBody: () => readBody(), soulChart: () => soulChart(), NAVAGRAHA, TABLETS, get READS() { return READS; }, boonV: k => boonV(k), applyDayBoon: () => applyDayBoon(), openStones: () => openStones(), E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, lifeKarma: () => lifeKarma(), set autoAsk(v) { autoAsk = v; }, realmLean: () => realmLean(), DOG, nearDebt: () => nearDebt(), witnesses: t => witnesses(t), begChance: () => begChance(), spawnFoes: () => spawnFoes(), sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };

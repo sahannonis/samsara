@@ -12,7 +12,7 @@ PAGE = 'file://' + os.path.join(ROOT, 'dist', 'samsara.html')
 async def main():
     async with async_playwright() as p:
         b = await p.chromium.launch(); pg = await b.new_page(viewport={'width': 1280, 'height': 1000})
-        errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        errs = []; pg.on('pageerror', lambda e: errs.append(str(e) + ' @ ' + (e.stack or '')[:400]))
         await pg.route('https://cdn.jsdelivr.net/**', lambda r: r.fulfill(path=LIB, content_type='application/javascript')); await pg.route('https://fonts.googleapis.com/**', lambda r: r.abort())
         await pg.goto(PAGE); await pg.wait_for_timeout(400)
         await pg.select_option('#micStart', 'off'); await pg.click('#btnQuick'); await pg.wait_for_timeout(200)
