@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Samsara Build 17</title>
+<title>Samsara Build 18</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&family=Kalam:wght@400;700&display=swap">
@@ -121,6 +121,13 @@ input.num{font-family:var(--f-mono);font-size:14px;padding:8px;width:110px;borde
 .link{all:unset;cursor:pointer;text-decoration:underline;text-underline-offset:2px;color:var(--ink)}
 .link:focus-visible{outline:2px dashed var(--ink);outline-offset:2px}
 .coords{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.frags{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;width:100%}
+.frag{all:unset;box-sizing:border-box;cursor:pointer;width:min(260px,100%);text-align:left;border:1.5px dashed #b9b6ac;padding:10px 12px;display:flex;flex-direction:column;gap:4px;color:var(--paper)}
+.frag b{font-family:var(--f-display);font-weight:400;font-size:11px;letter-spacing:.06em}
+.frag span{font-family:var(--f-hand);font-size:15px;line-height:1.25}
+.frag.on{border:2px solid var(--paper);background:rgba(251,250,246,.12)}
+.frag:disabled{opacity:.45;cursor:default}
+.frag:focus-visible{outline:3px dashed var(--paper);outline-offset:3px}
 .reading{display:flex;flex-direction:column;gap:12px;width:100%;text-align:left}
 .rsec{border:1.5px solid var(--ink);padding:12px 14px;display:flex;flex-direction:column;gap:6px}
 .rsec .calc{font-family:var(--f-mono);font-size:12px;color:var(--ink-2);line-height:1.45}
@@ -135,7 +142,7 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
 <body>
 <div class="wrap">
   <header>
-    <div><span class="eyebrow">Samsara · test build 17 · Phase 3</span><h1>The Nine Stones</h1></div>
+    <div><span class="eyebrow">Samsara · test build 18 · Phase 3</span><h1>The Ledger</h1></div>
     <span class="lbl" id="lifeLabel">Life 1</span>
   </header>
 
@@ -143,9 +150,9 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
     <canvas id="cv" aria-label="Samsara test: a long proving ground of planks, ledges, water, walls, wind and darkness"></canvas>
 
     <div class="ov" id="ovStart"><div class="ov-in">
-      <span class="eyebrow">Phase 3 · readings</span>
-      <h2>The nine stones</h2>
-      <p>Somewhere past the false wall at the end stands a Navagraha shrine: nine stones for the nine wanderers of the sky. Bring an offering and they read you: your own birth against the real sky of today, once a real day, told in parables, with a small gift for the rest of the day. They also read the body you wear, once a life. Two star tablets, hidden in the world, let the stones speak of the longer seasons and the periods of your life. Start with your real birth (Begin) for a reading of you.</p>
+      <span class="eyebrow">Phase 3 · karma and rebirth</span>
+      <h2>The ledger</h2>
+      <p>Karma is hidden now. There is no number: you feel it in the world, in how the villager speaks, in whether the Grasping beg or lower their sticks, and in what the wheel says when a life ends. What no one sees weighs twice. After a boss falls, the wheel asks why you fought, and at the end it weighs your words against your hands. Karma decides how many births you may choose from and how fortunate they are, which realm your soul leans toward, and how many fragments of this life you may carry. A heavy life leaves a debt: you are born near the one you wronged, and must make it right. There is a hungry dog by the village, and the shrines take gifts for strangers.</p>
       <div class="row">
         <label class="lbl" for="micStart">Mic</label>
         <select id="micStart">

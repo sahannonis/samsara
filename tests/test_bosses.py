@@ -16,7 +16,7 @@ async def main():
         await pg.goto(PAGE); await pg.wait_for_timeout(400)
         await pg.select_option('#micStart', 'off'); await pg.click('#btnQuick'); await pg.wait_for_timeout(300)
         ev = pg.evaluate; fr = pg.locator('#frame')
-        await ev("__life.freeze(true)")
+        await ev("__life.freeze(true); __life.autoAsk = 'way'")
         async def run(n, keys={}, press={}): await ev(f"__life.run({n},{json.dumps(keys)},{json.dumps(press)})")
         await ev("(()=>{const L=__life,P=L.P; P.noMana=false; P.manaTierMax=100; L.applyStats(true); L.setNight(false);})()")
         cast = lambda id: ev(f"(()=>{{const L=__life; L.P.mana=999; L.P.wordSlots=['{id}',null,null,null]; L.learnSpell('{id}'); L.cast('{id}');}})()")

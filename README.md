@@ -62,6 +62,7 @@ and go to `http://localhost:8000/dist/samsara.html`.
 15. **Your Birth**: character creation. The first life begins at the player's own birth (date, local time and place, with past time zone changes handled), read with the same star engine as the Star Panel; if the hour is unknown the chart is read from the Moon (Chandra lagna); or the wheel decides. Then the body (build, hair, clothing), an optional soul name, and a soul mark that stays the same in every life and marks your past bodies. The player chooses how their birth is kept: with their saves (Steam Cloud on Steam), on this device only, or not at all.
 16. **Every town**: about 172,000 birthplaces built in (the original cities plus GeoNames places of over 1,000 people), searched without accents; if a village is still missing, an online search through OpenStreetMap or coordinates pasted from any map (the time zone is found from the point).
 17. **The Nine Stones**: a Navagraha shrine on the trial road reads the player twice. The one who dreams: the player's real birth against the real sky of today (tara bala, the Moon's house from the natal Moon, the day lord), once a real day, for an offering of seeds, a lotus petal and an ember stone, with a small gift until midnight. Two star tablets in the world open deeper readings: Saturn, Jupiter, Rahu and Ketu from the natal Moon (Sade Sati included) and the Vimshottari periods. This body: the current life's chart, once a life, with a boon from its strongest planet. Told in parables, never as predictions.
+18. **The Ledger**: karma 2 and rebirth 2. Karma is hidden (no number; the world hints at it). Deeds no one sees weigh twice. After a boss the wheel asks why you fought, and at death your words are weighed against your deeds. Good karma brings Grasping at peace and more who beg; heavy karma, none who beg. Karma decides how many births are offered (1 to 3) and how fortunate they are (read from each real chart), which of the six realms the soul leans toward, and how many fragments of a life can be carried (a skill, a stat point, a weapon's temper, scrolls). A heavy life leaves a debt: born near the one you wronged, with one lotus less until you make it right. New small deeds: a hungry dog, and seeds left at shrines for strangers.
 
 ## Running the tests
 
@@ -79,6 +80,7 @@ python tests/test_born_empty.py
 python tests/test_bow_and_voice.py
 python tests/test_birth.py
 python tests/test_stones.py
+python tests/test_karma.py
 ```
 
 ## Credits
