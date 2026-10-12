@@ -65,6 +65,7 @@ and go to `http://localhost:8000/dist/samsara.html`.
 18. **The Ledger**: karma 2 and rebirth 2. Karma is hidden (no number; the world hints at it). Deeds no one sees weigh twice. After a boss the wheel asks why you fought, and at death your words are weighed against your deeds. Good karma brings Grasping at peace and more who beg; heavy karma, none who beg. Karma decides how many births are offered (1 to 3) and how fortunate they are (read from each real chart), which of the six realms the soul leans toward, and how many fragments of a life can be carried (a skill, a stat point, a weapon's temper, scrolls). A heavy life leaves a debt: born near the one you wronged, with one lotus less until you make it right. New small deeds: a hungry dog, and seeds left at shrines for strangers.
 19. **Stillness**: meditation at shrines (hold Space to breathe in, hold, let go to breathe out, rest, four slow breaths; thoughts drift by and following one breaks the calm). A deep stillness restores mana and one prana a life, and shows false walls for the rest of the life. The first realization, "it is all in your mind": after a deep stillness a riddle rises (from a pool, a new one each time). A wrong answer loses nothing. A right answer is understood (chants and spells 5% stronger) and is realized only when the lesson has been lived: reborn at least once, a boss both beaten and fallen to, three deep stillnesses. Realizing it brings the first color into the ink world.
     Also in build 19: a Messages setting (fade on their own, with time to read and a line showing the time left, or stay until closed with Enter or a click), and a chart's stillness gift: a strong Jupiter, Ketu in the houses of release or dharma, or planets in the twelfth make a body turned inward, so stillness comes more easily.
+20. **The Five Paths**: five roads toward realization (Jnana: knowing, Bhakti: love, Karma: right action, Dhyana: stillness, and the road walked alone), walked by deeds and never by words. Progress is hidden: at a shrine you only feel how worn each road is under your feet. Each road has three steps, each step gives a small gift, and no road is walked to its end in a single life. A teacher sits by the pool shrine; bowing to them opens the road of love through small services across lives, and closes the road walked alone for that soul, for good. A body born with no mana that walks the road of right action learns body arts for keys 1 to 4, paid with stamina (Breath strike, Iron stance, Empty step); one that walks the road of stillness to its end may, very rarely, wake a spark of mana for that life. Those who see clearly find a seat hidden in a false wall near the End shrine.
 
 ## Running the tests
 
@@ -85,6 +86,7 @@ python tests/test_stones.py
 python tests/test_karma.py
 python tests/test_stillness.py
 python tests/test_settings.py
+python tests/test_paths.py
 ```
 
 ## Credits

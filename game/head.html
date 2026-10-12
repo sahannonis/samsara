@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Samsara Build 19</title>
+<title>Samsara Build 20</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&family=Kalam:wght@400;700&display=swap">
@@ -95,6 +95,8 @@ input.num{font-family:var(--f-mono);font-size:14px;padding:8px;width:110px;borde
 .choice b{font-family:var(--f-display);font-weight:400;font-size:12px;letter-spacing:.06em}
 .choice span{font-size:14px;line-height:1.35}
 .choice.on{background:var(--ink);color:var(--paper)}
+.choice[disabled]{opacity:.5;cursor:default}
+.choice.faded{opacity:.3;text-decoration:line-through}
 .choice.on canvas{filter:invert(1)}
 .choice.sm{padding:8px 10px;font-family:var(--f-mono);font-size:13px;flex-direction:row;align-items:center;gap:6px}
 .choice:focus-visible{outline:3px dashed var(--ink);outline-offset:3px}
@@ -142,7 +144,7 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
 <body>
 <div class="wrap">
   <header>
-    <div><span class="eyebrow">Samsara · test build 19 · Phase 3</span><h1>Stillness</h1></div>
+    <div><span class="eyebrow">Samsara · test build 20 · Phase 3</span><h1>The five paths</h1></div>
     <span class="lbl" id="lifeLabel">Life 1</span>
   </header>
 
@@ -150,9 +152,9 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
     <canvas id="cv" aria-label="Samsara test: a long proving ground of planks, ledges, water, walls, wind and darkness"></canvas>
 
     <div class="ov" id="ovStart"><div class="ov-in">
-      <span class="eyebrow">Phase 3 · meditation and the first realization</span>
-      <h2>Stillness</h2>
-      <p>At any shrine you can now sit in stillness. Hold Space to breathe in, keep holding, let go to breathe out, rest, following the guide. Thoughts drift by; following one breaks the calm, letting it pass deepens it. A deep stillness restores you and clears your eyes. And when a soul has lived enough (born again, won and fallen, sat in stillness three times), a question rises at the end of the stillness. Understanding it is one thing. Realizing it is another, and only that brings color back. Not everyone will.</p>
+      <span class="eyebrow">Phase 3 · the five paths</span>
+      <h2>The five paths</h2>
+      <p>Five roads lead toward realization: knowing, love, right action, stillness, and the road walked alone. You walk them by what you do, never by what you say, and no number tells you how far you are. A shrine only lets you feel the roads under your feet. Each road has three steps, each step gives a small gift, and no road ends in a single life. A teacher sits by the pool shrine. Bowing to them opens the road of love, and closes the road walked alone for this soul, for good. A body born with no mana that walks the road of right action learns body arts no caster ever gets.</p>
       <div class="row">
         <label class="lbl" for="micStart">Mic</label>
         <select id="micStart">
@@ -250,6 +252,8 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
         <button class="btn ghost" id="tChants" type="button">Teach me every chant</button>
         <button class="btn ghost" id="tSpells" type="button">Teach me every spell</button>
         <button class="btn ghost" id="tBoss" type="button">Take me to the next boss</button>
+        <button class="btn ghost" id="tPaths" type="button">Walk every road one step</button>
+        <button class="btn ghost" id="tTeacher" type="button">Take me to the teacher</button>
         <button class="btn ghost" id="tLived" type="button">Count the first lesson as lived</button>
         <button class="btn ghost" id="tColor" type="button">Show the first color</button>
         <button class="btn ghost" id="tStones" type="button">Take me to the nine stones</button>
