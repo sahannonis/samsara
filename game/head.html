@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Samsara Build 15</title>
+<title>Samsara Build 16</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&family=Kalam:wght@400;700&display=swap">
@@ -118,13 +118,17 @@ input.num{font-family:var(--f-mono);font-size:14px;padding:8px;width:110px;borde
 .prev canvas{position:static;width:100%;height:auto;aspect-ratio:9/10}
 .pickrow{display:flex;flex-wrap:wrap;gap:8px}
 .mk canvas{position:static;width:22px;height:22px}
+.link{all:unset;cursor:pointer;text-decoration:underline;text-underline-offset:2px;color:var(--ink)}
+.link:focus-visible{outline:2px dashed var(--ink);outline-offset:2px}
+.coords{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.coords input{font-family:var(--f-mono);font-size:14px;padding:8px;border:1.5px solid var(--ink);background:var(--paper);color:var(--ink);flex:1 1 200px}
 footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);padding-top:12px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div><span class="eyebrow">Samsara · test build 15 · Phase 3</span><h1>Your Birth</h1></div>
+    <div><span class="eyebrow">Samsara · test build 16 · Phase 3</span><h1>Your Birth</h1></div>
     <span class="lbl" id="lifeLabel">Life 1</span>
   </header>
 
@@ -232,7 +236,7 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
     </div>
   </div>
 
-  <footer>Planet positions: Astronomy Engine by Don Cross (MIT). Needs internet for the star library and for speech recognition. Nothing is saved: closing the page ends the soul.</footer>
+  <footer>Planet positions: Astronomy Engine by Don Cross (MIT). Places: GeoNames (CC BY 4.0) and city-timezones (MIT); time zones from coordinates: tz-lookup (CC0); online place search: © OpenStreetMap contributors. Needs internet for the star library and for speech recognition. Only your name, body, soul mark and (if you choose) your birth are kept in this browser; the soul itself ends when the page closes.</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
 <script>

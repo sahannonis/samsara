@@ -2623,7 +2623,39 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 /* ---------- character creation (Phase 3): your birth moment, your body, your soul mark ---------- */
-const CITIES = (/*CITIES*/[]).map(r => ({ name: r[0], prov: r[1], country: r[2], lat: r[3], lon: r[4], tz: r[5], key: (r[0] + ' ' + r[1] + ' ' + r[2]).toLowerCase() }));
+// ~172,000 birthplaces packed into the page (see tools/build-places.js); time zones for any other point come from tz-lookup
+/*TZLOOKUP*/
+const PLACES_GZ = '/*PLACES*/';
+const fold = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+let CITIES = [], placesReady = null;
+function loadPlaces() {
+  if (placesReady) return placesReady;
+  placesReady = (async () => {
+    if (PLACES_GZ.startsWith('/*') || typeof DecompressionStream === 'undefined') return;
+    const bin = Uint8Array.from(atob(PLACES_GZ), ch => ch.charCodeAt(0));
+    const txt = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+    const L = txt.split('\n'), TZ = L[0].split('|').slice(1), AD = L[1].split('|').slice(1), out = [];
+    let dn = null; try { dn = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (_) {}
+    let i = 2;
+    for (; i < L.length && L[i] !== '='; i++) { const r = L[i].split('|'); out.push({ name: r[0], prov: r[1], country: r[2], lat: +r[3], lon: +r[4], tz: TZ[parseInt(r[5], 36)] }); }
+    let cc = '', cn = '';
+    for (i++; i < L.length; i++) { const l = L[i]; if (l[0] === '#') { cc = l.slice(1); try { cn = dn ? dn.of(cc) : cc; } catch (_) { cn = cc; } continue; } const r = l.split('|'); out.push({ name: r[0], prov: AD[parseInt(r[1], 36)], country: cn, lat: +r[2], lon: +r[3], tz: TZ[parseInt(r[4], 36)] }); }
+    for (const c of out) { c.n = fold(c.name); c.key = fold(c.name + ' ' + c.prov + ' ' + c.country); }
+    CITIES = out;
+  })().catch(() => {});
+  return placesReady;
+}
+const tzAt = (lat, lon) => { try { return typeof tzlookup === 'function' ? tzlookup(lat, lon) : null; } catch (_) { return null; } };
+function parseCoords(t) {
+  const m = String(t).toUpperCase().match(/(-?\d+(?:\.\d+)?)\s*°?\s*([NS])?[\s,;]+(-?\d+(?:\.\d+)?)\s*°?\s*([EW])?/); if (!m) return null;
+  let lat = +m[1], lon = +m[3]; if (m[2] === 'S') lat = -Math.abs(lat); if (m[4] === 'W') lon = -Math.abs(lon);
+  return Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? { lat, lon } : null;
+}
+async function searchOnline(q) {
+  const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=en&q=${encodeURIComponent(q)}`, { headers: { Accept: 'application/json' } });
+  if (!r.ok) throw new Error('search failed');
+  return (await r.json()).map(x => { const parts = String(x.display_name).split(',').map(t => t.trim()), lat = +x.lat, lon = +x.lon; return { name: parts[0], prov: parts.slice(1, -1).slice(-2).join(', '), country: parts[parts.length - 1] || '', lat, lon, tz: tzAt(lat, lon), online: true }; }).filter(c => c.tz);
+}
 const SELF_KEY = 'samsara.self';
 let SELF = null; try { SELF = JSON.parse(localStorage.getItem(SELF_KEY)); } catch (_) { SELF = null; }
 const MARKS = { lotus: 'Lotus', spiral: 'Spiral', eye: 'Open eye', crescent: 'Crescent', flame: 'Flame', knot: 'Endless knot' };
@@ -2640,9 +2672,9 @@ function drawMark(id, x, y, s = 1, col = INK, fill = null) {
   if (fill) ctx.fill(); ctx.stroke(); ctx.restore();
 }
 function findCities(q) {
-  q = q.trim().toLowerCase(); if (q.length < 2) return [];
+  q = fold(q.trim()); if (q.length < 2) return [];
   const starts = [], has = [];
-  for (const c of CITIES) { if (c.name.toLowerCase().startsWith(q)) starts.push(c); else if (c.key.includes(q)) has.push(c); if (starts.length >= 8) break; }
+  for (const c of CITIES) { if (c.n.startsWith(q)) starts.push(c); else if (has.length < 8 && c.key.includes(q)) has.push(c); if (starts.length >= 8) break; }
   return starts.concat(has).slice(0, 8);
 }
 // a real birth: the chart of the moment the player was born, or (time unknown) the day read from the Moon
@@ -2658,7 +2690,7 @@ function realBirth(date, time, city) {
     if (m0.nak !== m1.nak) moonNote = `That day the Moon moved from ${m0.nakName} into ${m1.nakName}; without the hour, midday is used.`;
   }
   const g = E.game(c), now = Date.now(), yr = 365.25 * 864e5;
-  const where = `${city.name}${city.country ? ', ' + city.country : ''}`;
+  const where = [city.name, city.country].filter(Boolean).join(', ');
   const local = new Intl.DateTimeFormat('en-GB', { timeZone: city.tz, day: 'numeric', month: 'short', year: 'numeric', ...(known ? { hour: '2-digit', minute: '2-digit' } : {}) }).format(new Date(utc));
   return { ms: utc, real: true, timeKnown: known, place: where, local: known ? local : `${local} (hour unknown)`, offset: E.fmtOffset(offset), age: Math.floor((now - utc) / yr), looks: null,
     lagna: `${E.SIGNS[c.lagna.sign].en}${known ? '' : ' (from the Moon)'}`, moon: `${E.SIGNS[c.by.Moon.sign].en}, ${c.by.Moon.nakName}`, sun: E.SIGNS[c.by.Sun.sign].en, moonNote,
@@ -2670,8 +2702,8 @@ function openCreate() {
   mode = 'create'; clearHeld(); banner = null;
   const s = SELF || {};
   CR = { step: 1, kind: s.date ? (s.time ? 'real' : 'day') : null, date: s.date || '', time: s.time || '', city: s.city || null, q: s.city ? s.city.name : '', birth: null, err: '',
-    looks: s.looks || { hair: 1, build: 4.2, robe: false }, mark: s.mark || 'lotus', name: s.name || '', store: s.store || null };
-  $('ovCreate').hidden = false; renderCreate();
+    looks: s.looks || { hair: 1, build: 4.2, robe: false }, mark: s.mark || 'lotus', name: s.name || '', store: s.store || null, online: null, coords: false, ll: '', llName: '' };
+  $('ovCreate').hidden = false; renderCreate(); if (!CITIES.length) loadPlaces().then(() => { if (CR && CR.step === 1) renderCreate(); });
 }
 function birthCard(b) {
   const line = (k, v) => `<span><b>${k}</b> ${esc(v)}</span>`;
@@ -2687,7 +2719,8 @@ function renderCreate() {
   const head = `<span class="eyebrow">Before your first life · step ${step} of ${steps.length} · ${steps[step - 1]}</span>`;
   if (step === 1) {
     const choice = (k, t, d) => `<button class="choice${c.kind === k ? ' on' : ''}" type="button" data-kind="${k}"><b>${t}</b><span>${d}</span></button>`;
-    const cityList = c.kind && c.kind !== 'wheel' ? findCities(c.q).filter(x => !c.city || x !== c.city) : [];
+    const cityList = c.kind && c.kind !== 'wheel' && !c.city ? (c.online && c.online.results ? c.online.results : findCities(c.q)).filter(x => !c.city || x !== c.city) : [];
+    const noMatch = c.q.trim().length >= 2 && !c.city && !findCities(c.q).length;
     el.innerHTML = `${head}<h2>When were you born?</h2>
       <p>Your first life begins at a real moment under the real sky. The stars at that moment shape your body: its mana, its school of magic, and where it comes from.</p>
       <div class="choices">${choice('real', 'My real birth', 'The day, the hour and the place you were born.')}${choice('day', 'I know the day, not the hour', 'Without the hour the rising sign is unknown, so the chart is read from the Moon, as the tradition does.')}${choice('wheel', 'Let the wheel decide', 'A real moment from the past, chosen for you.')}</div>
@@ -2695,8 +2728,14 @@ function renderCreate() {
         <label class="field"><span class="lbl">Date of birth</span><input id="crDate" type="date" min="1900-01-01" max="${new Date().toISOString().slice(0, 10)}" value="${esc(c.date)}"></label>
         ${c.kind === 'real' ? `<label class="field"><span class="lbl">Time of birth (local clock)</span><input id="crTime" type="time" value="${esc(c.time)}"></label>` : ''}
         <label class="field wide"><span class="lbl">Place of birth</span><input id="crCity" type="text" autocomplete="off" placeholder="Start typing a town or city" value="${esc(c.q)}">
-          ${c.city ? `<span class="m">✓ ${esc(c.city.name)}, ${esc(c.city.prov ? c.city.prov + ', ' : '')}${esc(c.city.country)} · ${esc(c.city.tz)}</span>` : ''}
-          ${cityList.length ? `<span class="clist">${cityList.map((x, i) => `<button type="button" data-city="${i}">${esc(x.name)}<i>${esc([x.prov, x.country].filter(Boolean).join(', '))}</i></button>`).join('')}</span>` : ''}</label>
+          ${c.city ? `<span class="m">✓ ${esc([c.city.name, c.city.prov, c.city.country].filter(Boolean).join(', '))} · ${esc(c.city.tz)} · <button class="link" type="button" id="crChange">change</button></span>` : ''}
+          ${!CITIES.length && placesReady ? '<span class="m">Loading the list of places…</span>' : ''}
+          ${noMatch && !(c.online && c.online.results) ? `<span class="m">“${esc(c.q.trim())}” is not on the list of ${CITIES.length.toLocaleString('en')} places.</span>` : ''}
+          ${cityList.length ? `<span class="clist">${cityList.map((x, i) => `<button type="button" data-city="${i}">${esc(x.name)}<i>${esc([x.prov, x.country].filter(Boolean).join(', '))}</i></button>`).join('')}</span>` : ''}
+          ${c.online && c.online.results ? `<span class="m">Results from OpenStreetMap (© OpenStreetMap contributors). <button class="link" type="button" id="crOffline">Back to the built-in list</button></span>` : ''}
+          ${c.online && c.online.busy ? '<span class="m">Searching OpenStreetMap…</span>' : ''}${c.online && c.online.err ? `<span class="m err">${esc(c.online.err)}</span>` : ''}
+          ${!c.city ? `<span class="m">Not on the list? <button class="link" type="button" id="crOnline">Search online</button> (sends the name you typed to OpenStreetMap) · <button class="link" type="button" id="crCoords">Enter coordinates</button> · or pick the nearest town: a few kilometres moves the chart by only seconds.</span>` : ''}
+          ${c.coords && !c.city ? `<span class="coords"><input id="crLL" type="text" placeholder="Latitude, longitude, e.g. 7.031, 79.921" value="${esc(c.ll)}"><input id="crLLName" type="text" placeholder="Name of the place (optional)" value="${esc(c.llName)}"><button class="btn ghost sm" type="button" id="crLLGo">Use these</button></span><span class="m">Copy them from any map: in Google Maps, press and hold on the place. The time zone is found from the coordinates.</span>` : ''}</label>
         </div>
         <div class="row"><button class="btn ghost" id="crCast" type="button">Read my chart</button></div>` : ''}
       ${c.kind === 'wheel' && !c.birth ? '<div class="row"><button class="btn ghost" id="crCast" type="button">Turn the wheel</button></div>' : ''}
@@ -2708,7 +2747,15 @@ function renderCreate() {
     const keep = () => { if ($('crDate')) c.date = $('crDate').value; if ($('crTime')) c.time = $('crTime').value; };
     const ci = $('crCity'); if (ci) { ci.addEventListener('input', () => { keep(); c.q = ci.value; c.city = null; c.birth = null; const pos = ci.selectionStart; renderCreate(); const n = $('crCity'); n.focus(); n.setSelectionRange(pos, pos); }); ci.addEventListener('keydown', e => e.stopPropagation()); }
     el.querySelectorAll('input').forEach(i => i.addEventListener('keydown', e => e.stopPropagation()));
-    el.querySelectorAll('[data-city]').forEach(b => b.addEventListener('click', () => { keep(); c.city = cityList[+b.dataset.city]; c.q = c.city.name; c.birth = null; renderCreate(); }));
+    el.querySelectorAll('[data-city]').forEach(b => b.addEventListener('click', () => { keep(); c.city = cityList[+b.dataset.city]; c.q = c.city.name; c.online = null; c.birth = null; renderCreate(); }));
+    const chg = $('crChange'); if (chg) chg.addEventListener('click', () => { c.city = null; c.birth = null; c.q = ''; renderCreate(); setTimeout(() => $('crCity') && $('crCity').focus(), 0); });
+    const on = $('crOnline'); if (on) on.addEventListener('click', () => { keep(); if (c.q.trim().length < 2) { c.online = { err: 'Type the name of the place first.' }; renderCreate(); return; } c.online = { busy: true }; renderCreate();
+      searchOnline(c.q.trim()).then(res => { c.online = res.length ? { results: res } : { err: 'OpenStreetMap found nothing by that name. Try another spelling, or enter coordinates.' }; renderCreate(); }).catch(() => { c.online = { err: 'The online search could not be reached. Check the internet, or enter coordinates instead.' }; renderCreate(); }); });
+    const off = $('crOffline'); if (off) off.addEventListener('click', () => { c.online = null; renderCreate(); });
+    const co = $('crCoords'); if (co) co.addEventListener('click', () => { keep(); c.coords = true; renderCreate(); });
+    const llg = $('crLLGo'); if (llg) llg.addEventListener('click', () => { keep(); c.ll = $('crLL').value; c.llName = $('crLLName').value; const p = parseCoords(c.ll), tz = p && tzAt(p.lat, p.lon);
+      if (!p) { c.err = 'Those do not look like coordinates. Write them like 7.031, 79.921.'; renderCreate(); return; } if (!tz) { c.err = 'No time zone was found for that point.'; renderCreate(); return; }
+      c.err = ''; c.city = { name: c.llName.trim() || `${p.lat.toFixed(3)}, ${p.lon.toFixed(3)}`, prov: c.llName.trim() ? `${p.lat.toFixed(3)}, ${p.lon.toFixed(3)}` : '', country: '', lat: p.lat, lon: p.lon, tz }; c.q = c.city.name; c.birth = null; renderCreate(); });
     ['crDate', 'crTime'].forEach(id => { const i = $(id); if (i) i.addEventListener('change', () => { keep(); c.birth = null; }); });
     const cast = $('crCast'); if (cast) cast.addEventListener('click', () => {
       keep(); c.err = '';
@@ -2786,6 +2833,7 @@ function finishCreate() {
   tone(330, 660, 0.3, 'sine', 0.04);
 }
 for (const id in HEARD) { const w = SPELL(id); if (w) for (const ph of HEARD[id]) if (!w.alias.includes(ph)) w.alias.push(ph); }
+setTimeout(loadPlaces, 300);
 $('btnMicCheck').addEventListener('click', e => { e.currentTarget.blur(); micCheck(); });
 $('btnBegin').addEventListener('click', () => { if (MC) { try { MC.stop(); } catch (_) {} MC = null; }
   setMicMode($('micStart').value); $('ovStart').hidden = true; openCreate();
@@ -2803,7 +2851,7 @@ window.__life = {
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };

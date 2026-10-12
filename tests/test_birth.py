@@ -23,7 +23,27 @@ async def main():
         ev = pg.evaluate; fr = pg.locator('#frame'); R = {}
         await pg.select_option('#micStart', 'off'); await pg.click('#btnBegin'); await pg.wait_for_timeout(100)
         R['create_open'] = await ev("__life.mode+' '+!document.getElementById('ovCreate').hidden")
+        await pg.wait_for_function("__life.placesCount() > 100000", timeout=15000)
+        R['places'] = await ev("__life.placesCount()")
         await pg.click('[data-kind="real"]')
+        # a smaller town from the big list, found offline
+        await pg.locator('#crCity').type('Maharag', delay=10); await pg.wait_for_timeout(50)
+        R['offline_town'] = await ev("[...document.querySelectorAll('[data-city]')].map(b=>b.innerText.replace('\\n',' / ')).slice(0,2).join(' | ')")
+        # a village not on the list: the game says so and offers the online search (faked here) and coordinates
+        await pg.fill('#crCity', ''); await pg.locator('#crCity').type('Ragama', delay=10); await pg.wait_for_timeout(50)
+        R['offers_online'] = await ev("!!document.getElementById('crOnline')")
+        await pg.route('https://nominatim.openstreetmap.org/**', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps([{"display_name": "Ragama, Gampaha District, Western Province, Sri Lanka", "lat": "7.0310", "lon": "79.9213"}])))
+        await pg.click('#crOnline'); await pg.wait_for_timeout(300)
+        R['online'] = await ev("[...document.querySelectorAll('[data-city]')].map(b=>b.innerText.replace('\\n',' / ')).join(' | ')")
+        await pg.click('[data-city="0"]'); await pg.wait_for_timeout(50)
+        R['online_pick'] = await ev("JSON.stringify(__life.CR.city)")
+        await fr.screenshot(path=OUT + 'b16_01_online.png')
+        # coordinates
+        await pg.click('#crChange'); await pg.locator('#crCity').type('Nowhere at all', delay=5); await pg.click('#crCoords')
+        await pg.fill('#crLL', '7.031, 79.921'); await pg.fill('#crLLName', 'My village'); await pg.click('#crLLGo'); await pg.wait_for_timeout(50)
+        R['coords_pick'] = await ev("JSON.stringify(__life.CR.city)")
+        await fr.screenshot(path=OUT + 'b16_02_coords.png')
+        await pg.click('#crChange')
         await pg.fill('#crDate', '2000-01-01'); await pg.fill('#crTime', '08:00')
         await pg.locator('#crCity').type('Colom', delay=20); await pg.wait_for_timeout(50)
         R['city_list'] = await ev("[...document.querySelectorAll('[data-city]')].map(b=>b.innerText.split('\\n')[0]).slice(0,4).join(', ')")

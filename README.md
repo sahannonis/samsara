@@ -30,7 +30,8 @@ and go to `http://localhost:8000/dist/samsara.html`.
 | `ink-tower/` | The first stickman platformer this all grew from |
 | `tests/` | Headless browser tests (Playwright), one per test build |
 | `tools/` | A checker that compares the star engine with Swiss Ephemeris |
-| `vendor/` | A copy of Astronomy Engine for offline tests |
+| `vendor/` | A copy of Astronomy Engine for offline tests, and tz-lookup (time zone from coordinates) |
+| `data/` | `places.txt`: every birthplace the game knows, made by `tools/build-places.js` |
 
 `dist/` is made by `build.py` and is not kept in git.
 
@@ -59,6 +60,7 @@ and go to `http://localhost:8000/dist/samsara.html`.
 ### Phase 3: soul systems
 
 15. **Your Birth**: character creation. The first life begins at the player's own birth (date, local time and place, with past time zone changes handled), read with the same star engine as the Star Panel; if the hour is unknown the chart is read from the Moon (Chandra lagna); or the wheel decides. Then the body (build, hair, clothing), an optional soul name, and a soul mark that stays the same in every life and marks your past bodies. The player chooses how their birth is kept: with their saves (Steam Cloud on Steam), on this device only, or not at all.
+16. **Every town**: about 172,000 birthplaces built in (the original cities plus GeoNames places of over 1,000 people), searched without accents; if a village is still missing, an online search through OpenStreetMap or coordinates pasted from any map (the time zone is found from the point).
 
 ## Running the tests
 
@@ -81,6 +83,9 @@ python tests/test_birth.py
 
 - Planet positions: [Astronomy Engine](https://github.com/cosinekitty/astronomy) by Don Cross, MIT license (see `vendor/ASTRONOMY-ENGINE-LICENSE`).
 - City and timezone list: built from [city-timezones](https://github.com/kevinroberts/city-timezones), MIT license, with Sri Lankan towns added.
+- More places: [GeoNames](https://www.geonames.org) via [cities.json](https://github.com/lutangar/cities.json), CC BY 4.0.
+- Time zone from coordinates: [tz-lookup](https://github.com/photostructure/tz-lookup), CC0 (see `vendor/TZ-LOOKUP-LICENSE`).
+- Online place search: [OpenStreetMap Nominatim](https://nominatim.openstreetmap.org), © OpenStreetMap contributors (ODbL). Only used when the player presses Search online.
 - Fonts: Rubik Mono One, Kalam, Literata and DM Mono from Google Fonts (SIL Open Font License).
 
 Copyright © Sahan Nonis. All rights reserved.

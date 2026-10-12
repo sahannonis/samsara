@@ -9,11 +9,14 @@ import pathlib
 ROOT = pathlib.Path(__file__).parent
 DIST = ROOT / 'dist'
 ENGINE = (ROOT / 'engine' / 'star-engine.js').read_text()
-CITIES = (ROOT / 'star-panel' / 'cities.json').read_text().strip()
+import gzip, base64
+PLACES = base64.b64encode(gzip.compress((ROOT / 'data' / 'places.txt').read_bytes(), 9, mtime=0)).decode()
+CITIES_V15 = (ROOT / 'star-panel' / 'cities.json').read_text().strip()  # test build 15 embedded the old list
+TZLOOKUP = (ROOT / 'vendor' / 'tz-lookup.js').read_text().replace('"undefined"!=typeof module&&(module.exports=tzlookup);', '')
 
 def game(folder, out):
     head = (folder / 'head.html').read_text()
-    page = head.replace('/*ENGINE*/', ENGINE).replace('/*GAME*/', (folder / 'game.js').read_text().replace('/*CITIES*/[]', CITIES))
+    page = head.replace('/*ENGINE*/', ENGINE).replace('/*GAME*/', (folder / 'game.js').read_text().replace('/*CITIES*/[]', CITIES_V15).replace("'/*PLACES*/'", "'" + PLACES + "'").replace('/*TZLOOKUP*/', TZLOOKUP))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(page)
     print(f'{out.relative_to(ROOT)}  {len(page) // 1024} KB')
