@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Samsara Build 16</title>
+<title>Samsara Build 17</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&family=Kalam:wght@400;700&display=swap">
@@ -121,6 +121,13 @@ input.num{font-family:var(--f-mono);font-size:14px;padding:8px;width:110px;borde
 .link{all:unset;cursor:pointer;text-decoration:underline;text-underline-offset:2px;color:var(--ink)}
 .link:focus-visible{outline:2px dashed var(--ink);outline-offset:2px}
 .coords{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.reading{display:flex;flex-direction:column;gap:12px;width:100%;text-align:left}
+.rsec{border:1.5px solid var(--ink);padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.rsec .calc{font-family:var(--f-mono);font-size:12px;color:var(--ink-2);line-height:1.45}
+.rsec .hand{max-width:none}
+.rsec.gift{background:var(--ink);color:var(--paper)}
+.rsec.gift .lbl{color:var(--paper)}
+.item p{margin:0}
 .coords input{font-family:var(--f-mono);font-size:14px;padding:8px;border:1.5px solid var(--ink);background:var(--paper);color:var(--ink);flex:1 1 200px}
 footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);padding-top:12px}
 </style>
@@ -128,7 +135,7 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
 <body>
 <div class="wrap">
   <header>
-    <div><span class="eyebrow">Samsara · test build 16 · Phase 3</span><h1>Your Birth</h1></div>
+    <div><span class="eyebrow">Samsara · test build 17 · Phase 3</span><h1>The Nine Stones</h1></div>
     <span class="lbl" id="lifeLabel">Life 1</span>
   </header>
 
@@ -136,9 +143,9 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
     <canvas id="cv" aria-label="Samsara test: a long proving ground of planks, ledges, water, walls, wind and darkness"></canvas>
 
     <div class="ov" id="ovStart"><div class="ov-in">
-      <span class="eyebrow">Phase 3 begins</span>
-      <h2>Your birth</h2>
-      <p>Your first life now begins at your own birth: the day, the hour and the place you were born, read under the real sky with the same star engine as the Star Panel. If you know the day but not the hour, the chart is read from the Moon. Or let the wheel decide. Then shape your body, and choose a soul mark: your body changes with every life, but the mark stays, and it is how you will know your own past bodies.</p>
+      <span class="eyebrow">Phase 3 · readings</span>
+      <h2>The nine stones</h2>
+      <p>Somewhere past the false wall at the end stands a Navagraha shrine: nine stones for the nine wanderers of the sky. Bring an offering and they read you: your own birth against the real sky of today, once a real day, told in parables, with a small gift for the rest of the day. They also read the body you wear, once a life. Two star tablets, hidden in the world, let the stones speak of the longer seasons and the periods of your life. Start with your real birth (Begin) for a reading of you.</p>
       <div class="row">
         <label class="lbl" for="micStart">Mic</label>
         <select id="micStart">
@@ -226,6 +233,9 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
         <button class="btn ghost" id="tChants" type="button">Teach me every chant</button>
         <button class="btn ghost" id="tSpells" type="button">Teach me every spell</button>
         <button class="btn ghost" id="tBoss" type="button">Take me to the next boss</button>
+        <button class="btn ghost" id="tStones" type="button">Take me to the nine stones</button>
+        <button class="btn ghost" id="tTablets" type="button">Give me both star tablets</button>
+        <button class="btn ghost" id="tReadReset" type="button">Let the stones read again</button>
         <button class="btn ghost" id="tEmpty" type="button">Make this body one with no mana</button>
         <button class="btn ghost" id="tNight" type="button">Switch day and night</button>
         <button class="btn ghost" id="tRich" type="button">Give me seeds and materials</button>

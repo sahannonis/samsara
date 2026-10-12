@@ -37,10 +37,10 @@ function makeBirth() {
   const age = Math.floor((now - ms) / yr);
   if (!E) {
     const tier = Math.floor(Math.random() * 5), schools = ['Agni', 'Jala', 'Vayu', 'Prithvi', 'Akasha'];
-    return { ms, place: pl[0], local, age, looks, lagna: '—', moon: '—', tier, tierName: ['None', 'Low', 'Medium', 'High', 'Great'][tier], school: tier ? schools[Math.floor(Math.random() * 5)] : null, style: 'Balanced', region: 'Unknown lands', people: 'Unknown people' };
+    return { ms, geo: { lat: pl[1], lon: pl[2] }, place: pl[0], local, age, looks, lagna: '—', moon: '—', tier, tierName: ['None', 'Low', 'Medium', 'High', 'Great'][tier], school: tier ? schools[Math.floor(Math.random() * 5)] : null, style: 'Balanced', region: 'Unknown lands', people: 'Unknown people' };
   }
   const c = E.chart(ms, pl[1], pl[2]), g = E.game(c);
-  return { ms, place: pl[0], local, age, looks, lagna: E.SIGNS[c.lagna.sign].en, moon: `${E.SIGNS[c.by.Moon.sign].en}, ${c.by.Moon.nakName}`, tier: g.manaTierIndex, tierName: g.manaTier, school: g.school ? g.school.id : null, style: g.social.split(':')[0], region: g.region, people: g.civilization };
+  return { ms, geo: { lat: pl[1], lon: pl[2] }, place: pl[0], local, age, looks, lagna: E.SIGNS[c.lagna.sign].en, moon: `${E.SIGNS[c.by.Moon.sign].en}, ${c.by.Moon.nakName}`, tier: g.manaTierIndex, tierName: g.manaTier, school: g.school ? g.school.id : null, style: g.social.split(':')[0], region: g.region, people: g.civilization };
 }
 const STATS = {
   vit: { name: 'Vitality', what: '+8 health' },
@@ -117,7 +117,7 @@ ARENAS.forEach(a => { a.fight = false; a.hit = false; a.gates = [{ x: a.l - 24, 
 const SHRINES = [
   { x: 180, gy: 1000, name: 'Village shrine' }, { x: 2960, gy: 790, name: 'Plateau shrine' }, { x: 5900, gy: 1020, name: 'Pool shrine' },
   { x: 7300, gy: 560, name: 'Cave mouth shrine' }, { x: 9450, gy: 760, name: 'End shrine' },
-  { x: 10050, gy: 760, name: 'Trial shrine' }, { x: 11250, gy: 760, name: 'Second trial shrine' }, { x: 12450, gy: 760, name: 'Last trial shrine' },
+  { x: 10140, gy: 760, name: 'Trial shrine' }, { x: 11250, gy: 760, name: 'Second trial shrine' }, { x: 12450, gy: 760, name: 'Last trial shrine' },
 ];
 const HUT = { x: 470, gy: 1000 };
 const FOE_SPAWNS = [
@@ -165,8 +165,8 @@ const HINTS = [
   [8350, 700, 'The bridge crumbles. Keep moving.'],
   [9050, 660, 'Rest at the shrine. The proving grounds end here.'],
   [9500, 600, 'Or do they? The far wall looks thin.'],
-  [9980, 640, 'The trial road. Each one ahead guards a gift.'],
-  [10150, 680, 'Bosses do not beg, and they see through Unseen.'],
+  [10120, 512, 'The trial road. Each one ahead guards a gift.'],
+  [10120, 546, 'Bosses do not beg, and they see through Unseen.'],
   [11300, 660, 'It flies. Arrows, knives and spells reach it. Rain puts out its fire.'],
   [12520, 660, 'It parries. Do not swing at its guard; a heavy blow breaks it.'],
 ];
@@ -383,7 +383,7 @@ function startRec() {
 function stopRec() { try { rec && rec.stop(); } catch (_) {} }
 
 /* ---------- state ---------- */
-const soul = { chants: new Set(['agni']), spells: new Set(['ignite', 'shield', 'restore']), ranks: {}, kills: 0, home: null, karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set(), bossKills: {} };
+const soul = { chants: new Set(['agni']), spells: new Set(['ignite', 'shield', 'restore']), ranks: {}, kills: 0, home: null, karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set(), bossKills: {}, tablets: new Set() };
 let life = null, P = null, foes = [], shots = [], fx = [], floaters = [], shades = [], drops = [], pots = [];
 let shake = 0, hitstop = 0, clock = 0, banner = null, pendingDeath = 0, zoneTag = null;
 const villager = { x: 560, gy: 1000, helped: false, talkT: 0, line: '' };
@@ -407,7 +407,7 @@ function newLife(birth) {
     relics: new Set(sr), equip: sr.concat([null, null, null, null]).slice(0, 4), shrine: 0, safe: { x: SHRINES[0].x + 40, y: SHRINES[0].gy },
     jumpsLeft: 0, jumping: false, coy: 0, jbuf: 0, dropT: 0, grabCd: 0, kickT: 0, clingMem: 0, clingDir: 0, cling: 0, hang: null, climbT: 0, climb: null, ladder: null, glide: false, plunge: false, landT: 0,
     inWater: false, headUnder: false, breath: BREATH, burnT: 0, crouch: false, torch: { fuel: TORCH, lit: false }, knives: KNIVES, knifeCd: 0, zones: new Set(), zone: -1 };
-  applyStats(true);
+  applyStats(true); P.boons = []; applyDayBoon();
   resetNodes();
   if (!soul.home) soul.home = emptyInv();
   newHorse(); resetChests();
@@ -471,7 +471,7 @@ const GARB = {
 const SLOT_NAMES = { head: 'Head', body: 'Body', feet: 'Feet' };
 const LOADS = { light: { roll: 440, dur: 0.34, iF: 0.26, st: 0.9, walk: 1, say: 'Light: long, fast rolls' }, medium: { roll: 380, dur: 0.36, iF: 0.24, st: 1, walk: 1, say: 'Medium: normal rolls' }, heavy: { roll: 300, dur: 0.42, iF: 0.18, st: 1.3, walk: 0.92, say: 'Heavy: short, slow rolls that cost more' }, over: { roll: 0, dur: 0, iF: 0, st: 0, walk: 0.75, say: 'Too heavy: you cannot roll and you walk slowly' } };
 function loadNow() { const w = P.slots.reduce((a, i) => a + WEAPONS[i].weight, 0) + ['head', 'body', 'feet'].reduce((a, k) => a + (P.garb[k] ? GARB[P.garb[k]].weight : 0), 0), r = w / P.loadMax; const pk = packWeight(), full = pk > P.packMax + 1e-9; const cls = full ? 'over' : r <= 0.35 ? 'light' : r <= 0.7 ? 'medium' : r <= 1 ? 'heavy' : 'over'; return Object.assign({ w, r, cls, pack: pk, full }, LOADS[cls], full ? { say: 'Your pack is too full: you cannot roll and you walk slowly. Leave something in a chest.' } : {}); }
-const protNow = () => ['head', 'body', 'feet'].reduce((a, k) => a + (P.garb[k] ? GARB[P.garb[k]].prot : 0), 0);
+const protNow = () => ['head', 'body', 'feet'].reduce((a, k) => a + (P.garb[k] ? GARB[P.garb[k]].prot : 0), 0) + Math.round(boonV('prot') * 100);
 const LEVEL_COST = lv => Math.round(50 * Math.pow(1.15, lv - 1));
 const levelOf = () => 1 + Object.keys(P.stats).reduce((a, k) => a + P.stats[k] - P.stats0[k], 0);
 function applyStats(fill) {
@@ -572,8 +572,8 @@ function moveP(dt) {
 function updatePlayer(dt) {
   for (const k of ['inv', 'rollIF', 'parryT', 'parryCd', 'shieldT', 'riposte', 'hitT', 'swapT', 'dropT', 'grabCd', 'kickT', 'coy', 'jbuf', 'clingMem', 'knifeCd', 'landT', 'comboT', 'trampleCd']) P[k] = Math.max(0, P[k] - dt);
   P.stMax = P.stBase + (wears('band') ? 15 : 0); P.st = Math.min(P.st, P.stMax);
-  if (P.stDelay > 0) P.stDelay -= dt; else P.st = Math.min(P.stMax, P.st + 48 * (P.noMana ? 1 + 0.04 * (P.stats.foc - 10) : 1) * dt);
-  if (P.manaMax) P.mana = Math.min(P.manaMax, P.mana + (P.school === 'Akasha' ? 6 : 4) * (inHand('staff') ? 1.5 : 1) * (wears('robe') ? 1.5 : 1) * dt);
+  if (P.stDelay > 0) P.stDelay -= dt; else P.st = Math.min(P.stMax, P.st + 48 * (P.noMana ? 1 + 0.04 * (P.stats.foc - 10) : 1) * (1 + boonV('st')) * dt);
+  if (P.manaMax) P.mana = Math.min(P.manaMax, P.mana + (P.school === 'Akasha' ? 6 : 4) * (inHand('staff') ? 1.5 : 1) * (wears('robe') ? 1.5 : 1) * (1 + boonV('mana')) * dt);
   if (P.torch.lit) { P.torch.fuel -= dt; if (P.torch.fuel <= 0) { P.torch.fuel = 0; P.torch.lit = false; floater(pcx(), P.y - 24, 'THE TORCH BURNS OUT', PENCIL); } }
   if (P.dead) { P.deadT += dt; P.vx *= 0.9; return; }
   const W8 = curW(), mx = (held.right ? 1 : 0) - (held.left ? 1 : 0);
@@ -608,7 +608,7 @@ function updatePlayer(dt) {
   if (P.ladder) { ladderStep(dt, mx); afterMove(dt, mx, true); return; }
 
   if (pressed.chant && !CHS && !P.dead && !P.mount) openChantPick(); else if (CHS) chantStep(dt, mx);
-  if (P.healT > 0) { P.healT -= dt; if (P.healT <= 0) { P.hp = Math.min(P.hpMax, P.hp + 40); floater(pcx(), P.y - 20, '+40'); } }
+  if (P.healT > 0) { P.healT -= dt; if (P.healT <= 0) { const hv = Math.round(40 * (1 + boonV('heal'))); P.hp = Math.min(P.hpMax, P.hp + hv); floater(pcx(), P.y - 20, `+${hv}`); } }
   if (P.atk) { const A = P.atk; A.t += dt; if (A.t >= A.a0 && A.t <= A.a1) doHits(A); if (A.t >= A.dur) P.atk = null; }
   if (!busy()) {
     if (pressed.roll && P.onG && !P.inWater && P.st > 0 && !P.mount) { const LD = loadNow(); if (LD.cls === 'over') floater(pcx(), P.y - 20, 'TOO HEAVY TO ROLL', PENCIL); else { if (mx) P.face = mx; spend(22 * (P.school === 'Vayu' ? 0.7 : 1) * (inHand('daggers') ? 0.7 : 1) * (P.skills.has('light_feet') ? 0.75 : 1) * LD.st); P.rollT = LD.dur; P.rollIF = LD.iF; P.rollV = LD.roll * (1 + 0.01 * (P.stats.agi - 10)); P.charging = false; P.mDown = false; SFX.roll(); } }
@@ -924,7 +924,7 @@ function doHits(A) {
   for (const t of foes) {
     if (!t.alive || A.hit.has(t) || !overlap(box, t)) continue;
     A.hit.add(t);
-    let dmg = A.dmg * P.dmgMul;
+    let dmg = A.dmg * P.dmgMul * (1 + boonV('dmg'));
     if (P.riposte > 0 || t.stag > 0) { dmg *= P.skills.has('killing_edge') ? 3 : 2; floater(t.x + t.w / 2, t.y - 20, 'RIPOSTE'); P.riposte = 0; }
     if (A.combo3) { dmg *= 2; floater(t.x + t.w / 2, t.y - 34, 'THIRD CUT', INK2); }
     if (A.daggers && t.face === P.face && t.state !== 'kneel') { dmg *= 2.5; floater(t.x + t.w / 2, t.y - 20, 'FROM BEHIND'); }
@@ -1121,6 +1121,7 @@ function castWord(w, power) {
   if (w.id === 'vajra') { gt = frontFoe(380, 170); if (!gt) { floater(pcx(), P.y - 30, 'NO FOE IN REACH', PENCIL); return; } }
   P.mana -= cost; SFX.word(); shake = 5;
   const rk = rankOf(w.id);
+  power *= 1 + boonV('spell');
   if (scroll) { P.scrolls[w.id]--; power *= 1.15; for (let i = 0; i < 10; i++) fx.push({ k: 'leaf', x: pcx() + P.face * 14 + rnd(-8, 8), y: P.y + 14 + rnd(-6, 6), vx: rnd(-40, 40), vy: -rnd(30, 80), life: 0.7 }); }
   else { power *= (1 + 0.04 * (P.stats.foc - 10)) * [1, 1, 1.2, 1.4][rk];
     soul.ranks[w.id] = (soul.ranks[w.id] || 0) + 1; if (rankOf(w.id) > rk) floater(pcx(), P.y - 52, `${w.say.toUpperCase()} GROWS STRONGER`, INK2); }
@@ -1263,7 +1264,7 @@ function chantStep(dt, mx) {
   if (CHS.t >= CHS.limit) { if (k >= 0.5) finishChant(k, 0.85); else cancelChant('THE CHANT FADES · TOO FEW WORDS WERE HEARD'); }
 }
 function finishChant(clean, pace) {
-  const c = CHS.c, shrine = CHS.shrine; let pw = clean * pace * (shrine ? 1.2 : 1); CHS = null;
+  const c = CHS.c, shrine = CHS.shrine; let pw = clean * pace * (shrine ? 1.2 : 1) * (1 + boonV('chant')); CHS = null;
   if (c.offer) { if (!canPay(c.offer)) { floater(pcx(), P.y - 30, 'THE OFFERING IS GONE', PENCIL); return; } pay(c.offer); }
   SFX.word(); shake = 6; for (let i = 0; i < 26; i++) fx.push({ k: 'ink', x: pcx() + rnd(-30, 30), y: P.y + rnd(-10, P.h), vx: rnd(-40, 40), vy: -rnd(30, 110), life: rnd(0.5, 1.2) });
   floater(pcx(), P.y - 44, `${c.name.toUpperCase()} · ${Math.round(pw * 100)}%`);
@@ -1407,6 +1408,8 @@ function use() {
   if (nearForge() >= 0 && !P.mount) { openForge(); return; }
   { const st = nearStone(); if (st && !P.mount) { useStone(st); return; } }
   { const q = nearInscription(); if (q && !P.mount) { readInscription(q); return; } }
+  if (nearStones() && !P.mount) { openStones(); return; }
+  { const t = nearTablet(); if (t && !P.mount) { readTablet(t); return; } }
   const cx = pcx(), fy = P.y + P.h;
   if (P.mount) { if (P.onG) dismount(false); return; }
   if (horse.state !== 'away' && horse.state !== 'fled' && Math.abs(cx - horse.x) < 56 && Math.abs(fy - horse.gy) < 40 && P.onG) {
@@ -1909,6 +1912,9 @@ toolBtn('tEmpty', () => {
   for (const c of CHESTS) if (c.kind === 'spell') c.opened = false;
   banner = { t: 3, top: 'NO MANA IN THIS BODY', sub: 'Test tool: this body now has no mana. Spell chests hold scrolls for it, bosses leave scrolls of their move, it can turn magic back with a parry, and the sealed chest on the trial road opens for it.' };
 });
+toolBtn('tStones', () => { if (ARENAS.some(a => a.fight)) return; if (P.mount) dismount(false); P.x = NAVAGRAHA[0].x - 40; P.y = NAVAGRAHA[0].gy - PH; P.vx = P.vy = 0; P.hang = null; P.ladder = null; P.visited.add(5); snapCam(); P.mats.petal += 2; P.mats.ember += 1; P.seeds += 100; banner = { t: 3, top: 'THE NINE STONES', sub: 'Test tool: you stand before them with an offering for each reading (100 seeds, 2 petals, 1 ember stone). Press E.' }; });
+toolBtn('tTablets', () => { TABLETS.forEach(t => soul.tablets.add(t.id)); banner = { t: 2.6, top: 'BOTH TABLETS', sub: 'Test tool: the stones can now read the long seasons and the periods of your life.' }; });
+toolBtn('tReadReset', () => { READS = {}; saveReads(); life.bodyRead = null; P.boons = []; banner = { t: 2.4, top: 'THE STONES FORGET', sub: 'Test tool: today\'s reading and this body\'s reading are cleared, so you can read again.' }; });
 toolBtn('tBoss', () => {
   if (ARENAS.some(a => a.fight)) return;
   if (P.mount) dismount(false);
@@ -2057,6 +2063,8 @@ function drawMap() {
     ctx.font = `12px ${FD}`; ctx.textAlign = 'center'; ctx.fillStyle = seen ? INK : PENCIL; ctx.fillText(seen ? String(i + 1) : '?', sx, sy + 16);
     if (seen && hov) { ctx.strokeStyle = RED; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy - 10, 15, 0, Math.PI * 2); ctx.stroke(); ctx.font = `15px ${FH}`; ctx.fillStyle = INK; ctx.fillText(s.name + ' · click to travel', clamp(sx, 150, W - 150), sy - 30); }
     ctx.fillStyle = i === P.shrine ? INK : PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx, sy - 16); ctx.lineTo(sx - 6, sy - 4); ctx.lineTo(sx + 6, sy - 4); ctx.closePath(); ctx.fill(); ctx.stroke(); });
+  for (const n of NAVAGRAHA) { const nx = X(n.x), ny = Y(n.gy) - 10; ctx.strokeStyle = INK; ctx.lineWidth = 1.2; ctx.beginPath(); for (let i = 0; i < 9; i++) { const a2 = i / 9 * Math.PI * 2; ctx.moveTo(nx + Math.cos(a2) * 3, ny + Math.sin(a2) * 3); ctx.lineTo(nx + Math.cos(a2) * 7, ny + Math.sin(a2) * 7); } ctx.stroke(); }
+  for (const t of TABLETS) if (!soul.tablets.has(t.id) && P.zones.size > 6) { ctx.fillStyle = PENCIL; ctx.fillRect(X(t.x) - 2, Y(t.gy) - 9, 4, 7); }
   for (const a of ARENAS) { const bx = X((a.l + a.r) / 2), by = Y(a.gy) - 14, down = life.bossDown.has(a.id); ctx.strokeStyle = down ? PENCIL : RED; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx, by - 7); ctx.lineTo(bx + 6, by); ctx.lineTo(bx, by + 7); ctx.lineTo(bx - 6, by); ctx.closePath(); ctx.stroke(); if (!down) { ctx.fillStyle = RED; ctx.fillRect(bx - 1.5, by - 1.5, 3, 3); } }
   for (const f of FORGES) { ctx.fillStyle = INK; ctx.fillRect(X(f.x) - 5, Y(f.gy) - 7, 10, 5); ctx.fillRect(X(f.x) - 2, Y(f.gy) - 3, 4, 3); }
   for (const c of CHESTS) if (!chestOpen(c)) { ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.fillRect(X(c.x) - 4, Y(c.gy) - 8, 8, 7); ctx.strokeRect(X(c.x) - 4, Y(c.gy) - 8, 8, 7); }
@@ -2068,7 +2076,7 @@ function drawMap() {
   ctx.fillStyle = RED; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - 7, py - 13); ctx.lineTo(px + 7, py - 13); ctx.closePath(); ctx.fill(); ctx.font = `10px ${FD}`; ctx.textAlign = 'center'; ctx.fillText('YOU', px, py - 18);
   ctx.textAlign = 'left'; ctx.font = `15px ${FH}`; ctx.fillStyle = INK2;
   const ly = 492; ctx.fillText('▲ shrine (filled: you wake here)    ◯ relic still waiting    ▫ chest    ▬ forge    ● your seeds    ✕ a body from a past life    red line: burning ground', 30, ly);
-  ctx.fillText(`◇ boss (red: still waiting in this life) · Relics found: ${P.relics.size} of ${Object.keys(RELICS).length} · Chests opened: ${CHESTS.filter(chestOpen).length} of ${CHESTS.length}`, 30, ly + 22);
+  ctx.fillText(`◇ boss (red: still waiting in this life) · ✳ the nine stones · Relics found: ${P.relics.size} of ${Object.keys(RELICS).length} · Chests opened: ${CHESTS.filter(chestOpen).length} of ${CHESTS.length}`, 30, ly + 22);
 }
 
 /* ---------- update ---------- */
@@ -2218,6 +2226,8 @@ function drawWorld() {
   for (const n of NODES) if (n.k !== 'petal' && visible({ x: n.x - 40, y: n.gy - 120, w: 80, h: 120 })) drawNode(n);
   for (const f of FORGES) if (visible({ x: f.x - 40, y: f.gy - 80, w: 80, h: 80 })) drawForge(f);
   for (const st of STONES) if (visible({ x: st.x - 30, y: st.gy - 70, w: 60, h: 70 })) drawStone(st);
+  for (const n of NAVAGRAHA) if (visible({ x: n.x - 130, y: n.gy - 150, w: 260, h: 150 })) drawStones(n);
+  for (const t of TABLETS) if (visible({ x: t.x - 30, y: t.gy - 60, w: 60, h: 60 })) drawTablet(t);
   if (visible({ x: HOME.x - 40, y: HOME.gy - 60, w: 80, h: 60 })) drawHome();
   for (const c of CHESTS) if (visible({ x: c.x - 24, y: c.gy - 40, w: 48, h: 40 })) {
     const open = chestOpen(c); ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
@@ -2286,6 +2296,8 @@ function drawOverDark() {
   if (!P.mount && horse && (horse.state === 'wild' || horse.state === 'idle') && Math.abs(pcx() - horse.x) < 70 && Math.abs(P.y + P.h - horse.gy) < 50) { ctx.fillStyle = INK2; ctx.fillText(horse.state === 'wild' ? 'E: offer the horse a lotus' : 'E: ride', horse.x, horse.gy - 96); }
   else if (P.mount && P.onG && Math.abs(P.vx) < 40) { ctx.fillStyle = INK2; ctx.fillText('E: get down · Shift: gallop', pcx(), P.y - 26); }
   { const q = nearInscription(); if (q) { ctx.fillStyle = INK2; ctx.fillText(soul.chants.has(q.id) ? 'E: read the chant again' : 'E: read the carved chant', q.x, q.gy - 70); } }
+  if (nearStones() && !P.mount) { const n = nearStones(); ctx.fillStyle = INK2; ctx.fillText('E: sit before the nine stones', n.x, n.gy - 158); }
+  { const t = nearTablet(); if (t) { ctx.fillStyle = darkAt(t.x, t.gy - 60) ? '#b9b6ac' : INK2; ctx.fillText(soul.tablets.has(t.id) ? 'A tablet you have read' : 'E: read the tablet', t.x, t.gy - 60); } }
   { const st = nearStone(); if (st) { ctx.fillStyle = INK2; ctx.fillText(st.k === 'moon' ? 'E: touch the moon stone' : st.k === 'sun' ? 'E: touch the sun stone' : 'E: listen to the stone', st.x, st.gy - 80); } }
   if (nearForge() >= 0 && !P.mount) { const f = FORGES[nearForge()]; ctx.fillStyle = INK2; ctx.fillText('E: use the forge', f.x + 4, f.gy - 92); }
   if (Math.abs(pcx() - HOME.x) < 60 && Math.abs(P.y + P.h - HOME.gy) < 50) { ctx.fillStyle = INK2; ctx.fillText('E: your chest · it keeps things across lives', HOME.x, HOME.gy - 70); }
@@ -2622,6 +2634,189 @@ function loop(now) {
   for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false;
   requestAnimationFrame(loop);
 }
+/* ---------- the nine stones (Phase 3): Navagraha readings ----------
+   Two readings: the one who dreams (the player's real birth against the real sky of today, once a real day)
+   and this body (the chart of the current life, once a life). Calculations are standard Vedic ones:
+   tara bala, the Moon's transit from the natal Moon, the day lord; with tablets, Saturn, Jupiter and Rahu
+   from the natal Moon (Sade Sati included) and the Vimshottari periods. The telling is parable, not prediction. */
+const NAVAGRAHA = [{ x: 9935, gy: 760 }];
+const TABLETS = [{ id: 'wanderers', x: 4600, gy: 1340, name: 'Tablet of the slow wanderers', what: 'Saturn, Jupiter, Rahu and Ketu: the long seasons.' }, { id: 'periods', x: 13540, gy: 760, name: 'Tablet of the periods', what: 'The Vimshottari periods: the seasons of a whole life.' }];
+const SOUL_COST = { seeds: 60, petal: 1, ember: 1 }, BODY_COST = { seeds: 40, petal: 1 };
+const READ_KEY = 'samsara.readings';
+const HOUSE_WORDS = ['', 'the self and the body', 'money, food and family', 'courage, effort and siblings', 'home, mother and the heart’s rest', 'ideas, children and play', 'struggle, work and health', 'partners and others', 'change and what is hidden', 'fortune, teachers and faith', 'work and your name in the world', 'gains and friends', 'letting go, spending, sleep and far places'];
+const the = l => (l === 'Sun' || l === 'Moon' ? 'the ' + l : l), The = l => (l === 'Sun' || l === 'Moon' ? 'The ' + l : l);
+const ORD = n => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
+const TARAS = [
+  ['Janma', 'the birth star', 'mixed', 'The Moon walks over the star you were born under. Days like this turn the eye inward. A potter who stares at his own hands too long forgets the clay: look, then work.'],
+  ['Sampat', 'wealth', 'good', 'A day of small gathering. The farmer who picks up one grain more than he drops does not go hungry. What comes today comes quietly; notice it.'],
+  ['Vipat', 'danger', 'hard', 'The path is narrower today. A careful traveller steps where the last foot stepped. It is not a day for leaps you would not take on a better one.'],
+  ['Kshema', 'well-being', 'good', 'A day that holds you. Even the river rests in its bend. Mend what is worn.'],
+  ['Pratyak', 'obstacle', 'hard', 'Something stands in the road today, as a stone stands in a stream. The stream does not argue with the stone. It goes around.'],
+  ['Sadhana', 'accomplishment', 'good', 'A day for work begun long ago. The arrow flies from a thousand days of drawing the bow. Finish something.'],
+  ['Naidhana', 'the hard star', 'hard', 'The oldest of the hard stars. The old ones said: on such a day speak softly, sign nothing in haste, and walk home before dark. Be gentle with yourself and with others.'],
+  ['Mitra', 'a friend', 'good', 'A friendly star. A hand is open to you today. The shy guest goes home hungry.'],
+  ['Parama Mitra', 'the best of friends', 'good', 'The best of friends walks beside you. What you begin with a good heart today has the wind behind it.'],
+];
+const MOON_HOUSE = ['', 'The Moon is on your own Moon: feelings run close to the skin today.', 'The Moon passes the house of food and family: eat well, and speak kindly at the table.', 'The Moon passes the house of courage: effort comes easier.', 'The Moon passes the house of the heart’s rest: a quiet unease may visit; tend your home.', 'The Moon passes the house of ideas and play: the mind wanders, sometimes to good places.', 'The Moon passes the house of struggle, and struggle goes your way: a good day to clear what blocks you.', 'The Moon passes the house of others: company is good today.', 'The Moon passes the eighth house, the hidden one: rest more than usual; the body speaks quietly before it speaks loudly.', 'The Moon passes the house of grace: an elder or a teacher may have a word for you.', 'The Moon passes the house of work: a good day to be seen doing it.', 'The Moon passes the house of gains: small good things arrive.', 'The Moon passes the house of letting go: spend carefully, sleep early.'];
+const DAY_LORD = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
+const DAY_NAME = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const SATURN_FROM_MOON = {
+  12: ['Sade Sati begins', 'Saturn has come to the door before your Moon. This is the first part of Sade Sati, the seven and a half slow years. The tradition says this season tests what was built carelessly and spares what was built well. Watch the purse in small ways: a leaking jar empties without a sound.'],
+  1: ['the heart of Sade Sati', 'Saturn sits on your Moon: the heart of Sade Sati. The mind may feel heavy, like walking in wet sand. Rest is not weakness. The body is a lamp, and this season asks you to tend its oil.'],
+  2: ['Sade Sati ends', 'Saturn is leaving your Moon: the last part of Sade Sati. The tradition says what was learned in the dark is kept. Words weigh more now; speak kindly at the family table, and count before you spend.'],
+  4: ['Saturn below your Moon', 'Saturn stands in the fourth from your Moon. Home and the heart’s rest ask for care. A house is mended one tile at a time.'],
+  8: ['Saturn in the eighth from your Moon', 'Saturn stands in the eighth from your Moon, a place the old ones watched closely. Take the long road over the short one that crosses thin ice. Check twice what you would check once: the body, the road, the papers.'],
+  3: ['a helpful Saturn', 'Saturn walks a helpful road for you. Slow effort pays now, like a well dug deeper that finds water.'],
+  6: ['a helpful Saturn', 'Saturn walks a helpful road for you: steady work wins over what has been in your way.'],
+  11: ['a helpful Saturn', 'Saturn walks the house of gains: what you have built slowly begins to give back.'],
+  5: ['Saturn in the fifth', 'Saturn walks through the house of ideas and children. Plans ripen late; do not pull the fruit green.'],
+  7: ['Saturn in the seventh', 'Saturn walks through the house of others. Partnerships ask for patience; the ones that last are tested first.'],
+  9: ['Saturn in the ninth', 'Saturn walks through the house of teachers. Old beliefs are weighed; keep the ones that still hold water.'],
+  10: ['Saturn in the tenth', 'Saturn walks through the house of work. The load is heavier, but what you lift now stays lifted.'],
+};
+const GOOD_JUP = [2, 5, 7, 9, 11];
+const LORD_THEME = { Sun: 'the self standing up: your name, your father, those who lead', Moon: 'the mind and the home: the tide rises and falls', Mars: 'fire and effort: courage, quarrels and building', Mercury: 'words, learning and trade', Jupiter: 'teachers, growth and faith', Venus: 'beauty, love, comfort and art', Saturn: 'work, patience and what lasts', Rahu: 'hunger and new roads, often far from home', Ketu: 'letting go, the spirit, and endings that set you free' };
+const LORD_PARABLE = { Sun: 'A lamp is lit so that others can see by it.', Moon: 'The sea does not apologise for its tides.', Mars: 'Iron is shaped only while it is hot.', Mercury: 'The merchant who listens sells more than the one who shouts.', Jupiter: 'The tree that bends to the gardener bears fruit.', Venus: 'A garden is a kind of patience you can smell.', Saturn: 'The mountain is not in a hurry, and it is still there.', Rahu: 'Hunger builds roads; it does not always know where they go.', Ketu: 'The snake leaves its skin and does not look back.' };
+const WEAK_AT = { Sun: 'standing tall', Moon: 'a calm mind', Mars: 'courage', Mercury: 'clever words', Jupiter: 'good guidance', Venus: 'comfort and ease', Saturn: 'patience', Rahu: 'ambition', Ketu: 'letting go' };
+const BOONS = { dmg: 'your blows land harder', prot: 'harm touches you less', st: 'your breath returns faster', heal: 'lotus heals more', mana: 'mana returns faster', chant: 'chants are stronger', spell: 'spells and scrolls are stronger' };
+const DAY_BOON = { Sun: ['dmg', 0.06], Moon: ['heal', 0.2], Mars: ['dmg', 0.1], Mercury: ['st', 0.12], Jupiter: ['mana', 0.2], Venus: ['chant', 0.1], Saturn: ['prot', 0.08] };
+const BODY_BOON = { Sun: ['dmg', 0.06], Moon: ['heal', 0.2], Mars: ['dmg', 0.08], Mercury: ['st', 0.12], Jupiter: ['mana', 0.2], Venus: ['chant', 0.1], Saturn: ['prot', 0.06], Rahu: ['dmg', 0.06], Ketu: ['spell', 0.1] };
+const boonV = k => (P && P.boons ? P.boons.filter(b => b.kind === k).reduce((a, b) => a + b.v, 0) : 0);
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+let READS = {}; try { READS = JSON.parse(localStorage.getItem(READ_KEY)) || {}; } catch (_) { READS = {}; }
+function saveReads() { try { localStorage.setItem(READ_KEY, JSON.stringify(READS)); } catch (_) {} }
+function applyDayBoon() { if (!P) return; P.boons = (P.boons || []).filter(b => b.src !== 'day'); if (READS.day === todayKey() && READS.boon) P.boons.push({ src: 'day', ...READS.boon }); }
+function strengthOf(p) { let s = 1; if (p.dignity === 'exalted') s += 2; else if (p.dignity === 'own sign') s += 1.5; else if (p.dignity === 'debilitated') s -= 1; if ([1, 4, 7, 10].includes(p.house)) s += 1; if ([1, 5, 9].includes(p.house)) s += 0.75; if ([6, 8, 12].includes(p.house)) s -= 0.5; return s; }
+function soulChart() {
+  // the player's own birth: from this session, or from what was kept
+  const src = soul.self && soul.self.date ? soul.self : SELF && SELF.date ? { date: SELF.date, time: SELF.time, city: SELF.city } : null;
+  if (!src || !E) return null;
+  const [y, mo, d] = src.date.split('-').map(Number), known = !!src.time, [h, mi] = known ? src.time.split(':').map(Number) : [12, 0];
+  const utc = E.localToUTC(y, mo, d, h, mi, src.city.tz).utc, c = E.chart(utc, src.city.lat, src.city.lon);
+  if (!known) { const ls = c.by.Moon.sign; c.lagna = E.describe(ls * 30); c.planets.forEach(p => { p.house = ((p.sign - ls + 12) % 12) + 1; }); }
+  return { c, utc, known, src };
+}
+function readSoul(now = Date.now()) {
+  const sc = soulChart(); if (!sc) return null;
+  const { c, utc, known } = sc, nat = c.by.Moon, T = E.chart(now, SKY.lat, SKY.lon), tm = T.by.Moon;
+  const tara = (((tm.nak - nat.nak) % 27) + 27) % 27 % 9, TR = TARAS[tara];
+  const fromMoon = p => (((p.sign - nat.sign) % 12) + 12) % 12 + 1;
+  const mh = fromMoon(tm), dow = new Date(now).getDay(), lord = DAY_LORD[dow];
+  const out = { when: now, sections: [], tara: TR[0], taraKind: TR[2], moonHouse: mh, dayLord: lord };
+  out.sections.push({ title: 'Today', calc: `Today's Moon is in ${tm.nakName} (${E.SIGNS[tm.sign].en}), the ${ORD(tara + 1)} star counted from your birth star ${nat.nakName}: ${TR[0]}, ${TR[1]}. It walks the ${ORD(mh)} house from your Moon. It is ${DAY_NAME[dow]}, the day of ${the(lord)} (${E.SANSKRIT[lord]}).`, text: `${TR[3]} ${MOON_HOUSE[mh]}` });
+  if (soul.tablets.has('wanderers')) {
+    const sh = fromMoon(T.by.Saturn), jh = fromMoon(T.by.Jupiter), rh = fromMoon(T.by.Rahu), kh = fromMoon(T.by.Ketu), S = SATURN_FROM_MOON[sh];
+    out.sadeSati = [12, 1, 2].includes(sh); out.saturnHouse = sh; out.jupiterHouse = jh;
+    out.sections.push({ title: 'This season', calc: `Saturn is in ${E.SIGNS[T.by.Saturn.sign].en}, the ${ORD(sh)} from your Moon (${S[0]}). Jupiter is in ${E.SIGNS[T.by.Jupiter.sign].en}, the ${ORD(jh)} from your Moon. Rahu is in the ${ORD(rh)}, Ketu in the ${ORD(kh)}.`,
+      text: `${S[1]} ${GOOD_JUP.includes(jh) ? 'Jupiter, the teacher, looks kindly on your Moon: doors that seemed shut may only be resting.' : 'Jupiter walks a quieter road for you; its gifts come by way of lessons.'} Rahu stirs a hunger in the house of ${HOUSE_WORDS[rh]}; Ketu, across from it, asks you to loosen your grip on ${HOUSE_WORDS[kh]}.` });
+  }
+  if (soul.tablets.has('periods')) {
+    const dd = E.dashas(utc, nat.lon), at = E.dashaAt(dd, now);
+    if (at) {
+      const md = at.md, ad = at.ad, mdP = c.by[md.lord], adP = c.by[ad.lord], f = ms => new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(new Date(ms));
+      const nxt = md.sub[md.sub.indexOf(ad) + 1] || null;
+      out.md = md.lord; out.ad = ad.lord;
+      out.sections.push({ title: 'The season of your life', calc: `You are in the great period of ${the(md.lord)} (${f(md.start)} to ${f(md.end)}), and within it the period of ${the(ad.lord)} (until ${f(ad.end)}). In your chart ${the(md.lord)} sits in the ${ORD(mdP.house)} house${known ? '' : ' counted from the Moon'}, and ${the(ad.lord)} in the ${ORD(adP.house)}.${known ? '' : ' Without the hour of birth these periods may be off by months or even years.'}`,
+        text: `The great period is the season; the small one is the weather inside it. Yours is a time of ${LORD_THEME[md.lord]}, turned toward ${HOUSE_WORDS[mdP.house]}. Inside it, ${the(ad.lord)} brings ${LORD_THEME[ad.lord]}, turned toward ${HOUSE_WORDS[adP.house]}. ${LORD_PARABLE[ad.lord]}${nxt ? ` The weather turns in ${f(nxt.start)}, when ${the(nxt.lord)} begins.` : ''}` });
+    }
+  }
+  const boon = TR[2] === 'hard' ? { kind: 'prot', v: 0.1, text: 'For a narrow day the stones lend you a guard: harm touches you 10% less until midnight.' } : TR[2] === 'mixed' ? { kind: 'st', v: 0.1, text: 'On your own star the stones steady your breath: stamina returns 10% faster until midnight.' } : (() => { const [k, v] = DAY_BOON[lord]; return { kind: k, v, text: `On ${the(lord)}'s day, under a friendly star, ${BOONS[k]} (${Math.round(v * 100)}%) until midnight.` }; })();
+  out.boon = boon;
+  return out;
+}
+function readBody() {
+  const b = life.birth, geo = b.geo; if (!E || !geo) return null;
+  const c = E.chart(b.ms, geo.lat, geo.lon), ps = c.planets.slice().sort((a, b2) => strengthOf(b2) - strengthOf(a)), top = ps[0], low = ps[ps.length - 1];
+  const [k, v] = BODY_BOON[top.name];
+  const why = p => `${p.dignity && p.dignity !== 'neutral' ? p.dignity + ', ' : ''}in the ${ORD(p.house)} house`;
+  return { top: top.name, low: low.name, boon: { kind: k, v, text: `For the rest of this life, ${BOONS[k]} (${Math.round(v * 100)}%).` },
+    sections: [{ title: 'This body', calc: `This body was born ${b.local} in ${b.place}. ${The(top.name)} stands tallest in its chart (${why(top)}); ${the(low.name)} stands lowest (${why(low)}).`,
+      text: `${The(top.name)} is the strong one in this body: ${LORD_THEME[top.name]}. ${LORD_PARABLE[top.name]} ${The(low.name)} is faint here, so ${WEAK_AT[low.name]} will not come easily in this life; what does not come easily can still be earned.` }] };
+}
+let lastReading = null;
+function openStones() {
+  banner = null; mode = 'stone'; clearHeld(); renderStones(); $('ovGear').hidden = false;
+}
+function readingHTML(r, who) {
+  return `<div class="reading">${r.sections.map(s => `<div class="rsec"><span class="lbl">${esc(s.title)}</span><span class="calc">${esc(s.calc)}</span><p class="hand">${esc(s.text)}</p></div>`).join('')}
+    <div class="rsec gift"><span class="lbl">The stones' gift</span><p>${esc(r.boon.text)}</p></div></div>`;
+}
+function renderStones(view) {
+  const day = todayKey(), readToday = READS.day === day && READS.soul, bodyDone = !!life.bodyRead, sc = soulChart();
+  const locked = TABLETS.filter(t => !soul.tablets.has(t.id));
+  if (view === 'soul' && READS.soul) {
+    $('gearIn').innerHTML = `<span class="eyebrow">The nine stones · the one who dreams · Esc to leave</span><h2>What the stones say to you</h2>${readingHTML(READS.soul)}
+      ${locked.length ? `<p class="note">The stones are quiet about the longer seasons. ${locked.map(t => esc(t.name)).join(' and ')} would let them say more.</p>` : ''}
+      <p class="note">The stones speak in the old way: tradition to reflect on, not a promise of what will happen. What you do with it is yours.</p><div class="row"><button class="btn ghost" type="button" id="stBack">Back to the stones</button></div>`;
+    $('stBack').addEventListener('click', () => renderStones()); return;
+  }
+  if (view === 'body' && life.bodyRead) {
+    $('gearIn').innerHTML = `<span class="eyebrow">The nine stones · this body · Esc to leave</span><h2>What the stones say of this body</h2>${readingHTML(life.bodyRead)}
+      <p class="note">This reading is of the body you wear in the game, not of you.</p><div class="row"><button class="btn ghost" type="button" id="stBack">Back to the stones</button></div>`;
+    $('stBack').addEventListener('click', () => renderStones()); return;
+  }
+  const soulBox = !sc ? `<p>The stones can only read you if they know the moment you were born.</p><div class="row"><button class="btn" type="button" id="stTell">Tell them your birth</button></div>`
+    : readToday ? `<p>The stones have spoken to you today. Come back tomorrow: the sky will have moved.</p><div class="row"><button class="btn ghost" type="button" id="stSoulAgain">Read again what they said</button></div>`
+    : `<p>Your own birth, read against the sky of today.</p><span class="m">Offering: ${esc(costText(SOUL_COST))} · once a day</span><div class="row"><button class="btn" type="button" id="stSoul"${canPay(SOUL_COST) ? '' : ' disabled'}>Make the offering</button></div>${canPay(SOUL_COST) ? '' : '<span class="m">You do not have the offering yet. Seeds come from the Grasping; petals from lotus flowers on water; ember stones from the hot rocks in the dark.</span>'}`;
+  const bodyBox = bodyDone ? `<p>The stones have read this body. They read each body once.</p><div class="row"><button class="btn ghost" type="button" id="stBodyAgain">Read again what they said</button></div>`
+    : `<p>The chart of the body you wear in this life (life ${life.n}).</p><span class="m">Offering: ${esc(costText(BODY_COST))} · once a life</span><div class="row"><button class="btn" type="button" id="stBody"${canPay(BODY_COST) ? '' : ' disabled'}>Make the offering</button></div>`;
+  $('gearIn').innerHTML = `<span class="eyebrow">The nine stones · Navagraha · Esc to leave</span><h2>The nine stones</h2>
+    <p class="hand">Nine stones for the nine wanderers of the sky: Sun, Moon, Mars, Mercury, Jupiter, Venus, Saturn, Rahu and Ketu. Bring an offering, and they will read.</p>
+    <div class="gear"><div class="gcol"><span class="lbl">The one who dreams · you</span><div class="item">${soulBox}</div></div>
+      <div class="gcol"><span class="lbl">This body · life ${life.n}</span><div class="item">${bodyBox}</div></div></div>
+    <div class="stats"><span><b>Tablets</b> ${soul.tablets.size} of ${TABLETS.length} found · ${TABLETS.map(t => `${soul.tablets.has(t.id) ? '✓' : '·'} ${esc(t.name)}: ${esc(t.what)}`).join(' · ')}</span>
+      ${P.boons && P.boons.length ? `<span><b>Gifts on you</b> ${P.boons.map(b => esc(b.text)).join(' ')}</span>` : ''}</div>
+    <p class="note">You carry ${P.seeds} seeds, ${P.mats.petal} lotus petals and ${P.mats.ember} ember stones. The stones speak in the old way: tradition to reflect on, not a promise of what will happen.</p>`;
+  const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
+  on('stSoul', () => { if (!canPay(SOUL_COST)) return; const r = readSoul(); if (!r) return; pay(SOUL_COST); READS = { day, soul: r, boon: r.boon }; saveReads(); applyDayBoon(); stonesGlow(); renderStones('soul'); });
+  on('stSoulAgain', () => renderStones('soul'));
+  on('stBody', () => { if (!canPay(BODY_COST)) return; const r = readBody(); if (!r) return; pay(BODY_COST); life.bodyRead = r; P.boons = (P.boons || []).filter(b => b.src !== 'body'); P.boons.push({ src: 'body', ...r.boon }); stonesGlow(); renderStones('body'); });
+  on('stBodyAgain', () => renderStones('body'));
+  on('stTell', () => { $('ovGear').hidden = true; openCreate({ forStones: true }); });
+}
+function stonesGlow() { SFX.relic(); for (const n of NAVAGRAHA) for (let i = 0; i < 30; i++) fx.push({ k: 'star', x: n.x + rnd(-60, 60), y: n.gy - rnd(20, 120), vx: 0, vy: -40, life: rnd(0.4, 1) }); }
+const nearStones = () => NAVAGRAHA.find(n => Math.abs(pcx() - n.x) < 70 && Math.abs(P.y + P.h - n.gy) < 40);
+const nearTablet = () => TABLETS.find(t => Math.abs(pcx() - t.x) < 40 && Math.abs(P.y + P.h - t.gy) < 50);
+function readTablet(t) {
+  if (soul.tablets.has(t.id)) { floater(t.x, t.gy - 50, 'YOU HAVE READ THIS TABLET', PENCIL); return; }
+  soul.tablets.add(t.id); SFX.relic();
+  showBanner({ t: 4.4, top: t.name.toUpperCase(), sub: `${t.what} The nine stones can now say more when they read you. Tablets stay with your soul.` });
+}
+const GLYPHS = ['sun', 'moon', 'mars', 'mercury', 'jupiter', 'venus', 'saturn', 'rahu', 'ketu'];
+function drawStones(n) {
+  ctx.save(); ctx.translate(n.x, n.gy); ctx.scale(1.35, 1.35); const x = 0, g = 0;
+  // a small pillared roof over the nine
+  ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-74, -14); ctx.lineTo(-74, -78); ctx.moveTo(74, -14); ctx.lineTo(74, -78); ctx.stroke();
+  ctx.fillStyle = PAPER; ctx.beginPath(); ctx.moveTo(-92, -78); ctx.lineTo(0, -104); ctx.lineTo(92, -78); ctx.closePath(); ctx.fill(); ctx.stroke(); hatch(-60, -90, 120, 10, 6, HATCH, 1);
+  ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.fillRect(x - 78, g - 14, 156, 14); hatch(x - 78, g - 14, 156, 14, 6); ctx.strokeRect(x - 78, g - 14, 156, 14);
+  for (let i = 0; i < 9; i++) {
+    const row = Math.floor(i / 3), col = i % 3, sx = x - 54 + col * 54 + (row - 1) * 8, sy = g - 14 - row * 4, h = 30 + (i === 4 ? 10 : 0);
+    ctx.globalAlpha = row === 0 ? 1 : row === 1 ? 0.8 : 0.6;
+    ctx.fillStyle = PAPER; ctx.beginPath(); ctx.moveTo(sx - 9, sy); ctx.lineTo(sx - 8, sy - h + 6); ctx.quadraticCurveTo(sx, sy - h - 4, sx + 8, sy - h + 6); ctx.lineTo(sx + 9, sy); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.lineWidth = 1.4; ctx.beginPath(); const gy2 = sy - h / 2 - 2, gl = GLYPHS[i];
+    if (gl === 'sun') { ctx.arc(sx, gy2, 4, 0, Math.PI * 2); ctx.moveTo(sx + 1, gy2); ctx.arc(sx, gy2, 1, 0, Math.PI * 2); }
+    else if (gl === 'moon') { ctx.arc(sx, gy2, 4.5, 0.8, Math.PI * 2 - 0.8); }
+    else if (gl === 'mars') { ctx.arc(sx - 1, gy2 + 1, 3.5, 0, Math.PI * 2); ctx.moveTo(sx + 2, gy2 - 2); ctx.lineTo(sx + 5, gy2 - 5); }
+    else if (gl === 'mercury') { ctx.arc(sx, gy2, 3, 0, Math.PI * 2); ctx.moveTo(sx, gy2 + 3); ctx.lineTo(sx, gy2 + 7); }
+    else if (gl === 'jupiter') { ctx.moveTo(sx - 4, gy2 - 4); ctx.quadraticCurveTo(sx, gy2 - 4, sx - 3, gy2 + 1); ctx.lineTo(sx + 4, gy2 + 1); ctx.moveTo(sx + 2, gy2 - 4); ctx.lineTo(sx + 2, gy2 + 5); }
+    else if (gl === 'venus') { ctx.arc(sx, gy2 - 2, 3, 0, Math.PI * 2); ctx.moveTo(sx, gy2 + 1); ctx.lineTo(sx, gy2 + 6); ctx.moveTo(sx - 2.5, gy2 + 4); ctx.lineTo(sx + 2.5, gy2 + 4); }
+    else if (gl === 'saturn') { ctx.moveTo(sx - 3, gy2 - 5); ctx.lineTo(sx - 3, gy2 + 4); ctx.quadraticCurveTo(sx + 4, gy2 - 1, sx + 2, gy2 + 5); ctx.moveTo(sx - 5, gy2 - 3); ctx.lineTo(sx - 1, gy2 - 3); }
+    else if (gl === 'rahu') { ctx.arc(sx - 2.5, gy2, 2.5, Math.PI * 0.5, Math.PI * 1.5); ctx.arc(sx + 2.5, gy2, 2.5, Math.PI * 1.5, Math.PI * 0.5, true); }
+    else { ctx.arc(sx, gy2, 3.5, Math.PI, 0); ctx.moveTo(sx - 3.5, gy2); ctx.lineTo(sx - 3.5, gy2 + 4); ctx.moveTo(sx + 3.5, gy2); ctx.lineTo(sx + 3.5, gy2 + 4); }
+    ctx.stroke(); ctx.lineWidth = 2.5; ctx.globalAlpha = 1;
+  }
+  if (READS.day === todayKey() && READS.soul) { ctx.strokeStyle = PENCIL; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, g - 50, 56 + Math.sin(clock * 2) * 3, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); }
+  ctx.restore();
+}
+function drawTablet(t) {
+  if (soul.tablets.has(t.id)) ctx.globalAlpha = 0.5;
+  const x = t.x, g = t.gy; ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(x - 16, g); ctx.lineTo(x - 13, g - 40); ctx.lineTo(x + 13, g - 40); ctx.lineTo(x + 16, g); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.lineWidth = 1.2; ctx.beginPath(); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * Math.PI * 4 / 5, b = -Math.PI / 2 + (i + 1) * Math.PI * 4 / 5; ctx.moveTo(x + Math.cos(a) * 7, g - 26 + Math.sin(a) * 7); ctx.lineTo(x + Math.cos(b) * 7, g - 26 + Math.sin(b) * 7); } ctx.moveTo(x - 8, g - 12); ctx.lineTo(x + 8, g - 12); ctx.moveTo(x - 6, g - 8); ctx.lineTo(x + 6, g - 8); ctx.stroke();
+  if (!soul.tablets.has(t.id)) { ctx.strokeStyle = PENCIL; ctx.beginPath(); ctx.arc(x, g - 26, 16 + Math.sin(clock * 3) * 2, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+}
+
 /* ---------- character creation (Phase 3): your birth moment, your body, your soul mark ---------- */
 // ~172,000 birthplaces packed into the page (see tools/build-places.js); time zones for any other point come from tz-lookup
 /*TZLOOKUP*/
@@ -2692,16 +2887,16 @@ function realBirth(date, time, city) {
   const g = E.game(c), now = Date.now(), yr = 365.25 * 864e5;
   const where = [city.name, city.country].filter(Boolean).join(', ');
   const local = new Intl.DateTimeFormat('en-GB', { timeZone: city.tz, day: 'numeric', month: 'short', year: 'numeric', ...(known ? { hour: '2-digit', minute: '2-digit' } : {}) }).format(new Date(utc));
-  return { ms: utc, real: true, timeKnown: known, place: where, local: known ? local : `${local} (hour unknown)`, offset: E.fmtOffset(offset), age: Math.floor((now - utc) / yr), looks: null,
+  return { ms: utc, geo: { lat: city.lat, lon: city.lon }, real: true, timeKnown: known, place: where, local: known ? local : `${local} (hour unknown)`, offset: E.fmtOffset(offset), age: Math.floor((now - utc) / yr), looks: null,
     lagna: `${E.SIGNS[c.lagna.sign].en}${known ? '' : ' (from the Moon)'}`, moon: `${E.SIGNS[c.by.Moon.sign].en}, ${c.by.Moon.nakName}`, sun: E.SIGNS[c.by.Sun.sign].en, moonNote,
     tier: g.manaTierIndex, tierName: g.manaTier, school: g.school ? g.school.id : null, style: g.social.split(':')[0], styleFull: g.social, region: g.region, people: g.civilization,
     lagnaWindow: known ? c.lagnaWindow : null, chart: { lagna: c.lagna.sign, moonLon: c.by.Moon.lon, utc } };
 }
 let CR = null;
-function openCreate() {
+function openCreate(o = {}) {
   mode = 'create'; clearHeld(); banner = null;
   const s = SELF || {};
-  CR = { step: 1, kind: s.date ? (s.time ? 'real' : 'day') : null, date: s.date || '', time: s.time || '', city: s.city || null, q: s.city ? s.city.name : '', birth: null, err: '',
+  CR = { forStones: !!o.forStones, step: 1, kind: s.date ? (s.time ? 'real' : 'day') : o.forStones ? 'real' : null, date: s.date || '', time: s.time || '', city: s.city || null, q: s.city ? s.city.name : '', birth: null, err: '',
     looks: s.looks || { hair: 1, build: 4.2, robe: false }, mark: s.mark || 'lotus', name: s.name || '', store: s.store || null, online: null, coords: false, ll: '', llName: '' };
   $('ovCreate').hidden = false; renderCreate(); if (!CITIES.length) loadPlaces().then(() => { if (CR && CR.step === 1) renderCreate(); });
 }
@@ -2715,15 +2910,15 @@ function birthCard(b) {
 }
 function renderCreate() {
   const c = CR, el = $('createIn'), step = c.step, real = c.kind === 'real' || c.kind === 'day';
-  const steps = ['Your birth', 'Your body', ...(real ? ['Keeping it'] : [])];
-  const head = `<span class="eyebrow">Before your first life · step ${step} of ${steps.length} · ${steps[step - 1]}</span>`;
+  const steps = c.forStones ? ['Your birth', '', 'Keeping it'] : ['Your birth', 'Your body', ...(real ? ['Keeping it'] : [])];
+  const head = `<span class="eyebrow">${c.forStones ? `For the nine stones · ${steps[step - 1]}` : `Before your first life · step ${step} of ${steps.length} · ${steps[step - 1]}`}</span>`;
   if (step === 1) {
     const choice = (k, t, d) => `<button class="choice${c.kind === k ? ' on' : ''}" type="button" data-kind="${k}"><b>${t}</b><span>${d}</span></button>`;
     const cityList = c.kind && c.kind !== 'wheel' && !c.city ? (c.online && c.online.results ? c.online.results : findCities(c.q)).filter(x => !c.city || x !== c.city) : [];
     const noMatch = c.q.trim().length >= 2 && !c.city && !findCities(c.q).length;
     el.innerHTML = `${head}<h2>When were you born?</h2>
       <p>Your first life begins at a real moment under the real sky. The stars at that moment shape your body: its mana, its school of magic, and where it comes from.</p>
-      <div class="choices">${choice('real', 'My real birth', 'The day, the hour and the place you were born.')}${choice('day', 'I know the day, not the hour', 'Without the hour the rising sign is unknown, so the chart is read from the Moon, as the tradition does.')}${choice('wheel', 'Let the wheel decide', 'A real moment from the past, chosen for you.')}</div>
+      <div class="choices">${choice('real', 'My real birth', 'The day, the hour and the place you were born.')}${choice('day', 'I know the day, not the hour', 'Without the hour the rising sign is unknown, so the chart is read from the Moon, as the tradition does.')}${c.forStones ? '' : choice('wheel', 'Let the wheel decide', 'A real moment from the past, chosen for you.')}</div>
       ${real ? `<div class="form">
         <label class="field"><span class="lbl">Date of birth</span><input id="crDate" type="date" min="1900-01-01" max="${new Date().toISOString().slice(0, 10)}" value="${esc(c.date)}"></label>
         ${c.kind === 'real' ? `<label class="field"><span class="lbl">Time of birth (local clock)</span><input id="crTime" type="time" value="${esc(c.time)}"></label>` : ''}
@@ -2741,7 +2936,7 @@ function renderCreate() {
       ${c.kind === 'wheel' && !c.birth ? '<div class="row"><button class="btn ghost" id="crCast" type="button">Turn the wheel</button></div>' : ''}
       ${c.err ? `<p class="err">${esc(c.err)}</p>` : ''}
       ${c.birth ? `<span class="lbl">${c.birth.real ? 'Your chart' : 'The moment the wheel chose'}</span>${birthCard(c.birth)}` : ''}
-      <div class="row"><button class="btn" id="crNext" type="button"${c.birth ? '' : ' disabled'}>Next: your body</button></div>
+      <div class="row">${c.forStones ? '<button class="btn ghost" id="crCancel" type="button">Back to the stones</button>' : ''}<button class="btn" id="crNext" type="button"${c.birth ? '' : ' disabled'}>${c.forStones ? 'Next: keeping your birth' : 'Next: your body'}</button></div>
       <p class="note">This uses the sidereal zodiac (Lahiri), as in Vedic astrology. The birth time you enter is your local clock time; past time zone changes are taken care of.</p>`;
     el.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { c.kind = b.dataset.kind; c.birth = null; c.err = ''; renderCreate(); }));
     const keep = () => { if ($('crDate')) c.date = $('crDate').value; if ($('crTime')) c.time = $('crTime').value; };
@@ -2766,7 +2961,8 @@ function renderCreate() {
       if (!c.err) c.birth = realBirth(c.date, c.kind === 'real' ? c.time : null, c.city);
       renderCreate();
     });
-    $('crNext').addEventListener('click', () => { if (!c.birth) return; c.step = 2; renderCreate(); });
+    $('crNext').addEventListener('click', () => { if (!c.birth) return; c.step = c.forStones ? 3 : 2; renderCreate(); });
+    const cc = $('crCancel'); if (cc) cc.addEventListener('click', () => { $('ovCreate').hidden = true; CR = null; openStones(); });
     return;
   }
   if (step === 2) {
@@ -2800,9 +2996,9 @@ function renderCreate() {
       ${opt('device', 'Keep it on this device only', 'Never sent anywhere. If this device is lost or reset, it is gone, and the game will ask for it again.')}
       ${opt('none', 'Do not keep it', 'Used for this first life only. Readings later in the game will ask for it each time.')}</div>
     <p class="note">Your name, body and soul mark are kept either way. Nothing is ever shared with other players.</p>
-    <div class="row"><button class="btn ghost" id="crBack" type="button">Back</button><button class="btn" id="crBorn" type="button"${c.store ? '' : ' disabled'}>Be born</button></div>`;
+    <div class="row"><button class="btn ghost" id="crBack" type="button">Back</button><button class="btn" id="crBorn" type="button"${c.store ? '' : ' disabled'}>${c.forStones ? 'Give it to the stones' : 'Be born'}</button></div>`;
   el.querySelectorAll('[data-store]').forEach(b => b.addEventListener('click', () => { c.store = b.dataset.store; renderCreate(); }));
-  $('crBack').addEventListener('click', () => { c.step = 2; renderCreate(); });
+  $('crBack').addEventListener('click', () => { c.step = c.forStones ? 1 : 2; renderCreate(); });
   $('crBorn').addEventListener('click', () => { if (c.store) finishCreate(); });
 }
 function drawPreview() {
@@ -2818,7 +3014,16 @@ function drawPreview() {
   ctx = old; requestAnimationFrame(drawPreview);
 }
 function finishCreate() {
-  const c = CR, b = c.birth; b.looks = { ...c.looks };
+  const c = CR, b = c.birth;
+  if (c.forStones) {
+    soul.self = { date: c.date, time: c.kind === 'real' ? c.time : null, city: c.city, chart: b.chart, store: c.store };
+    const save = Object.assign({}, SELF || {}, { store: c.store });
+    if (c.store !== 'none') Object.assign(save, { date: c.date, time: c.kind === 'real' ? c.time : null, city: { name: c.city.name, prov: c.city.prov, country: c.city.country, lat: c.city.lat, lon: c.city.lon, tz: c.city.tz } });
+    else { delete save.date; delete save.time; delete save.city; }
+    try { localStorage.setItem(SELF_KEY, JSON.stringify(save)); SELF = save; } catch (_) {}
+    $('ovCreate').hidden = true; CR = null; openStones(); return;
+  }
+  b.looks = { ...c.looks };
   soul.name = c.name.trim() || null; soul.mark = c.mark;
   const keepBirth = b.real && c.store !== 'none';
   soul.self = b.real ? { date: c.date, time: c.kind === 'real' ? c.time : null, city: c.city, chart: b.chart, store: c.store } : null;
@@ -2851,7 +3056,7 @@ window.__life = {
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, readSoul: t => readSoul(t), readBody: () => readBody(), soulChart: () => soulChart(), NAVAGRAHA, TABLETS, get READS() { return READS; }, boonV: k => boonV(k), openStones: () => openStones(), E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };
