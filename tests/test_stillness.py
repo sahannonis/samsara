@@ -51,7 +51,7 @@ async def main():
         # the first lesson counted as lived: a deep stillness brings the question; a wrong answer loses nothing
         await ev("document.getElementById('tLived').click()"); await run(200)
         await sit(); await breathe(4, True); await run(2)
-        for i in range(30):
+        for i in range(120):
             if await ev("__life.mode") == 'ask': break
             await run(30)
         R['riddle'] = await ev("__life.mode+' · '+document.querySelector('#gearIn h2').innerText")
@@ -61,7 +61,7 @@ async def main():
         await pg.click(f'[data-ans="{wrong}"]'); await run(2); R['wrong'] = await ev("__life.soul.understood.has('mind')+' '+(__life.soul.realized.has('mind'))")
         await run(300)
         await sit(); await breathe(4, True); await run(2)
-        for i in range(30):
+        for i in range(120):
             if await ev("__life.mode") == 'ask': break
             await run(30)
         R['riddle2_differs'] = await ev("__life.soul.asked.length")

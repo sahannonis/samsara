@@ -35,7 +35,7 @@ async def main():
         # a boss falls and the wheel asks why
         await ev("__life.put(10200,760)"); await run(3); await run(60, {'right': True})
         await ev("__life.hurtFoe(__life.foes.find(f=>f.boss==='chief'), 9999, true)"); await run(140)
-        for i in range(40):
+        for i in range(160):
             if await ev("__life.mode") == 'ask': break
             await run(30)
         R['asked'] = await ev("__life.mode+' · '+document.querySelector('#gearIn h2').innerText")

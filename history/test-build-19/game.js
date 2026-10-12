@@ -29,6 +29,15 @@ const SKILLS = {
 };
 const SKILL_LEVELS = { 5: ['light_feet', 'iron_lungs', 'killing_edge'], 10: ['second_wind', 'strong_back', 'forager'] };
 const SCHOOL_PERK = { Agni: 'Ignite hits 25% harder. Burning ground cannot hurt you', Jala: 'Restore heals 40% more', Vayu: 'Rolls cost 30% less stamina', Prithvi: 'Shield lasts twice as long', Akasha: 'Mana returns 50% faster' };
+// how turned inward a chart is, in the old way of reading: a strong Jupiter (the teacher), Ketu in the houses of
+// release (12th, 4th, 8th) or of dharma (9th), and planets in the twelfth, the house of moksha. 0 to 2
+function inwardOf(c) {
+  const J = c.by.Jupiter, K = c.by.Ketu; let s = 0;
+  if (J.dignity === 'exalted' || J.dignity === 'own sign') s += 1; if ([1, 5, 9, 12].includes(J.house)) s += 0.5;
+  if (K.house === 12) s += 1; else if ([4, 8, 9].includes(K.house)) s += 0.5;
+  s += Math.min(1, 0.35 * c.planets.filter(p => p.house === 12 && p.name !== 'Ketu').length);
+  return s >= 2 ? 2 : s >= 1 ? 1 : 0;
+}
 function makeBirth() {
   const now = Date.now(), yr = 365.25 * 864e5;
   const ms = now - rnd(18, 64) * yr, pl = PLACES[Math.floor(Math.random() * PLACES.length)];
@@ -41,7 +50,7 @@ function makeBirth() {
   }
   const c = E.chart(ms, pl[1], pl[2]), g = E.game(c);
   const fortune = c.planets.filter(p => p.dignity === 'exalted' || p.dignity === 'own sign').length - 0.5 * c.planets.filter(p => p.dignity === 'debilitated').length + ([1, 4, 7, 10].includes(c.by.Jupiter.house) ? 1 : 0) + ([1, 4, 7, 10].includes(c.by.Venus.house) ? 0.5 : 0) + ([1, 5, 9].includes(c.by.Moon.house) ? 0.5 : 0);
-  return { fortune, ms, geo: { lat: pl[1], lon: pl[2] }, place: pl[0], local, age, looks, lagna: E.SIGNS[c.lagna.sign].en, moon: `${E.SIGNS[c.by.Moon.sign].en}, ${c.by.Moon.nakName}`, tier: g.manaTierIndex, tierName: g.manaTier, school: g.school ? g.school.id : null, style: g.social.split(':')[0], region: g.region, people: g.civilization };
+  return { fortune, inward: inwardOf(c), ms, geo: { lat: pl[1], lon: pl[2] }, place: pl[0], local, age, looks, lagna: E.SIGNS[c.lagna.sign].en, moon: `${E.SIGNS[c.by.Moon.sign].en}, ${c.by.Moon.nakName}`, tier: g.manaTierIndex, tierName: g.manaTier, school: g.school ? g.school.id : null, style: g.social.split(':')[0], region: g.region, people: g.civilization };
 }
 const STATS = {
   vit: { name: 'Vitality', what: '+8 health' },
@@ -66,6 +75,7 @@ function perks(b) {
   else out.push(`${b.tierName} mana: ${[0, 40, 60, 80, 100][b.tier]} max`);
   if (b.school) out.push(SCHOOL_PERK[b.school]);
   if (b.style === 'Sovereign') out.push('Sovereign: 10% more damage alone');
+  if (b.inward) out.push(b.inward > 1 ? 'Deeply turned inward (Jupiter, Ketu and the twelfth house): stillness comes very easily' : 'Turned inward (Jupiter, Ketu or the twelfth house): stillness comes easily');
   return out;
 }
 
@@ -231,6 +241,7 @@ addEventListener('keydown', e => {
   if (mode === 'map' && /^Digit[1-9]$/.test(e.code)) { travelTo(+e.code.slice(5) - 1); return; }
   if (e.code === 'KeyM' && !e.repeat) { if (mode === 'play') { mode = 'map'; clearHeld(); } else if (mode === 'map') closePanel(); return; }
   if (e.code === 'Escape' && mode === 'meditate') { leaveMeditation(); return; }
+  if ((e.code === 'Enter' || e.code === 'NumpadEnter') && mode === 'play' && banner) { closeBanner(); e.preventDefault(); return; }
   if (e.code === 'Escape') { if (mode === 'gear' || mode === 'map' || mode === 'shrine' || mode === 'forge' || mode === 'chest' || mode === 'stone') { closePanel(); return; } if (mode === 'play') { mode = 'pause'; $('ovPause').hidden = false; } else if (mode === 'pause') resume(); return; }
   const a = KEYS[e.code]; if (!a) return;
   if (mode === 'play' || mode === 'meditate') e.preventDefault();
@@ -245,6 +256,7 @@ const mouse = { x: W / 2, y: H / 2, in: false };
 cv.addEventListener('mousemove', e => { const r = cv.getBoundingClientRect(); mouse.x = (e.clientX - r.left) / r.width * W; mouse.y = (e.clientY - r.top) / r.height * H; mouse.in = true; });
 cv.addEventListener('mouseleave', () => { mouse.in = false; });
 cv.addEventListener('mousedown', e => {
+  if (banner && mode === 'play' && e.button === 0) { const r = cv.getBoundingClientRect(), my = (e.clientY - r.top) / r.height * H, bh = 70 + 24 * 3; if (Math.abs(my - 196) < bh / 2 + 30) { closeBanner(); e.preventDefault(); return; } }
   if (mode === 'map') { const h = mapHits.find(m => Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18); if (h) travelTo(h.i); return; }
   if (mode !== 'play') return;
   e.preventDefault();
@@ -1241,6 +1253,12 @@ function learnSpell(id, how) {
   return true;
 }
 let BQ = [];
+const SET_KEY = 'samsara.settings'; let SETTINGS = { msg: 'fade' };
+try { Object.assign(SETTINGS, JSON.parse(localStorage.getItem(SET_KEY)) || {}); } catch (_) {}
+function saveSettings() { try { localStorage.setItem(SET_KEY, JSON.stringify(SETTINGS)); } catch (_) {} }
+// enough time to read a message: about a quarter second a word, never less than it asked for
+const readTime = b => 2 + String((b.top || '') + ' ' + (b.sub || '')).split(/\s+/).length * 0.27;
+function closeBanner() { if (!banner) return false; banner = null; return true; }
 const SCROLL_W = 0.1, SCRIBE_COST = { ink: 3, seeds: 20 };
 function gainScroll(id, n, x, y) {
   P.scrolls[id] = (P.scrolls[id] || 0) + n;
@@ -2254,7 +2272,10 @@ function drawMap() {
 /* ---------- update ---------- */
 function update(dt) {
   clock += dt;
-  if (banner) { banner.t -= dt; if (banner.t <= 0) banner = null; }
+  if (banner) {
+    if (!banner._r) { banner._r = true; banner.t0 = banner.t = Math.max(banner.t, readTime(banner)); }
+    if (SETTINGS.msg !== 'stay') { banner.t -= dt; if (banner.t <= 0) banner = null; } else banner.t = Math.max(banner.t, 1);
+  }
   if (!banner && BQ.length && mode === 'play') banner = BQ.shift();
   if (life && life.ask && mode === 'play') { life.ask.t -= dt; if (life.ask.t <= 0 && !banner && !BQ.length) openAsk(); }
   if (zoneTag) { zoneTag.t -= dt; if (zoneTag.t <= 0) zoneTag = null; }
@@ -2784,10 +2805,13 @@ function drawHUD() {
   if (zoneTag) { const a = clamp(Math.min(zoneTag.t * 1.5, (3.2 - zoneTag.t) * 4, 1), 0, 1); ctx.globalAlpha = a; ctx.textAlign = 'center'; const zx = 509; plate(zx - 115, 6, 230, 56); ctx.fillStyle = INK; ctx.font = `13px ${FD}`; ctx.fillText(zoneTag.name, zx, 28); ctx.font = `14px ${FH}`; ctx.fillStyle = INK2; ctx.fillText(zoneTag.sub, zx, 50); ctx.globalAlpha = 1; }
   if (banner) {
     const a = clamp(Math.min(banner.t * 2, 1), 0, 1); ctx.globalAlpha = a;
-    ctx.font = `18px ${FH}`; const lines = wrapText(banner.sub, W - 120), bh = 70 + lines.length * 24, by = 196 - bh / 2;
+    ctx.font = `18px ${FH}`; const lines = wrapText(banner.sub, W - 120), bh = 84 + lines.length * 24, by = 196 - bh / 2;
     ctx.fillStyle = INK; ctx.fillRect(0, by, W, bh); ctx.fillStyle = PAPER; ctx.textAlign = 'center';
     let fs = 28; ctx.font = `${fs}px ${FD}`; while (ctx.measureText(banner.top).width > W - 80 && fs > 14) { fs -= 2; ctx.font = `${fs}px ${FD}`; }
-    ctx.fillText(banner.top, W / 2, by + 44); ctx.font = `18px ${FH}`; lines.forEach((l, i) => ctx.fillText(l, W / 2, by + 74 + i * 24)); ctx.globalAlpha = 1;
+    ctx.fillText(banner.top, W / 2, by + 44); ctx.font = `18px ${FH}`; lines.forEach((l, i) => ctx.fillText(l, W / 2, by + 74 + i * 24));
+    if (SETTINGS.msg === 'stay') { ctx.font = `9px ${FD}`; ctx.fillStyle = '#b9b6ac'; ctx.fillText('ENTER OR CLICK TO CLOSE', W / 2, by + bh - 8); }
+    else if (banner.t0) { ctx.fillStyle = '#5c5a53'; ctx.fillRect(W / 2 - 120, by + bh - 6, 240, 2); ctx.fillStyle = PAPER; ctx.fillRect(W / 2 - 120, by + bh - 6, 240 * clamp(banner.t / banner.t0, 0, 1), 2); }
+    ctx.globalAlpha = 1;
   }
   drawBossBar();
   drawChantHUD();
@@ -2846,13 +2870,14 @@ function updateMed(dt) {
   const ph = medPhase(M.t), want = ph.p[0] === 'in' || ph.p[0] === 'full', grace = ph.k < 0.12 && (ph.i === 0 || ph.i === 2);
   const hold = !!held.jump;
   M.breath = clamp(M.breath + (hold ? 1 : -1) * dt / 4, 0, 1);
-  if (!grace) M.calm = clamp(M.calm + (hold === want ? 2.4 : -9) * dt, 0, 100);
+  const inw = (life.birth && life.birth.inward) || 0;
+  if (!grace) M.calm = clamp(M.calm + (hold === want ? 2.4 * (1 + 0.2 * inw) : -9 * (1 - 0.15 * inw)) * dt, 0, 100);
   // fidgeting stirs the water
   if (pressed.left || pressed.right || pressed.light || pressed.heavy || pressed.roll || pressed.parry) { M.calm = Math.max(0, M.calm - 6); M.stir = 0.6; M.msg = { t: 2, text: 'You stirred.' }; }
   if (M.stir > 0) M.stir -= dt;
   // thoughts drift in
   M.nextT -= dt;
-  if (M.nextT <= 0 && M.t < MED_CYCLES * 16 - 8) { M.nextT = rnd(5, 8); const side = Math.random() < 0.5 ? -1 : 1; M.thoughts.push({ text: M.pool[(M.passed + M.followed) % M.pool.length], x: W / 2 + side * 420, y: rnd(150, 330), dir: -side, t: 0, life: 7, state: 'drift' }); }
+  if (M.nextT <= 0 && M.t < MED_CYCLES * 16 - 8) { M.nextT = rnd(5, 8) * (1 + 0.3 * ((life.birth && life.birth.inward) || 0)); const side = Math.random() < 0.5 ? -1 : 1; M.thoughts.push({ text: M.pool[(M.passed + M.followed) % M.pool.length], x: W / 2 + side * 420, y: rnd(150, 330), dir: -side, t: 0, life: 7, state: 'drift' }); }
   for (const th of M.thoughts) {
     th.t += dt; if (th.state === 'drift') th.x += th.dir * 80 * dt;
     const near = th.state === 'drift' && th.t > 2 && th.t < 5.5;
@@ -2925,6 +2950,7 @@ function drawMed() {
   const old = ctx; stick(cx, 352, POSE.sit(), 1, INK, P.looks.build, { hair: P.looks.hair, robe: P.looks.robe, s: 1.4 });
   ctx.textAlign = 'center'; ctx.fillStyle = INK; ctx.font = `20px ${FD}`; ctx.fillText(ph.p[1].toUpperCase(), cx, 92);
   ctx.font = `15px ${FH}`; ctx.fillStyle = INK2; ctx.fillText(ph.p[0] === 'in' || ph.p[0] === 'full' ? 'Hold Space' : 'Let go of Space', cx, 116);
+  if (life.birth && life.birth.inward) { ctx.font = `13px ${FH}`; ctx.fillStyle = PENCIL; ctx.fillText(life.birth.inward > 1 ? 'This body is deeply turned inward: stillness comes very easily.' : 'This body is turned inward: stillness comes easily.', cx, 138); }
   // thoughts
   for (const th of M.thoughts) {
     const a = th.state === 'followed' ? 1 : clamp(Math.min(th.t, th.life - th.t), 0, 1), big = th.state === 'followed';
@@ -3203,10 +3229,10 @@ function realBirth(date, time, city) {
     const m0 = E.chart(E.localToUTC(y, mo, d, 0, 1, city.tz).utc, city.lat, city.lon).by.Moon, m1 = E.chart(E.localToUTC(y, mo, d, 23, 59, city.tz).utc, city.lat, city.lon).by.Moon;
     if (m0.nak !== m1.nak) moonNote = `That day the Moon moved from ${m0.nakName} into ${m1.nakName}; without the hour, midday is used.`;
   }
-  const g = E.game(c), now = Date.now(), yr = 365.25 * 864e5;
+  const g = E.game(c), now = Date.now(), yr = 365.25 * 864e5, inward = inwardOf(c);
   const where = [city.name, city.country].filter(Boolean).join(', ');
   const local = new Intl.DateTimeFormat('en-GB', { timeZone: city.tz, day: 'numeric', month: 'short', year: 'numeric', ...(known ? { hour: '2-digit', minute: '2-digit' } : {}) }).format(new Date(utc));
-  return { ms: utc, geo: { lat: city.lat, lon: city.lon }, real: true, timeKnown: known, place: where, local: known ? local : `${local} (hour unknown)`, offset: E.fmtOffset(offset), age: Math.floor((now - utc) / yr), looks: null,
+  return { inward, ms: utc, geo: { lat: city.lat, lon: city.lon }, real: true, timeKnown: known, place: where, local: known ? local : `${local} (hour unknown)`, offset: E.fmtOffset(offset), age: Math.floor((now - utc) / yr), looks: null,
     lagna: `${E.SIGNS[c.lagna.sign].en}${known ? '' : ' (from the Moon)'}`, moon: `${E.SIGNS[c.by.Moon.sign].en}, ${c.by.Moon.nakName}`, sun: E.SIGNS[c.by.Sun.sign].en, moonNote,
     tier: g.manaTierIndex, tierName: g.manaTier, school: g.school ? g.school.id : null, style: g.social.split(':')[0], styleFull: g.social, region: g.region, people: g.civilization,
     lagnaWindow: known ? c.lagnaWindow : null, chart: { lagna: c.lagna.sign, moonLon: c.by.Moon.lon, utc } };
@@ -3358,6 +3384,7 @@ function finishCreate() {
 }
 for (const id in HEARD) { const w = SPELL(id); if (w) for (const ph of HEARD[id]) if (!w.alias.includes(ph)) w.alias.push(ph); }
 setTimeout(loadPlaces, 300);
+$('setMsg').value = SETTINGS.msg; $('setMsg').addEventListener('change', e => { SETTINGS.msg = e.target.value; saveSettings(); e.target.blur(); });
 $('btnMicCheck').addEventListener('click', e => { e.currentTarget.blur(); micCheck(); });
 $('btnBegin').addEventListener('click', () => { if (MC) { try { MC.stop(); } catch (_) {} MC = null; }
   setMicMode($('micStart').value); $('ovStart').hidden = true; openCreate();
@@ -3375,7 +3402,7 @@ window.__life = {
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, get MED() { return MED; }, openMeditation: i => openMeditation(i), get colorK() { return colorK; }, livedMind: () => livedMind(), openRiddle: () => openRiddle(), RIDDLES, readSoul: t => readSoul(t), readBody: () => readBody(), soulChart: () => soulChart(), NAVAGRAHA, TABLETS, get READS() { return READS; }, boonV: k => boonV(k), applyDayBoon: () => applyDayBoon(), openStones: () => openStones(), E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, lifeKarma: () => lifeKarma(), set autoAsk(v) { autoAsk = v; }, realmLean: () => realmLean(), DOG, nearDebt: () => nearDebt(), witnesses: t => witnesses(t), begChance: () => begChance(), spawnFoes: () => spawnFoes(), sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, SETTINGS, get banner2() { return banner; }, inwardOf: c => inwardOf(c), get MED() { return MED; }, openMeditation: i => openMeditation(i), get colorK() { return colorK; }, livedMind: () => livedMind(), openRiddle: () => openRiddle(), RIDDLES, readSoul: t => readSoul(t), readBody: () => readBody(), soulChart: () => soulChart(), NAVAGRAHA, TABLETS, get READS() { return READS; }, boonV: k => boonV(k), applyDayBoon: () => applyDayBoon(), openStones: () => openStones(), E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, lifeKarma: () => lifeKarma(), set autoAsk(v) { autoAsk = v; }, realmLean: () => realmLean(), DOG, nearDebt: () => nearDebt(), witnesses: t => witnesses(t), begChance: () => begChance(), spawnFoes: () => spawnFoes(), sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };
