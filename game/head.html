@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Samsara Build 21</title>
+<title>Samsara Build 22</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&family=Kalam:wght@400;700&display=swap">
@@ -97,6 +97,12 @@ input.num{font-family:var(--f-mono);font-size:14px;padding:8px;width:110px;borde
 .choice.on{background:var(--ink);color:var(--paper)}
 .choice[disabled]{opacity:.5;cursor:default}
 .choice.faded{opacity:.3;text-decoration:line-through}
+.slots-list{display:flex;flex-direction:column;gap:8px;width:100%;max-width:640px;text-align:left}
+.slotcard{border:1.5px solid var(--ink);padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--paper)}
+.slotcard div:first-child{display:flex;flex-direction:column;gap:2px}
+.slotcard.empty{border-style:dashed;opacity:.6}
+.slotcard .m{font-size:12px;opacity:.7}
+.btn:disabled{opacity:.4;cursor:default}
 .choice.on canvas{filter:invert(1)}
 .choice.sm{padding:8px 10px;font-family:var(--f-mono);font-size:13px;flex-direction:row;align-items:center;gap:6px}
 .choice:focus-visible{outline:3px dashed var(--ink);outline-offset:3px}
@@ -144,7 +150,7 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
 <body>
 <div class="wrap">
   <header>
-    <div><span class="eyebrow">Samsara · test build 21 · Phase 3</span><h1>The chart's way</h1></div>
+    <div><span class="eyebrow">Samsara · test build 22</span><h1>Saving</h1></div>
     <span class="lbl" id="lifeLabel">Life 1</span>
   </header>
 
@@ -152,11 +158,9 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
     <canvas id="cv" aria-label="Samsara test: a long proving ground of planks, ledges, water, walls, wind and darkness"></canvas>
 
     <div class="ov" id="ovStart"><div class="ov-in">
-      <span class="eyebrow">Phase 3 · mana, schools and the way of play</span>
-      <h2>The chart's way</h2>
-      <p>Your chart sets how much mana a body has, which school it belongs to, and its way of play. Press Tab and open the Body page to read why, in plain words. Each school now has its own signature. Mana grows a little with each deep stillness and swells under a real full Moon. A Sovereign body is stronger alone: more damage, one more prana, and it feels foes beyond the edge of sight. A Sangha body is stronger with others beside it (for now, the beings you call and the shade of a past life). A Balanced body has a little of both.</p>
-      <p class="note">From build 20:</p>
-      <p>Five roads lead toward realization: knowing, love, right action, stillness, and the road walked alone. You walk them by what you do, never by what you say, and no number tells you how far you are. A shrine only lets you feel the roads under your feet. Each road has three steps, each step gives a small gift, and no road ends in a single life. A teacher sits by the pool shrine. Bowing to them opens the road of love, and closes the road walked alone for this soul, for good. A body born with no mana that walks the road of right action learns body arts no caster ever gets.</p>
+      <span class="eyebrow">Samsara · test build 22 · saving</span>
+      <h2>Samsara</h2>
+      <p class="hand">Your soul now keeps itself. It saves as you play, on its own, and you wake at the last shrine you rested at. A death is kept the moment it happens.</p>
       <div class="row">
         <label class="lbl" for="micStart">Mic</label>
         <select id="micStart">
@@ -165,7 +169,8 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
           <option value="off">Off: buttons only</option>
         </select>
       </div>
-      <div class="row"><button class="btn ghost" id="btnMicCheck" type="button">Check my mic</button><button class="btn" id="btnBegin" type="button">Begin</button></div>
+      <div id="slots" class="slots-list"></div>
+      <div class="row"><button class="btn ghost" id="btnMicCheck" type="button">Check my mic</button><button class="btn" id="btnBegin" type="button">Begin a new soul</button></div>
       <div class="row"><button class="btn ghost sm" id="btnQuick" type="button">Skip: be born at random</button></div>
       <p class="note" id="micCheckMsg">The mic check asks you to say three spells and learns how your voice comes through.</p>
       <p class="note" id="libNote"></p>
@@ -175,7 +180,7 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
     <div class="ov" id="ovCreate" hidden><div class="ov-in" id="createIn"></div></div>
     <div class="ov" id="ovChoice" hidden><div class="ov-in" id="choiceIn"></div></div>
     <div class="ov" id="ovGear" hidden><div class="ov-in" id="gearIn"></div></div>
-    <div class="ov" id="ovPause" hidden><div class="ov-in"><h2>Paused</h2><div class="row"><button class="btn" id="btnResume" type="button">Resume</button></div></div></div>
+    <div class="ov" id="ovPause" hidden><div class="ov-in"><h2>Paused</h2><div class="row"><button class="btn" id="btnResume" type="button">Resume</button><button class="btn ghost" id="btnTitle" type="button">Back to the title</button></div><p class="note">Your soul saves on its own as you play. Leaving here keeps it.</p></div></div>
   </div>
 
   <div class="below">

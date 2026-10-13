@@ -272,6 +272,7 @@ let camX = 0, camY = 0;
 const aimX = () => mouse.x + camX, aimY = () => mouse.y + camY;
 function faceAim() { if (mouse.in) P.face = aimX() > P.x + P.w / 2 ? 1 : -1; }
 $('btnResume').addEventListener('click', resume);
+$('btnTitle').addEventListener('click', () => toTitle());
 
 /* ---------- sound ---------- */
 let actx = null;
@@ -399,7 +400,8 @@ function startRec() {
 function stopRec() { try { rec && rec.stop(); } catch (_) {} }
 
 /* ---------- state ---------- */
-const soul = { chants: new Set(['agni']), spells: new Set(['ignite', 'shield', 'restore']), ranks: {}, kills: 0, home: null, karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set(), bossKills: {}, tablets: new Set(), realized: new Set(), understood: new Set(), dhyana: 0, bossFalls: 0, paths: { jnana: 0, bhakti: 0, karma: 0, dhyana: 0, alone: 0 }, pathLives: {}, pathStep: { jnana: 0, bhakti: 0, karma: 0, dhyana: 0, alone: 0 }, teacher: null, aloneClosed: false, arts: new Set() };
+const SOUL0 = () => ({ chants: new Set(['agni']), spells: new Set(['ignite', 'shield', 'restore']), ranks: {}, kills: 0, home: null, karma: 0, deeds: [], lives: [], memories: { gift: 0, spared: 0, slain: 0 }, bodies: [], soulRelics: new Set(), bossKills: {}, tablets: new Set(), realized: new Set(), understood: new Set(), dhyana: 0, bossFalls: 0, paths: { jnana: 0, bhakti: 0, karma: 0, dhyana: 0, alone: 0 }, pathLives: {}, pathStep: { jnana: 0, bhakti: 0, karma: 0, dhyana: 0, alone: 0 }, teacher: null, aloneClosed: false, arts: new Set() });
+const soul = SOUL0();
 let life = null, P = null, foes = [], shots = [], fx = [], floaters = [], shades = [], drops = [], pots = [];
 let shake = 0, hitstop = 0, clock = 0, banner = null, pendingDeath = 0, zoneTag = null;
 const villager = { x: 560, gy: 1000, helped: false, talkT: 0, line: '' };
@@ -408,13 +410,12 @@ const pcx = () => P.x + P.w / 2;
 const wears = id => P.garb.head === id || P.garb.body === id || P.garb.feet === id;
 const inHand = id => WEAPONS[P.slots[P.slotIdx]].id === id;
 
-function newLife(birth) {
-  life = { n: soul.lives.length + 1, birth, deeds: [], end: null, start: Date.now(), bossDown: new Set(), intents: [], kills: 0 };
-  soul.lives.push(life);
+// a fresh body for a birth (also used to rebuild a body from a save, before the saved values are laid over it)
+function makeP(birth) {
   const b = birth, noMana = b.tier === 0;
   const manaMax = [0, 40, 60, 80, 100][b.tier];
   const sr = [...soul.soulRelics];
-  P = { x: SHRINES[0].x + 40, y: SHRINES[0].gy - PH, w: 22, h: PH, vx: 0, vy: 0, face: 1, onG: true, groundS: null, hp: 100, hpMax: 100, st: noMana ? 125 : 100, stMax: noMana ? 125 : 100, stDelay: 0,
+  return { x: SHRINES[0].x + 40, y: SHRINES[0].gy - PH, w: 22, h: PH, vx: 0, vy: 0, face: 1, onG: true, groundS: null, hp: 100, hpMax: 100, st: noMana ? 125 : 100, stMax: noMana ? 125 : 100, stDelay: 0,
     mana: manaMax, manaMax, prana: 3, pranaMax: 3, lotus: 3, lotusMax: 3, seeds: 0, slots: [0, 2], slotIdx: 0, swapT: 0, mT: 0, mDown: false, chargeSrc: null, bufLight: 0,
     chantSlots: noMana ? 5 : 3, prepared: new Set(CHANTS.filter(c => soul.chants.has(c.id)).slice(0, noMana ? 5 : 3).map(c => c.id)), scrolls: {}, arrows: { iron: 0, ember: 0, ink: 0 }, arrowKind: 'reed', wordSlots: noMana ? [null, null, null, null] : Array.from({ length: [0, 1, 2, 3, 4][b.tier] }, (_, i) => (WORDS.filter(w => soul.spells.has(w.id))[i] || {}).id || null),
     atk: null, charge: 0, charging: false, rollT: 0, rollIF: 0, parryT: 0, parryCd: 0, healT: 0, hitT: 0, inv: 0, shieldT: 0, riposte: 0, dead: false, deadT: 0,
@@ -423,6 +424,12 @@ function newLife(birth) {
     relics: new Set(sr), equip: sr.concat([null, null, null, null]).slice(0, 4), shrine: 0, safe: { x: SHRINES[0].x + 40, y: SHRINES[0].gy },
     jumpsLeft: 0, jumping: false, coy: 0, jbuf: 0, dropT: 0, grabCd: 0, kickT: 0, clingMem: 0, clingDir: 0, cling: 0, hang: null, climbT: 0, climb: null, ladder: null, glide: false, plunge: false, landT: 0,
     inWater: false, headUnder: false, breath: BREATH, burnT: 0, crouch: false, torch: { fuel: TORCH, lit: false }, knives: KNIVES, knifeCd: 0, zones: new Set(), zone: -1 };
+}
+function newLife(birth) {
+  life = { n: soul.lives.length + 1, birth, deeds: [], end: null, start: Date.now(), bossDown: new Set(), intents: [], kills: 0 };
+  soul.lives.push(life);
+  const b = birth, noMana = b.tier === 0;
+  P = makeP(b);
   applyStats(true); P.boons = []; applyDayBoon();
   const carried = applyCarry();
   if (soul.debt && !soul.debt.paid) {
@@ -475,7 +482,7 @@ function deed(text, weight, o = {}) {
     if (w > 0) { for (let i = 0; i < 3; i++) fx.push({ k: 'ring', big: i === 0, x: pcx(), y: P.y + P.h - i * 16, life: 0.35 }); tone(660, 990, 0.5, 'sine', 0.02); }
     else { for (let i = 0; i < 12; i++) fx.push({ k: 'ink', x: pcx() + rnd(-14, 14), y: P.y + rnd(0, 20), vx: rnd(-10, 10), vy: rnd(40, 90), life: rnd(0.5, 0.9) }); tone(140, 90, 0.6, 'sine', 0.035); }
   }
-  renderLives();
+  renderLives(); saveSoon();
 }
 const lifeKarma = () => life.deeds.reduce((a, d) => a + d.weight, 0);
 const INTENTS = [
@@ -847,6 +854,127 @@ function bodyHTML() {
       ${Wd.together.length ? `<span class="lbl">With others${alone ? '' : ' · now'}</span><div class="stats">${wayList(Wd.together, !alone)}</div>` : ''}
       <p class="note">Until co-op comes, the others are the beings you call with chants and the shade of a past life (Echo). Playing together with friends, guiding them as a Sovereign, and matching charts come with co-op.</p></div></div>`;
 }
+
+/* ---------- saving (build 22) ----------
+   Souls-like: one save per soul, written on its own (no save to reload). Three soul slots on this device.
+   It saves when you rest, fall, die, are born, beat a boss, do a deed that counts, close a panel, every 20
+   seconds of play, and when the page is hidden or closed. Coming back, you wake at the last shrine you
+   rested at, with what you carried; foes return as after a rest, and a fight in progress starts over.
+   A death is saved the moment it happens, with the births on offer, so leaving the page cannot undo it.
+   The real birth is only kept in a save when the player chose to keep it (this device, or later Steam Cloud). */
+const BUILD = 22, SAVE_V = 1, SLOTS = 3, SLOT_KEY = i => `samsara.soul.${i}`;
+let slot = null, saveT = 0, saveClock = 0, savedFx = 0, saveFail = false;
+// automated tests never write saves unless they ask to
+const canWrite = () => { try { return !navigator.webdriver || localStorage.getItem('samsara.testSave') === '1'; } catch (_) { return false; } };
+const P_SKIP = ['groundS', 'hang', 'ladder', 'climb', 'atk', 'stepHit', 'charging', 'chargeSrc', 'mDown', 'bufLight'];
+const packJSON = o => JSON.stringify(o, (k, v) => v instanceof Set ? { $set: [...v] } : v);
+const unpackJSON = t => JSON.parse(t, (k, v) => v && typeof v === 'object' && Array.isArray(v.$set) && Object.keys(v).length === 1 ? new Set(v.$set) : v);
+const keepsBirth = () => { const st = (soul.self && soul.self.store) || (SELF && SELF.store); return st === 'device' || st === 'cloud'; };
+function redactBirth(b) {
+  if (!b || !b.real) return b;
+  return { ...b, kept: false, ms: null, geo: null, place: 'a place not kept', local: 'a birth not kept', offset: '', chart: null, lagnaWindow: null, moonNote: '', sun: null, moon: 'not kept', lagna: 'not kept', age: null };
+}
+function snapshot() {
+  const keep = keepsBirth();
+  const s = { ...soul, lives: soul.lives.map(l => keep ? l : { ...l, birth: redactBirth(l.birth) }), self: keep ? soul.self : null };
+  const p = {}; for (const k in P) if (!P_SKIP.includes(k)) p[k] = P[k];
+  const world = { villager: { helped: villager.helped, idx: villager.idx }, horse: { ...horse }, chests: CHESTS.map(c => ({ opened: c.opened, inv: c.inv })), pots: pots.map(q => q.broken), fakes: FAKES.map(f => f.found), shades };
+  return { v: SAVE_V, build: BUILD, at: Date.now(), summary: { name: soul.name, mark: soul.mark, life: life.n, lives: soul.lives.length, level: levelOf(), shrine: SHRINES[P.shrine || 0].name, dead: !!soul.pending }, soul: s, P: p, world };
+}
+function saveNow() {
+  if (slot === null || !life || !P || !canWrite()) return false;
+  try { localStorage.setItem(SLOT_KEY(slot), packJSON(snapshot())); savedFx = 1.6; saveFail = false; return true; }
+  catch (e) { if (!saveFail) { saveFail = true; showBanner({ t: 5, top: 'COULD NOT SAVE', sub: 'This browser would not keep your soul (storage may be full or blocked). Export it from the title screen to keep a copy.' }); } return false; }
+}
+const saveSoon = () => { saveT = saveT > 0 ? Math.min(saveT, 1) : 1; };
+function tickSave(dt) {
+  if (savedFx > 0) savedFx -= dt;
+  if (slot === null || mode === 'start' || mode === 'create') return;
+  if (saveT > 0) { saveT -= dt; if (saveT <= 0) saveNow(); }
+  if (mode === 'play') { saveClock += dt; if (saveClock >= 20) { saveClock = 0; saveNow(); } }
+}
+function readSlot(i) { try { const raw = localStorage.getItem(SLOT_KEY(i)); return raw ? unpackJSON(raw) : null; } catch (_) { return null; } }
+const freeSlot = () => { for (let i = 0; i < SLOTS; i++) if (!readSlot(i)) return i; return -1; };
+// a new soul in the first free slot: a clean wheel
+function freshSoul(i) {
+  for (const k of Object.keys(soul)) delete soul[k]; Object.assign(soul, SOUL0());
+  villager.helped = false; villager.idx = undefined; villager.talkT = 0; colorK = 0; slot = i; saveFail = false;
+}
+function loadSoul(i) {
+  const S = readSlot(i); if (!S || !S.soul || !S.P) return false;
+  for (const k of Object.keys(soul)) delete soul[k]; Object.assign(soul, SOUL0(), S.soul);
+  if (!(soul.lives && soul.lives.length)) return false;
+  slot = i; life = soul.lives[soul.lives.length - 1];
+  P = makeP(life.birth); Object.assign(P, S.P);
+  const W0 = S.world || {};
+  if (W0.villager) { villager.helped = !!W0.villager.helped; villager.idx = W0.villager.idx; }
+  newHorse(); if (W0.horse) Object.assign(horse, W0.horse); if (horse.state === 'ridden') horse.state = 'away';
+  CHESTS.forEach((c, j) => { const w = (W0.chests || [])[j]; if (w) { c.opened = w.opened; c.inv = w.inv || emptyInv(); } });
+  pots = POT_SPOTS.map(([x, gy, seeds], j) => ({ x, gy, seeds, broken: !!(W0.pots || [])[j] }));
+  FAKES.forEach((f, j) => { f.found = !!(W0.fakes || [])[j]; });
+  shades = W0.shades || [];
+  TEMPS = []; RAINS = []; ALLY = null; CHS = null; SUMMONS = []; ECHO_HITS = []; WAVES = []; WISPS = []; BQ = []; drops = []; shots = []; fx = []; floaters = [];
+  resetNodes(); resetCrumbles(); spawnFoes();
+  colorK = realized('mind') ? 1 : 0;
+  // you wake at the last shrine you rested at, with what you carried
+  const sh = SHRINES[P.shrine || 0];
+  Object.assign(P, { x: sh.x + 40, y: sh.gy - PH, h: PH, w: 22, vx: 0, vy: 0, mount: false, hang: null, ladder: null, climb: null, climbT: 0, atk: null, charging: false, rollT: 0, rollIF: 0, healT: 0, hitT: 0, inv: 1, glide: false, plunge: false, cling: 0, inWater: false, headUnder: false, breath: BREATH, stepT: 0, ironT: 0 });
+  P.torch = Object.assign({ fuel: P.torchMax, lit: false }, P.torch, { lit: false });
+  snapCam(); renderLives(); $('lifeLabel').textContent = `Life ${life.n}`;
+  if (soul.pending) { P.dead = true; showDeath(soul.pending); return true; }
+  mode = 'play';
+  if (P.dead) { pendingDeath = 0.05; return true; }   // left while falling: the fall still counts
+  banner = { t: 3.6, top: `LIFE ${life.n}${soul.name ? ' · ' + soul.name.toUpperCase() : ''}`, sub: `You wake at the ${sh.name.toLowerCase()}, with what you carried. ${soul.lives.length > 1 ? `This soul has lived ${soul.lives.length} lives.` : 'This is its first life.'}` };
+  return true;
+}
+function exportSoul(i) {
+  const S = readSlot(i); if (!S) return;
+  const name = (S.summary && S.summary.name ? S.summary.name : `soul-${i + 1}`).replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  const blob = new Blob([localStorage.getItem(SLOT_KEY(i))], { type: 'application/json' }), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `samsara-${name}-life-${S.summary ? S.summary.life : 1}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function importSoul(text) {
+  let S; try { S = unpackJSON(text); } catch (_) { return 'That file is not a Samsara soul.'; }
+  if (!S || !S.soul || !S.P || !S.v) return 'That file is not a Samsara soul.';
+  if (S.v > SAVE_V) return 'That soul comes from a newer build of the game.';
+  const i = freeSlot(); if (i < 0) return 'All three soul slots are full. Let one go first.';
+  try { localStorage.setItem(SLOT_KEY(i), text); } catch (_) { return 'This browser would not keep it.'; }
+  return null;
+}
+let delArm = null;
+function renderSlots(msg) {
+  const el = $('slots'); if (!el) return;
+  const rows = [];
+  for (let i = 0; i < SLOTS; i++) {
+    const S = readSlot(i), m = S && S.summary;
+    rows.push(m ? `<div class="slotcard"><div><b>${esc(m.name || `Soul ${i + 1}`)}</b><span>Life ${m.life}${m.lives > 1 ? ` · ${m.lives} lives lived` : ''} · level ${m.level} · ${m.dead ? 'between lives' : esc(m.shrine)}</span><span class="m">Last played ${new Date(S.at).toLocaleString()}${S.build ? ` · build ${S.build}` : ''}</span></div>
+      <div class="row"><button class="btn sm" type="button" data-cont="${i}">Continue</button><button class="btn ghost sm" type="button" data-exp="${i}">Export</button><button class="btn ghost sm" type="button" data-del="${i}">${delArm === i ? 'Press again to let it go' : 'Let it go'}</button></div></div>`
+      : `<div class="slotcard empty"><div><b>Empty</b><span>A new soul begins here.</span></div></div>`);
+  }
+  const full = freeSlot() < 0;
+  el.innerHTML = `<span class="lbl">Your souls · saved on this device, on their own</span>${rows.join('')}
+    <div class="row"><button class="btn ghost sm" type="button" id="btnImport">Bring a soul from a file</button><input type="file" id="importFile" accept=".json,application/json" hidden></div>
+    ${full ? '<p class="note">All three slots hold a soul. Let one go to begin a new one.</p>' : ''}${msg ? `<p class="note">${esc(msg)}</p>` : ''}`;
+  $('btnBegin').disabled = full; $('btnQuick').disabled = full;
+  el.querySelectorAll('[data-cont]').forEach(b => b.addEventListener('click', () => { startPlay(() => loadSoul(+b.dataset.cont)); }));
+  el.querySelectorAll('[data-exp]').forEach(b => b.addEventListener('click', () => exportSoul(+b.dataset.exp)));
+  el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.del; if (delArm === i) { try { localStorage.removeItem(SLOT_KEY(i)); } catch (_) {} delArm = null; renderSlots('The soul was let go.'); } else { delArm = i; renderSlots(); } }));
+  $('btnImport').addEventListener('click', () => $('importFile').click());
+  $('importFile').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { const err = importSoul(t); renderSlots(err || 'The soul is here. Press Continue.'); }); });
+}
+function startPlay(go) {
+  if (MC) { try { MC.stop(); } catch (_) {} MC = null; }
+  setMicMode($('micStart').value); $('ovStart').hidden = true;
+  const ok = go(); if (ok === false) { $('ovStart').hidden = false; renderSlots('That soul could not be read.'); return; }
+  if (micMode === 'always') startRec();
+  tone(330, 660, 0.3, 'sine', 0.04);
+}
+function toTitle() {
+  saveNow(); stopRec(); mode = 'start'; $('ovPause').hidden = true; $('ovGear').hidden = true; $('ovDeath').hidden = true; banner = null; BQ = [];
+  delArm = null; renderSlots('Your soul is saved.'); $('ovStart').hidden = false;
+}
+addEventListener('pagehide', () => { saveNow(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveNow(); });
 
 /* ---------- effects ---------- */
 function floater(x, y, t, c = INK) { floaters.push({ x, y, t, c, life: 1.2 }); }
@@ -1888,6 +2016,7 @@ function rest(i) {
   P.hp = P.hpMax; P.lotus = P.lotusMax; P.st = P.stMax; P.mana = P.manaMax; P.breath = BREATH; P.torch.fuel = P.torchMax; P.knives = P.knivesMax; P.shrine = i; P.visited.add(i); SFX.rest();
   drops = []; spawnFoes(); shots = []; resetCrumbles(); resetNodes(); P.summoned = new Set();
   if (horse.state !== 'wild') { horse.hp = horse.hpMax; if (horse.state === 'fled') horse.state = 'away'; }
+  saveSoon();
   banner = { t: 2.4, top: 'RESTED', sub: `${SHRINES[i].name}. If you fall, you wake here. The Grasping return, and so do trees, ore and flowers.` };
 }
 
@@ -1986,7 +2115,7 @@ function bossGone(B) {
   else showBanner({ t: 3.4, top: `${a.name} FALLS`, sub: `+${seeds} seeds${B.stolen ? ', with what it took from you' : ''}. The way opens. In your next life it waits here again, with nothing more to give.` });
   if (!soul.spells.has(a.gift)) learnSpell(a.gift, a.giftHow);
   if (P.noMana) gainScroll(a.gift, 3, pcx(), P.y - 60);
-  life.ask = { id: a.id, name: a.who, t: 2.5 };
+  life.ask = { id: a.id, name: a.who, t: 2.5 }; saveSoon();
   walk('alone', again ? 2 : 3);
   if (!a.hit) { if (!soul.spells.has('vajra')) learnSpell('vajra', 'Not one blow touched you. The sky noticed.'); else floater(pcx(), P.y - 66, 'NOT ONE BLOW TOUCHED YOU', INK2); }
 }
@@ -2299,7 +2428,7 @@ function afterFall() {
   if (P.seeds > 0) shades.push({ x: spot.x, y: spot.y, seeds: P.seeds, taken: false });
   P.seeds = 0;
   if (P.prana <= 0) { trueDeath(spot); return; }
-  wakeAtShrine();
+  wakeAtShrine(); saveSoon();
   banner = { t: 2.6, top: 'YOU FELL', sub: `${P.why} You wake at the ${SHRINES[P.shrine].name.toLowerCase()}. Prana left: ${P.prana}.` };
 }
 function wakeAtShrine() {
@@ -2319,23 +2448,30 @@ function trueDeath(spot) {
   const births = k >= 3 ? pool.slice(0, n).sort(() => Math.random() - 0.5) : k <= -2 ? [pool[pool.length - 1]] : [pool[Math.floor(Math.random() * pool.length)]];
   const debt = debtFrom(); if (debt && (!soul.debt || soul.debt.paid)) soul.debt = debt;
   const lost = [...P.relics].filter(id => !RELICS[id].soul), kept = [...P.relics].filter(id => RELICS[id].soul);
-  const homeLine = invEmpty(soul.home) ? '' : ' What you left in your own chest by the village shrine waits for your next life.';
-  const horseLine = horse.state !== 'wild' ? ' The horse you befriended goes back to the wild.' : '';
-  const seen = life.deeds.filter(d => d.seen), unseen = life.deeds.filter(d => !d.seen).length;
-  const deeds = seen.length ? seen.map(d => `<li>${esc(d.text)}</li>`).join('') : '<li>No one saw much of this life.</li>';
-  const frags = fragmentsOf(), can = keepCount(); let chosen = [];
+  // the death and the births on offer are kept with the soul at once, so leaving the page cannot undo a death
+  soul.pending = { why: P.why, lifeN: life.n, k, lk, lean, n, births, frags: fragmentsOf(), can: keepCount(),
+    homeLine: invEmpty(soul.home) ? '' : ' What you left in your own chest by the village shrine waits for your next life.',
+    horseLine: horse.state !== 'wild' ? ' The horse you befriended goes back to the wild.' : '',
+    seen: life.deeds.filter(d => d.seen).map(d => d.text), unseen: life.deeds.filter(d => !d.seen).length,
+    relLine: (lost.length ? `Your relics (${lost.map(id => RELICS[id].name).join(', ')}) fall back to where you found them. ` : '') + (kept.length ? `The ${kept.map(id => RELICS[id].name).join(', ')} stays with your soul.` : '') };
+  saveNow();
+  showDeath(soul.pending);
+}
+function showDeath(D) {
+  mode = 'death'; stopRec(); banner = null;
+  const { n, k, births, frags, can } = D; let chosen = [];
+  const deeds = D.seen.length ? D.seen.map(t => `<li>${esc(t)}</li>`).join('') : '<li>No one saw much of this life.</li>';
   const offer = n > 1 ? 'The wheel lets you choose your next life.' : k <= -2 ? 'The wheel chooses, and it does not choose gently.' : 'The wheel chooses your next life.';
-  const relLine = (lost.length ? `Your relics (${lost.map(id => RELICS[id].name).join(', ')}) fall back to where you found them. ` : '') + (kept.length ? `The ${kept.map(id => RELICS[id].name).join(', ')} stays with your soul.` : '');
-  const R = REALMS[lean];
+  const R = REALMS[D.lean];
   $('deathIn').innerHTML = `
-    <span class="eyebrow" style="color:#b9b6ac">Prana spent · Life ${life.n} ends</span>
-    <h2>${esc(P.why)}</h2>
-    <p class="hand">The wheel weighs this life. ${esc(verdict(lk))}</p>
+    <span class="eyebrow" style="color:#b9b6ac">Prana spent · Life ${D.lifeN} ends</span>
+    <h2>${esc(D.why)}</h2>
+    <p class="hand">The wheel weighs this life. ${esc(verdict(D.lk))}</p>
     <ul class="deeds">${deeds}</ul>
-    ${unseen ? `<p class="hand">And ${unseen === 1 ? 'one thing' : unseen + ' things'} no one saw. The wheel saw ${unseen === 1 ? 'it' : 'them'}.</p>` : ''}
-    <p class="hand">Your soul leans toward ${esc(R[0])}: ${esc(R[1])}${lean !== 'human' ? ' Those realms are not open yet; for now you are born human again.' : ''}</p>
-    ${relLine ? `<p class="hand">${esc(relLine)}</p>` : ''}
-    <p class="hand">Your level, skills and materials stay with this body. Weapons and garments you carried go back to the chests they came from.${esc(homeLine)}${esc(horseLine)}</p>
+    ${D.unseen ? `<p class="hand">And ${D.unseen === 1 ? 'one thing' : D.unseen + ' things'} no one saw. The wheel saw ${D.unseen === 1 ? 'it' : 'them'}.</p>` : ''}
+    <p class="hand">Your soul leans toward ${esc(R[0])}: ${esc(R[1])}${D.lean !== 'human' ? ' Those realms are not open yet; for now you are born human again.' : ''}</p>
+    ${D.relLine ? `<p class="hand">${esc(D.relLine)}</p>` : ''}
+    <p class="hand">Your level, skills and materials stay with this body. Weapons and garments you carried go back to the chests they came from.${esc(D.homeLine)}${esc(D.horseLine)}</p>
     <span class="lbl" style="color:#b9b6ac">What you carry through · ${can === 0 ? 'your deeds weigh too much to carry anything this time' : `choose ${can === 1 ? 'one' : 'up to two'}`}</span>
     <div class="frags">${frags.length ? frags.map((f, i) => `<button class="frag" type="button" data-frag="${i}"${can ? '' : ' disabled'}><b>${esc(f.name)}</b><span>${esc(f.what)}</span></button>`).join('') : '<p class="hand">Nothing from this life is ready to be carried: no skill learned, no stat trained, no weapon tempered.</p>'}</div>
     ${soul.debt && !soul.debt.paid ? `<p class="hand" style="color:#e46a6e">A debt follows you: ${esc(DEBTS[soul.debt.kind].who.toLowerCase())}. You will be born near where it happened.</p>` : ''}
@@ -2349,7 +2485,7 @@ function trueDeath(spot) {
     <p class="hand" style="color:#b9b6ac">${n > 1 ? 'Pick one.' : 'Press the card to be born.'} Your soul mark, and what you learned, come with you.</p>`;
   $('ovDeath').hidden = false;
   [...$('deathIn').querySelectorAll('.frag')].forEach(el => el.addEventListener('click', () => { const i = +el.dataset.frag; if (chosen.includes(i)) chosen = chosen.filter(x => x !== i); else if (chosen.length < can) chosen.push(i); else if (can === 1) chosen = [i]; [...$('deathIn').querySelectorAll('.frag')].forEach(e2 => e2.classList.toggle('on', chosen.includes(+e2.dataset.frag))); }));
-  [...$('deathIn').querySelectorAll('.card')].forEach(el => el.addEventListener('click', () => { soul.carry = chosen.map(i => frags[i]); $('ovDeath').hidden = true; newLife(births[+el.dataset.i]); mode = 'play'; if (micMode === 'always') startRec(); }));
+  [...$('deathIn').querySelectorAll('.card')].forEach(el => el.addEventListener('click', () => { soul.carry = chosen.map(i => frags[i]); soul.pending = null; $('ovDeath').hidden = true; newLife(births[+el.dataset.i]); mode = 'play'; saveNow(); if (micMode === 'always') startRec(); }));
   setTimeout(() => $('deathIn').querySelector('.card')?.focus(), 50);
   renderLives();
 }
@@ -2420,7 +2556,7 @@ function renderLives() {
 
 /* ---------- gear (Tab) & map (M) ---------- */
 function openGear() { mode = 'gear'; clearHeld(); renderGear(); $('ovGear').hidden = false; }
-function closePanel() { $('ovGear').hidden = true; mode = 'play'; clearHeld(); }
+function closePanel() { $('ovGear').hidden = true; mode = 'play'; clearHeld(); saveSoon(); }
 let gearView = 'gear';
 function renderChantBook() {
   const card = c => { const why = chantBlocked(c); return `<div class="item"><b>${c.name}</b><span class="hand">“${esc(c.line)}”</span><span>${esc(c.what)}</span><span class="m">${c.offer ? `Offering: ${esc(costText(c.offer))}` : 'No offering'}${c.needs === 'good' ? ' · needs karma not in debt' : c.needs === 'nomana' ? ' · only for a body born with no mana' : ''}${why ? ` · now: ${esc(why.toLowerCase())}` : ''}</span></div>`; };
@@ -2548,7 +2684,7 @@ function drawMap() {
 
 /* ---------- update ---------- */
 function update(dt) {
-  clock += dt;
+  clock += dt; tickSave(dt);
   if (banner) {
     if (!banner._r) { banner._r = true; banner.t0 = banner.t = Math.max(banner.t, readTime(banner)); }
     if (SETTINGS.msg !== 'stay') { banner.t -= dt; if (banner.t <= 0) banner = null; } else banner.t = Math.max(banner.t, 1);
@@ -3044,6 +3180,7 @@ function hotbarInfo(i) {
 }
 function drawHUD() {
   const p = P; drawSenses();
+  if (savedFx > 0) { ctx.save(); ctx.globalAlpha = clamp(savedFx, 0, 1) * 0.8; ctx.font = `10px ${FD}`; ctx.fillStyle = INK2; ctx.textAlign = 'right'; ctx.fillText('SAVED', W - 18, H - 14); ctx.restore(); }
   const bar = (x, y, w, v, max, label, col = INK) => { ctx.font = `10px ${FD}`; ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.fillText(label, x, y - 4); ctx.fillStyle = FAINT; ctx.fillRect(x, y, w, 10); ctx.fillStyle = col; ctx.fillRect(x, y, w * clamp(v / max, 0, 1), 10); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, 10); };
   const plate = (x, y, w, h) => { ctx.fillStyle = 'rgba(251,250,246,0.88)'; ctx.fillRect(x, y, w, h); };
   plate(10, 6, 378, 136);
@@ -3404,7 +3541,7 @@ function renderStones(view) {
   on('stSoul', () => { if (!canPay(SOUL_COST)) return; const r = readSoul(); if (!r) return; pay(SOUL_COST); walk('jnana', 1); READS = { day, soul: r, boon: r.boon }; saveReads(); applyDayBoon(); stonesGlow(); renderStones('soul'); });
   on('stFix', () => { $('ovGear').hidden = true; openCreate({ forStones: true }); });
   on('stSoulAgain', () => renderStones('soul'));
-  on('stBody', () => { if (!canPay(BODY_COST)) return; const r = readBody(); if (!r) return; r.boon = fitBoon({ ...r.boon, src: 'body' }); pay(BODY_COST); life.bodyRead = r; P.boons = (P.boons || []).filter(b => b.src !== 'body'); P.boons.push({ src: 'body', ...r.boon }); stonesGlow(); renderStones('body'); });
+  on('stBody', () => { if (!canPay(BODY_COST)) return; const r = readBody(); if (!r) { $('gearIn').querySelector('h2').insertAdjacentHTML('afterend', '<p class="note">This body was born at your own real birth, which you chose not to keep, so the stones cannot read this body in this session.</p>'); return; } r.boon = fitBoon({ ...r.boon, src: 'body' }); pay(BODY_COST); life.bodyRead = r; P.boons = (P.boons || []).filter(b => b.src !== 'body'); P.boons.push({ src: 'body', ...r.boon }); stonesGlow(); renderStones('body'); });
   on('stBodyAgain', () => renderStones('body'));
   on('stTell', () => { $('ovGear').hidden = true; openCreate({ forStones: true }); });
 }
@@ -3666,7 +3803,7 @@ function finishCreate() {
   else if (!b.real && SELF && SELF.date && SELF.store !== 'none') Object.assign(save, { date: SELF.date, time: SELF.time, city: SELF.city });
   try { localStorage.setItem(SELF_KEY, JSON.stringify(save)); SELF = save; } catch (_) {}
   $('ovCreate').hidden = true; CR = null;
-  newLife(b); mode = 'play';
+  newLife(b); mode = 'play'; saveNow();
   banner = { t: 4.2, top: `LIFE 1${soul.name ? ' · ' + soul.name.toUpperCase() : ''}`, sub: b.real ? `Born ${b.local} in ${b.place}. ${b.lagna} rising, Moon in ${b.moon}. ${b.tier ? `${b.tierName} mana${b.school ? ', ' + b.school : ''}` : 'No mana: its own way'}.` : `Born ${b.local} in ${b.place} · ${b.lagna} lagna` };
   if (micMode === 'always') startRec();
   tone(330, 660, 0.3, 'sine', 0.04);
@@ -3675,23 +3812,24 @@ for (const id in HEARD) { const w = SPELL(id); if (w) for (const ph of HEARD[id]
 setTimeout(loadPlaces, 300);
 $('setMsg').value = SETTINGS.msg; $('setMsg').addEventListener('change', e => { SETTINGS.msg = e.target.value; saveSettings(); e.target.blur(); });
 $('btnMicCheck').addEventListener('click', e => { e.currentTarget.blur(); micCheck(); });
-$('btnBegin').addEventListener('click', () => { if (MC) { try { MC.stop(); } catch (_) {} MC = null; }
-  setMicMode($('micStart').value); $('ovStart').hidden = true; openCreate();
+$('btnBegin').addEventListener('click', () => { const i = freeSlot(); if (i < 0) return; if (MC) { try { MC.stop(); } catch (_) {} MC = null; }
+  setMicMode($('micStart').value); $('ovStart').hidden = true; freshSoul(i); openCreate();
 });
 $('btnQuick').addEventListener('click', () => { if (MC) { try { MC.stop(); } catch (_) {} MC = null; }
   setMicMode($('micStart').value);
-  $('ovStart').hidden = true; if (!soul.mark) soul.mark = (SELF && SELF.mark) || 'lotus'; newLife(makeBirth()); mode = 'play';
+  const fs = freeSlot(); if (fs < 0) return; freshSoul(fs);
+  $('ovStart').hidden = true; if (!soul.mark) soul.mark = (SELF && SELF.mark) || 'lotus'; newLife(makeBirth()); mode = 'play'; saveNow();
   if (micMode === 'always') startRec();
   tone(330, 660, 0.3, 'sine', 0.04);
 });
-fit(); requestAnimationFrame(loop);
+renderSlots(); fit(); requestAnimationFrame(loop);
 window.__life = {
   get P() { return P; }, get soul() { return soul; }, get mode() { return mode; }, get foes() { return foes; }, get cam() { return [camX, camY]; }, get pots() { return pots; },
   SHRINES, CRUMBLES, FAKES, RELICS, castWord, WORDS, findWord, fall, setMicMode, step: dt => update(dt),
   put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, SCHOOLS, WAYS, wayOf: () => wayOf(), aloneNow: () => aloneNow(), companions: () => companions(), wayBoon: k => wayBoon(k), schoolBoon: k => schoolBoon(k), moonRegen: () => moonRegen(), moonStamina: () => moonStamina(), staminaGrowth: () => staminaGrowth(), set moonTest(v) { moonTest = v; }, manaGrowth: () => manaGrowth(), bodyHTML: () => bodyHTML(), finishMed: () => finishMed(), PATHS, PATH_STEPS, walk: (k, n) => walk(k, n), pathAt: k => pathAt(k), ARTS, useArt: a => useArt(a), TEACHER, TASKS, openTeacher: () => openTeacher(), SEAT, roadsHTML: () => roadsHTML(), roadBoon: k => roadBoon(k), keepCount: () => keepCount(), SETTINGS, get banner2() { return banner; }, inwardOf: c => inwardOf(c), get MED() { return MED; }, openMeditation: i => openMeditation(i), get colorK() { return colorK; }, livedMind: () => livedMind(), openRiddle: () => openRiddle(), RIDDLES, readSoul: t => readSoul(t), readBody: () => readBody(), soulChart: () => soulChart(), NAVAGRAHA, TABLETS, get READS() { return READS; }, boonV: k => boonV(k), applyDayBoon: () => applyDayBoon(), openStones: () => openStones(), E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, lifeKarma: () => lifeKarma(), set autoAsk(v) { autoAsk = v; }, realmLean: () => realmLean(), DOG, nearDebt: () => nearDebt(), witnesses: t => witnesses(t), begChance: () => begChance(), spawnFoes: () => spawnFoes(), sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, saveNow: () => saveNow(), loadSoul: i => loadSoul(i), readSlot: i => readSlot(i), snapshot: () => snapshot(), get slot() { return slot; }, toTitle: () => toTitle(), importSoul: t => importSoul(t), freeSlot: () => freeSlot(), renderSlots: m => renderSlots(m), SCHOOLS, WAYS, wayOf: () => wayOf(), aloneNow: () => aloneNow(), companions: () => companions(), wayBoon: k => wayBoon(k), schoolBoon: k => schoolBoon(k), moonRegen: () => moonRegen(), moonStamina: () => moonStamina(), staminaGrowth: () => staminaGrowth(), set moonTest(v) { moonTest = v; }, manaGrowth: () => manaGrowth(), bodyHTML: () => bodyHTML(), finishMed: () => finishMed(), PATHS, PATH_STEPS, walk: (k, n) => walk(k, n), pathAt: k => pathAt(k), ARTS, useArt: a => useArt(a), TEACHER, TASKS, openTeacher: () => openTeacher(), SEAT, roadsHTML: () => roadsHTML(), roadBoon: k => roadBoon(k), keepCount: () => keepCount(), SETTINGS, get banner2() { return banner; }, inwardOf: c => inwardOf(c), get MED() { return MED; }, openMeditation: i => openMeditation(i), get colorK() { return colorK; }, livedMind: () => livedMind(), openRiddle: () => openRiddle(), RIDDLES, readSoul: t => readSoul(t), readBody: () => readBody(), soulChart: () => soulChart(), NAVAGRAHA, TABLETS, get READS() { return READS; }, boonV: k => boonV(k), applyDayBoon: () => applyDayBoon(), openStones: () => openStones(), E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, lifeKarma: () => lifeKarma(), set autoAsk(v) { autoAsk = v; }, realmLean: () => realmLean(), DOG, nearDebt: () => nearDebt(), witnesses: t => witnesses(t), begChance: () => begChance(), spawnFoes: () => spawnFoes(), sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };

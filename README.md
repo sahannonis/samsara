@@ -69,6 +69,10 @@ and go to `http://localhost:8000/dist/samsara.html`.
 21. **The Chart's Way**: mana, schools and the way of play from the chart, explained on a new Body page (Tab): which parts of the chart gave this body its mana, why it belongs to its school, and why it plays best alone or with others. Each school has a signature (Agni: Ignite and burning ground; Jala: Restore and the lotus; Vayu: rolls and walking speed; Prithvi: Shield and lighter blows; Akasha: mana and faster spell ranks), and spells of your own school hit 15% harder. Mana grows a little with each deep stillness (up to 10 a body) and with the first realization (5 for every body after), and returns 25% faster under the real full Moon. Sovereign bodies are stronger alone (10% more damage, one more prana, and they feel foes beyond the edge of sight); Sangha bodies are stronger with others beside them (for now the beings you call and the shade of a past life: harder blows, wounds that close, callings that last longer and hit harder, the road of love walked faster); Balanced bodies have a little of both. Co-op will add real friends.
     Also in build 21: a rule for the whole game, that nothing about mana is shown to or given to a body with no mana; each mana effect has its own twin. Its stamina returns 25% faster under a new Moon (a full Moon helps mana), deep stillness grows its stamina (up to 15 a body) and the first realization adds 8 to every such body after, the staff and monk robe speed its stamina, and mana words are left out of its stats, messages and Body page.
 
+### Phase 5 begins early: saving
+
+22. **Saving**: the soul keeps itself, souls-like: one save per soul, written on its own (no saves to reload), in three soul slots on the title screen. It saves at birth, when you rest, fall or die, beat a boss, do a deed that counts, close a panel, every 20 seconds of play, and when the page is hidden or closed. Coming back, you wake at the last shrine you rested at with what you carried; foes return as after a rest and a fight in progress starts over. A death is saved the moment it happens with the births on offer, and leaving while falling still costs the prana, so leaving the page never undoes a death. The real birth goes into a save only when the player chose to keep it. Souls can be exported to a file and brought back, let go (deleted), and the pause menu leads back to the title.
+
 ## Running the tests
 
 ```
@@ -90,6 +94,7 @@ python tests/test_stillness.py
 python tests/test_settings.py
 python tests/test_paths.py
 python tests/test_way.py
+python tests/test_save.py
 ```
 
 ## Credits
