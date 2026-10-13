@@ -73,6 +73,20 @@ async def main():
         await ev("(()=>{__life.put(1700,1000); const f=__life.foes.find(f=>!f.boss); f.alive=true; f.x=1700+900; f.l=2400; f.r=2900; f.gy=1000; f.y=1000-f.h; const g=__life.foes.filter(f=>!f.boss)[1]; g.alive=true; g.x=1700-760; g.l=700; g.r=1000; g.gy=1000; g.y=1000-g.h;})()")
         await run(3); await fr.screenshot(path=OUT + 'b21_02_senses.png')
         await pg.keyboard.press('Tab'); await run(1); await pg.click('[data-view="body"]'); await run(1); await fr.screenshot(path=OUT + 'b21_03_body_sovereign.png'); await pg.keyboard.press('Escape'); await run(2)
+        # a body with no mana: no mana words, its own twins (new Moon, stamina from stillness)
+        await tool('tEmpty'); await ev("__life.BQ.length=0")
+        await pg.keyboard.press('Tab'); await run(1); await pg.click('[data-view="body"]'); await run(1)
+        txt = await ev("document.getElementById('gearIn').innerText")
+        R['empty_body_mentions_mana_returns'] = 'mana returns' in txt or "grows this body's mana" in txt
+        R['empty_body_twins'] = ('dark sky' in txt) and ("grows this body's stamina" in txt)
+        await fr.screenshot(path=OUT + 'b21_04_body_empty.png'); await pg.keyboard.press('Escape'); await run(2)
+        await ev("__life.noFoes(); __life.put(220,1000)"); await run(3)
+        async def st_regen(moon):
+            await ev(f"__life.moonTest = {moon}"); await ev("__life.P.st = 0; __life.P.stDelay = 0"); await run(30); return await ev("__life.P.st")
+        a1 = await st_regen(1); a0 = await st_regen(0); R['empty_moon'] = f"stamina in 0.5s: full Moon {a1:.1f}, new Moon {a0:.1f} · HUD tag new moon {await ev('__life.moonStamina()')}"
+        await ev("__life.moonTest = null")
+        s0 = await ev("__life.P.stBase"); await ev("__life.openMeditation(0); __life.MED.calm = 90; __life.MED.t = 63.9"); await run(30)
+        R['empty_stillness'] = await ev(f"'stamina {s0} -> '+__life.P.stBase+'/'+__life.P.stMax+' mana '+__life.P.manaMax+' banner '+(__life.banner2&&__life.banner2.sub)")
         print(json.dumps(R, indent=1)); print('errors', errs)
         await b.close()
 asyncio.run(main())
