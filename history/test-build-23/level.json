@@ -1,0 +1,1061 @@
+{
+ "id": "proving-grounds",
+ "name": "The proving grounds",
+ "note": "The test grounds. Every shape and place in the world lives here, not in the code. Art layers are empty until the art pass.",
+ "size": {
+  "w": 13700,
+  "h": 1400
+ },
+ "layers": [
+  {
+   "id": "sky",
+   "depth": 0,
+   "art": null,
+   "note": "drawn by code from the real sky"
+  },
+  {
+   "id": "far",
+   "depth": 0.15,
+   "art": null,
+   "note": "distant mountains"
+  },
+  {
+   "id": "mid",
+   "depth": 0.4,
+   "art": null,
+   "note": "temples, forests, villages far off"
+  },
+  {
+   "id": "near",
+   "depth": 0.75,
+   "art": null,
+   "note": "trees and buildings behind the path"
+  },
+  {
+   "id": "ground",
+   "depth": 1,
+   "art": null,
+   "note": "the ground you walk on (collision below)"
+  },
+  {
+   "id": "front",
+   "depth": 1.3,
+   "art": null,
+   "note": "leaves, grass and fog in front of you"
+  }
+ ],
+ "collision": {
+  "solids": [
+   {
+    "x": 0,
+    "y": 1000,
+    "w": 2780,
+    "h": 400
+   },
+   {
+    "x": 1350,
+    "y": 640,
+    "w": 400,
+    "h": 320
+   },
+   {
+    "x": 2780,
+    "y": 790,
+    "w": 670,
+    "h": 610
+   },
+   {
+    "x": 3450,
+    "y": 1100,
+    "w": 900,
+    "h": 160
+   },
+   {
+    "x": 3450,
+    "y": 1260,
+    "w": 250,
+    "h": 80
+   },
+   {
+    "x": 3450,
+    "y": 1340,
+    "w": 2300,
+    "h": 60
+   },
+   {
+    "x": 4350,
+    "y": 955,
+    "w": 150,
+    "h": 305
+   },
+   {
+    "x": 4500,
+    "y": 955,
+    "w": 300,
+    "h": 305,
+    "surf": "mud"
+   },
+   {
+    "x": 4800,
+    "y": 955,
+    "w": 50,
+    "h": 305
+   },
+   {
+    "x": 4850,
+    "y": 955,
+    "w": 350,
+    "h": 305,
+    "surf": "ice"
+   },
+   {
+    "x": 5440,
+    "y": 620,
+    "w": 80,
+    "h": 630
+   },
+   {
+    "x": 5750,
+    "y": 1020,
+    "w": 470,
+    "h": 380
+   },
+   {
+    "x": 6040,
+    "y": 300,
+    "w": 60,
+    "h": 650
+   },
+   {
+    "x": 6220,
+    "y": 560,
+    "w": 380,
+    "h": 840
+   },
+   {
+    "x": 7150,
+    "y": 560,
+    "w": 350,
+    "h": 840
+   },
+   {
+    "x": 7500,
+    "y": 300,
+    "w": 1300,
+    "h": 180
+   },
+   {
+    "x": 7500,
+    "y": 560,
+    "w": 150,
+    "h": 840
+   },
+   {
+    "x": 7650,
+    "y": 660,
+    "w": 150,
+    "h": 740
+   },
+   {
+    "x": 7800,
+    "y": 760,
+    "w": 50,
+    "h": 640
+   },
+   {
+    "x": 7850,
+    "y": 760,
+    "w": 300,
+    "h": 640,
+    "surf": "hot"
+   },
+   {
+    "x": 8550,
+    "y": 760,
+    "w": 1250,
+    "h": 640
+   },
+   {
+    "x": 9600,
+    "y": 0,
+    "w": 200,
+    "h": 660
+   },
+   {
+    "x": 9800,
+    "y": 760,
+    "w": 1650,
+    "h": 640
+   },
+   {
+    "x": 11450,
+    "y": 760,
+    "w": 130,
+    "h": 640,
+    "surf": "hot"
+   },
+   {
+    "x": 11580,
+    "y": 760,
+    "w": 540,
+    "h": 640
+   },
+   {
+    "x": 12120,
+    "y": 760,
+    "w": 130,
+    "h": 640,
+    "surf": "hot"
+   },
+   {
+    "x": 12250,
+    "y": 760,
+    "w": 1450,
+    "h": 640
+   },
+   {
+    "x": 13600,
+    "y": 0,
+    "w": 100,
+    "h": 760
+   }
+  ],
+  "oneways": [
+   {
+    "x": 800,
+    "y": 900,
+    "w": 140
+   },
+   {
+    "x": 2150,
+    "y": 900,
+    "w": 150
+   },
+   {
+    "x": 2330,
+    "y": 810,
+    "w": 140
+   },
+   {
+    "x": 2180,
+    "y": 720,
+    "w": 130
+   },
+   {
+    "x": 3450,
+    "y": 790,
+    "w": 44
+   },
+   {
+    "x": 11640,
+    "y": 650,
+    "w": 120
+   },
+   {
+    "x": 11930,
+    "y": 650,
+    "w": 120
+   },
+   {
+    "x": 11785,
+    "y": 555,
+    "w": 120
+   }
+  ],
+  "ladders": [
+   {
+    "x": 3452,
+    "y": 790,
+    "w": 24,
+    "h": 310
+   }
+  ],
+  "waters": [
+   {
+    "x": 5200,
+    "y": 1050,
+    "w": 550,
+    "h": 290,
+    "top": true
+   },
+   {
+    "x": 3700,
+    "y": 1260,
+    "w": 1500,
+    "h": 80
+   }
+  ],
+  "winds": [
+   {
+    "x": 6640,
+    "y": 220,
+    "w": 470,
+    "h": 1180
+   }
+  ],
+  "darks": [
+   {
+    "x": 7500,
+    "y": 0,
+    "w": 1300,
+    "h": 1400
+   }
+  ],
+  "crumbles": [
+   {
+    "x": 8150,
+    "y": 760,
+    "w": 80,
+    "h": 16
+   },
+   {
+    "x": 8230,
+    "y": 760,
+    "w": 80,
+    "h": 16
+   },
+   {
+    "x": 8310,
+    "y": 760,
+    "w": 80,
+    "h": 16
+   },
+   {
+    "x": 8390,
+    "y": 760,
+    "w": 80,
+    "h": 16
+   },
+   {
+    "x": 8470,
+    "y": 760,
+    "w": 80,
+    "h": 16
+   }
+  ],
+  "fakes": [
+   {
+    "x": 9600,
+    "y": 660,
+    "w": 200,
+    "h": 100
+   }
+  ]
+ },
+ "arenas": [
+  {
+   "id": "chief",
+   "l": 10250,
+   "r": 11050,
+   "gy": 760,
+   "name": "THE GRASPING CHIEF",
+   "who": "The Grasping Chief",
+   "sub": "A lesser boss (test stand-in)",
+   "seeds": 250,
+   "gift": "quake",
+   "giftHow": "The Grasping Chief falls, and its slam is yours now."
+  },
+  {
+   "id": "wraith",
+   "l": 11450,
+   "r": 12250,
+   "gy": 760,
+   "name": "THE EMBER WRAITH",
+   "who": "The Ember Wraith",
+   "sub": "A lesser boss (test stand-in)",
+   "seeds": 300,
+   "gift": "wisps",
+   "giftHow": "The Ember Wraith breaks apart, and its little fires follow you now."
+  },
+  {
+   "id": "masked",
+   "l": 12650,
+   "r": 13450,
+   "gy": 760,
+   "name": "THE MASKED ONE",
+   "who": "The Masked One",
+   "sub": "A great boss (test stand-in)",
+   "seeds": 500,
+   "gift": "inkstep",
+   "giftHow": "The mask cracks. The way it moved through ink is yours now."
+  }
+ ],
+ "zones": [
+  [
+   0,
+   "THE VILLAGE",
+   "Rest, talk, and find your first relic"
+  ],
+  [
+   1300,
+   "THE LOW TUNNEL",
+   "Crawl"
+  ],
+  [
+   2140,
+   "THE PLANKS",
+   "Up, through and over"
+  ],
+  [
+   2780,
+   "THE PLATEAU",
+   "Ledges and a ladder"
+  ],
+  [
+   4350,
+   "MUD AND ICE",
+   "The ground changes how you move"
+  ],
+  [
+   5200,
+   "THE POOL",
+   "Breath matters"
+  ],
+  [
+   6040,
+   "THE CHIMNEY",
+   "Walls you can climb, with the right charm"
+  ],
+  [
+   6600,
+   "THE WIND GAP",
+   "Too far to jump"
+  ],
+  [
+   7500,
+   "THE DARK",
+   "Light, fire and false walls"
+  ],
+  [
+   8800,
+   "THE ARENA",
+   "The end of the proving grounds"
+  ],
+  [
+   9800,
+   "THE TRIAL ROAD",
+   "Three test bosses, each guarding a spell"
+  ]
+ ],
+ "shrines": [
+  {
+   "x": 180,
+   "gy": 1000,
+   "name": "Village shrine"
+  },
+  {
+   "x": 2960,
+   "gy": 790,
+   "name": "Plateau shrine"
+  },
+  {
+   "x": 5900,
+   "gy": 1020,
+   "name": "Pool shrine"
+  },
+  {
+   "x": 7300,
+   "gy": 560,
+   "name": "Cave mouth shrine"
+  },
+  {
+   "x": 9450,
+   "gy": 760,
+   "name": "End shrine"
+  },
+  {
+   "x": 10140,
+   "gy": 760,
+   "name": "Trial shrine"
+  },
+  {
+   "x": 11250,
+   "gy": 760,
+   "name": "Second trial shrine"
+  },
+  {
+   "x": 12450,
+   "gy": 760,
+   "name": "Last trial shrine"
+  }
+ ],
+ "foes": [
+  {
+   "x": 1180,
+   "gy": 1000,
+   "l": 1040,
+   "r": 1345
+  },
+  {
+   "x": 1950,
+   "gy": 1000,
+   "l": 1770,
+   "r": 2130,
+   "high": true
+  },
+  {
+   "x": 2560,
+   "gy": 1000,
+   "l": 2420,
+   "r": 2775
+  },
+  {
+   "x": 3220,
+   "gy": 790,
+   "l": 3040,
+   "r": 3445
+  },
+  {
+   "x": 3800,
+   "gy": 1100,
+   "l": 3500,
+   "r": 4020
+  },
+  {
+   "x": 4120,
+   "gy": 1100,
+   "l": 3980,
+   "r": 4345
+  },
+  {
+   "x": 4650,
+   "gy": 955,
+   "l": 4510,
+   "r": 4800,
+   "mud": true
+  },
+  {
+   "x": 8000,
+   "gy": 760,
+   "l": 7810,
+   "r": 8145
+  },
+  {
+   "x": 9000,
+   "gy": 760,
+   "l": 8820,
+   "r": 9340
+  },
+  {
+   "x": 9200,
+   "gy": 760,
+   "l": 8820,
+   "r": 9340,
+   "high": true
+  }
+ ],
+ "relics": [
+  [
+   "garuda",
+   870,
+   900
+  ],
+  [
+   "bead",
+   4440,
+   955
+  ],
+  [
+   "ember",
+   3760,
+   1340
+  ],
+  [
+   "naga",
+   5330,
+   1340
+  ],
+  [
+   "gecko",
+   6160,
+   1020
+  ],
+  [
+   "kite",
+   6470,
+   560
+  ],
+  [
+   "tortoise",
+   9730,
+   760
+  ]
+ ],
+ "pots": [
+  [
+   2240,
+   720,
+   40
+  ],
+  [
+   3520,
+   1100,
+   20
+  ],
+  [
+   7720,
+   660,
+   30
+  ],
+  [
+   5650,
+   1340,
+   25
+  ]
+ ],
+ "hints": [
+  [
+   640,
+   800,
+   "Strike trees and ore to gather."
+  ],
+  [
+   150,
+   790,
+   "The forge tempers weapons."
+  ],
+  [
+   330,
+   870,
+   "A and D to walk. Space to jump."
+  ],
+  [
+   870,
+   830,
+   "Jump up onto the plank."
+  ],
+  [
+   1200,
+   880,
+   "Too low to stand. Hold S to crawl."
+  ],
+  [
+   1950,
+   870,
+   "This one swings high. Duck under it with S."
+  ],
+  [
+   2290,
+   650,
+   "On a plank, S + Space drops you through."
+  ],
+  [
+   2600,
+   870,
+   "Too high for one jump. Jump again in the air."
+  ],
+  [
+   3300,
+   700,
+   "The ladder: W and S climb."
+  ],
+  [
+   4060,
+   1010,
+   "Jump at the cliff and hold toward it to grab the edge. W climbs."
+  ],
+  [
+   4650,
+   880,
+   "Mud is slow and heavy."
+  ],
+  [
+   5030,
+   880,
+   "Ice keeps you sliding."
+  ],
+  [
+   5330,
+   990,
+   "W swims up, S dives. Watch your breath."
+  ],
+  [
+   5000,
+   1225,
+   "A long way on one breath…"
+  ],
+  [
+   6170,
+   900,
+   "Hold toward a wall to cling. Space kicks off."
+  ],
+  [
+   6870,
+   470,
+   "Hold Space as you fall to glide. The wind lifts a glider."
+  ],
+  [
+   7330,
+   440,
+   "Dark ahead. Press 5 to light the torch."
+  ],
+  [
+   8000,
+   700,
+   "The ground burns."
+  ],
+  [
+   8350,
+   700,
+   "The bridge crumbles. Keep moving."
+  ],
+  [
+   9050,
+   660,
+   "Rest at the shrine. The proving grounds end here."
+  ],
+  [
+   9500,
+   600,
+   "Or do they? The far wall looks thin."
+  ],
+  [
+   10120,
+   512,
+   "The trial road. Each one ahead guards a gift."
+  ],
+  [
+   10120,
+   546,
+   "Bosses do not beg, and they see through Unseen."
+  ],
+  [
+   11300,
+   660,
+   "It flies. Arrows, knives and spells reach it. Rain puts out its fire."
+  ],
+  [
+   12520,
+   660,
+   "It parries. Do not swing at its guard; a heavy blow breaks it."
+  ]
+ ],
+ "nodes": [
+  {
+   "k": "tree",
+   "x": 640,
+   "gy": 1000
+  },
+  {
+   "k": "tree",
+   "x": 1270,
+   "gy": 1000
+  },
+  {
+   "k": "tree",
+   "x": 2840,
+   "gy": 790
+  },
+  {
+   "k": "tree",
+   "x": 8900,
+   "gy": 760
+  },
+  {
+   "k": "ore",
+   "x": 1600,
+   "gy": 1000
+  },
+  {
+   "k": "ore",
+   "x": 3300,
+   "gy": 790
+  },
+  {
+   "k": "ore",
+   "x": 3650,
+   "gy": 1100
+  },
+  {
+   "k": "ore",
+   "x": 6200,
+   "gy": 1020
+  },
+  {
+   "k": "ore",
+   "x": 7560,
+   "gy": 560
+  },
+  {
+   "k": "ember",
+   "x": 7670,
+   "gy": 660
+  },
+  {
+   "k": "ember",
+   "x": 8620,
+   "gy": 760
+  },
+  {
+   "k": "ember",
+   "x": 9520,
+   "gy": 760
+  },
+  {
+   "k": "petal",
+   "x": 5290,
+   "gy": 1050
+  },
+  {
+   "k": "petal",
+   "x": 5620,
+   "gy": 1050
+  },
+  {
+   "k": "petal",
+   "x": 4400,
+   "gy": 1300
+  },
+  {
+   "k": "petal",
+   "x": 3820,
+   "gy": 1300
+  }
+ ],
+ "chests": [
+  {
+   "x": 380,
+   "gy": 1000,
+   "kind": "garb",
+   "id": "hat"
+  },
+  {
+   "x": 925,
+   "gy": 900,
+   "kind": "garb",
+   "id": "leather"
+  },
+  {
+   "x": 990,
+   "gy": 1000,
+   "kind": "weapon",
+   "id": 1
+  },
+  {
+   "x": 2400,
+   "gy": 810,
+   "kind": "weapon",
+   "id": 3
+  },
+  {
+   "x": 3120,
+   "gy": 790,
+   "kind": "weapon",
+   "id": 4
+  },
+  {
+   "x": 4220,
+   "gy": 1100,
+   "kind": "weapon",
+   "id": 5
+  },
+  {
+   "x": 4385,
+   "gy": 955,
+   "kind": "garb",
+   "id": "boots"
+  },
+  {
+   "x": 4825,
+   "gy": 955,
+   "kind": "garb",
+   "id": "cleats"
+  },
+  {
+   "x": 5790,
+   "gy": 1020,
+   "kind": "garb",
+   "id": "helm"
+  },
+  {
+   "x": 2200,
+   "gy": 720,
+   "kind": "spell",
+   "id": "gust"
+  },
+  {
+   "x": 2050,
+   "gy": 1000,
+   "kind": "spell",
+   "id": "pillar"
+  },
+  {
+   "x": 7178,
+   "gy": 560,
+   "kind": "spell",
+   "id": "monsoon"
+  },
+  {
+   "x": 8700,
+   "gy": 760,
+   "kind": "spell",
+   "id": "embers"
+  },
+  {
+   "x": 9670,
+   "gy": 760,
+   "kind": "spell",
+   "id": "starfall"
+  },
+  {
+   "x": 11150,
+   "gy": 760,
+   "kind": "weapon",
+   "id": 6,
+   "sealed": true
+  },
+  {
+   "x": 12330,
+   "gy": 760,
+   "kind": "weapon",
+   "id": 7,
+   "sealed": true
+  },
+  {
+   "x": 6330,
+   "gy": 560,
+   "kind": "garb",
+   "id": "band"
+  },
+  {
+   "x": 7440,
+   "gy": 560,
+   "kind": "garb",
+   "id": "robe"
+  },
+  {
+   "x": 9100,
+   "gy": 760,
+   "kind": "garb",
+   "id": "mail"
+  }
+ ],
+ "stones": [
+  {
+   "k": "speak",
+   "x": 3570,
+   "gy": 1100
+  },
+  {
+   "k": "moon",
+   "x": 6550,
+   "gy": 560
+  },
+  {
+   "k": "sun",
+   "x": 2850,
+   "gy": 790
+  }
+ ],
+ "forges": [
+  {
+   "x": 70,
+   "gy": 1000
+  },
+  {
+   "x": 9290,
+   "gy": 760
+  }
+ ],
+ "inscriptions": [
+  {
+   "id": "jala",
+   "x": 5590,
+   "gy": 1340
+  },
+  {
+   "id": "vayu",
+   "x": 6255,
+   "gy": 560
+  },
+  {
+   "id": "prithvi",
+   "x": 1480,
+   "gy": 1000
+  },
+  {
+   "id": "akasha",
+   "x": 3840,
+   "gy": 1340
+  },
+  {
+   "id": "deva",
+   "x": 8960,
+   "gy": 760
+  },
+  {
+   "id": "asura",
+   "x": 9180,
+   "gy": 760
+  },
+  {
+   "id": "preta",
+   "x": 3950,
+   "gy": 1100
+  },
+  {
+   "id": "tiryak",
+   "x": 820,
+   "gy": 1000
+  },
+  {
+   "id": "naraka",
+   "x": 7830,
+   "gy": 760
+  }
+ ],
+ "navagraha": [
+  {
+   "x": 9935,
+   "gy": 760
+  }
+ ],
+ "tablets": [
+  {
+   "id": "wanderers",
+   "x": 4600,
+   "gy": 1340,
+   "name": "Tablet of the slow wanderers",
+   "what": "Saturn, Jupiter, Rahu and Ketu: the long seasons."
+  },
+  {
+   "id": "periods",
+   "x": 13540,
+   "gy": 760,
+   "name": "Tablet of the periods",
+   "what": "The Vimshottari periods: the seasons of a whole life."
+  }
+ ],
+ "people": {
+  "villager": {
+   "x": 560,
+   "gy": 1000
+  },
+  "dog": {
+   "x": 880,
+   "gy": 1000
+  },
+  "teacher": {
+   "x": 6025,
+   "gy": 1020
+  }
+ },
+ "places": {
+  "hut": {
+   "x": 470,
+   "gy": 1000
+  },
+  "home": {
+   "x": 280,
+   "gy": 1000
+  },
+  "horse": {
+   "x": 720,
+   "gy": 1000
+  },
+  "seat": {
+   "x": 9780,
+   "gy": 760
+  }
+ }
+}

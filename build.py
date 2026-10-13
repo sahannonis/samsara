@@ -16,7 +16,13 @@ TZLOOKUP = (ROOT / 'vendor' / 'tz-lookup.js').read_text().replace('"undefined"!=
 
 def game(folder, out):
     head = (folder / 'head.html').read_text()
-    page = head.replace('/*ENGINE*/', ENGINE).replace('/*GAME*/', (folder / 'game.js').read_text().replace('/*CITIES*/[]', CITIES_V15).replace("'/*PLACES*/'", "'" + PLACES + "'").replace('/*TZLOOKUP*/', TZLOOKUP))
+    code = (folder / 'game.js').read_text()
+    # from build 23: the drawing lives in its own file, and the world in a level file
+    draw = folder / 'draw-ink.js'
+    if draw.exists(): code = code.replace('/*DRAW*/', draw.read_text())
+    level = folder / 'level.json' if (folder / 'level.json').exists() else ROOT / 'levels' / 'proving-grounds.json'
+    code = code.replace('/*LEVEL*/null', level.read_text().strip())
+    page = head.replace('/*ENGINE*/', ENGINE).replace('/*GAME*/', code.replace('/*CITIES*/[]', CITIES_V15).replace("'/*PLACES*/'", "'" + PLACES + "'").replace('/*TZLOOKUP*/', TZLOOKUP))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(page)
     print(f'{out.relative_to(ROOT)}  {len(page) // 1024} KB')
