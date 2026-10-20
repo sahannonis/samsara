@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Samsara Build 23</title>
+<title>Samsara Build 24</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&family=Kalam:wght@400;700&display=swap">
@@ -150,17 +150,18 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
 <body>
 <div class="wrap">
   <header>
-    <div><span class="eyebrow">Samsara · test build 23</span><h1>Groundwork</h1></div>
+    <div><span class="eyebrow">Samsara · test build 24</span><h1>The painted world</h1></div>
     <span class="lbl" id="lifeLabel">Life 1</span>
   </header>
 
   <div class="frame" id="frame">
+    <canvas id="gl" style="display:none" aria-hidden="true"></canvas>
     <canvas id="cv" aria-label="Samsara test: a long proving ground of planks, ledges, water, walls, wind and darkness"></canvas>
 
     <div class="ov" id="ovStart"><div class="ov-in">
-      <span class="eyebrow">Samsara · test build 22 · saving</span>
+      <span class="eyebrow">Samsara · test build 24 · the painted world</span>
       <h2>Samsara</h2>
-      <p class="hand">Your soul now keeps itself. It saves as you play, on its own, and you wake at the last shrine you rested at. A death is kept the moment it happens.</p>
+      <p class="hand">The world is now painted with three.js: the real sky, wind, leaves, water and a body that moves with cloth and hair. It stays in ink until your first realization. Falls from very high places now hurt. The old ink look is in Settings.</p>
       <div class="row">
         <label class="lbl" for="micStart">Mic</label>
         <select id="micStart">
@@ -229,6 +230,14 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
         </select>
         <span class="note">To close a message: Enter, or click it.</span>
       </div>
+      <div class="mic">
+        <label class="lbl" for="setLook">Look</label>
+        <select id="setLook">
+          <option value="painted">Painted (three.js)</option>
+          <option value="ink">Ink (the hand-drawn test look)</option>
+        </select>
+        <span class="note" id="setLookNote"></span>
+      </div>
     </div>
     <div class="panel">
       <div class="sechead"><h2>The soul's record</h2><span class="note">Kept across lives</span></div>
@@ -256,6 +265,7 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
         <button class="btn ghost" id="tEnd" type="button">End this life now</button>
         <button class="btn ghost" id="tRelics" type="button">Give me every relic</button>
         <button class="btn ghost" id="tShrine" type="button">Jump to the next shrine</button>
+        <button class="btn ghost" id="tFall" type="button">Lift me up to fall (380 / 600 / 850 / 1150)</button>
         <button class="btn ghost" id="tChants" type="button">Teach me every chant</button>
         <button class="btn ghost" id="tSpells" type="button">Teach me every spell</button>
         <button class="btn ghost" id="tBoss" type="button">Take me to the next boss</button>
@@ -285,6 +295,7 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
 <script>
 /*ENGINE*/
 </script>
+<script id="threeSrc" type="text/plain">/*THREE*/</script>
 <script>
 /*GAME*/
 </script>

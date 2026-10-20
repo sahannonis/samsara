@@ -20,8 +20,12 @@ def game(folder, out):
     # from build 23: the drawing lives in its own file, and the world in a level file
     draw = folder / 'draw-ink.js'
     if draw.exists(): code = code.replace('/*DRAW*/', draw.read_text())
+    # from build 24: the painted look, drawn with three.js (three.js itself rides along as text)
+    draw3 = folder / 'draw-three.js'
+    if draw3.exists(): code = code.replace('/*DRAW3*/', draw3.read_text())
     level = folder / 'level.json' if (folder / 'level.json').exists() else ROOT / 'levels' / 'proving-grounds.json'
     code = code.replace('/*LEVEL*/null', level.read_text().strip())
+    if '/*THREE*/' in head: head = head.replace('/*THREE*/', (ROOT / 'vendor' / 'three.module.min.js').read_text())
     page = head.replace('/*ENGINE*/', ENGINE).replace('/*GAME*/', code.replace('/*CITIES*/[]', CITIES_V15).replace("'/*PLACES*/'", "'" + PLACES + "'").replace('/*TZLOOKUP*/', TZLOOKUP))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(page)

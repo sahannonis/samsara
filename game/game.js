@@ -731,7 +731,7 @@ function bodyHTML() {
    rested at, with what you carried; foes return as after a rest, and a fight in progress starts over.
    A death is saved the moment it happens, with the births on offer, so leaving the page cannot undo it.
    The real birth is only kept in a save when the player chose to keep it (this device, or later Steam Cloud). */
-const BUILD = 22, SAVE_V = 1, SLOTS = 3, SLOT_KEY = i => `samsara.soul.${i}`;
+const BUILD = 24, SAVE_V = 1, SLOTS = 3, SLOT_KEY = i => `samsara.soul.${i}`;
 let slot = null, saveT = 0, saveClock = 0, savedFx = 0, saveFail = false;
 // automated tests never write saves unless they ask to
 const canWrite = () => { try { return !navigator.webdriver || localStorage.getItem('samsara.testSave') === '1'; } catch (_) { return false; } };
@@ -787,7 +787,7 @@ function loadSoul(i) {
   colorK = realized('mind') ? 1 : 0;
   // you wake at the last shrine you rested at, with what you carried
   const sh = SHRINES[P.shrine || 0];
-  Object.assign(P, { x: sh.x + 40, y: sh.gy - PH, h: PH, w: 22, vx: 0, vy: 0, mount: false, hang: null, ladder: null, climb: null, climbT: 0, atk: null, charging: false, rollT: 0, rollIF: 0, healT: 0, hitT: 0, inv: 1, glide: false, plunge: false, cling: 0, inWater: false, headUnder: false, breath: BREATH, stepT: 0, ironT: 0 });
+  Object.assign(P, { fallTop: null, x: sh.x + 40, y: sh.gy - PH, h: PH, w: 22, vx: 0, vy: 0, mount: false, hang: null, ladder: null, climb: null, climbT: 0, atk: null, charging: false, rollT: 0, rollIF: 0, healT: 0, hitT: 0, inv: 1, glide: false, plunge: false, cling: 0, inWater: false, headUnder: false, breath: BREATH, stepT: 0, ironT: 0 });
   P.torch = Object.assign({ fuel: P.torchMax, lit: false }, P.torch, { lit: false });
   snapCam(); renderLives(); $('lifeLabel').textContent = `Life ${life.n}`;
   if (soul.pending) { P.dead = true; showDeath(soul.pending); return true; }
@@ -1113,7 +1113,8 @@ function updatePlayer(dt) {
   }
   const wasG = P.onG;
   moveP(dt);
-  if (P.onG && !wasG) { if (P.plunge) plungeLand(); P.jumping = false; P.glide = false; }
+  trackFall(wasG);
+  if (P.onG && !wasG) { const plunged = P.plunge; if (P.plunge) plungeLand(); P.jumping = false; P.glide = false; landFall(plunged); }
   if (P.onG) { P.jumpsLeft = has('garuda') ? 1 : 0; P.coy = 0.1; P.cling = 0; }
   if (P.onG && P.groundS && P.groundS.k === 'crumble' && P.groundS.state === 'solid') { P.groundS.state = 'shake'; P.groundS.t = P.mount ? 0.25 : 0.45; SFX.crack(); }
   // ledges and walls
@@ -1169,6 +1170,34 @@ function afterMove(dt, mx, onLadder) {
   // zones
   let z = 0; for (let i = 0; i < ZONES.length; i++) if (P.x >= ZONES[i][0]) z = i;
   if (z !== P.zone) { P.zone = z; if (!P.zones.has(z)) { P.zones.add(z); zoneTag = { t: 3.2, name: ZONES[z][1], sub: ZONES[z][2] }; } }
+}
+/* fall damage (Sahan, after build 23): only real heights hurt. A drop of about eight body heights is free; past that
+   it hurts more the higher you fell, and from about nineteen body heights it kills. Water always catches you. Gliding,
+   climbing, hanging and clinging start the count again. A roll just as you land, or a plunge, takes half the hurt.
+   On the horse, the horse takes the fall. */
+const FALL_SAFE = 420, FALL_DEADLY = 1000;
+function trackFall(wasG) {
+  const feet = P.y + P.h;
+  if (P.onG) { if (wasG) P.fallTop = feet; return; }   // the landing frame keeps the height it fell from
+  if (P.inWater || P.glide || P.ladder || P.hang || P.climbT > 0 || P.cling || windAt(pcx(), P.y + P.h / 2)) { P.fallTop = feet; return; }   // water, cloth, holds and winds all catch you
+  if (wasG || P.fallTop === undefined || P.fallTop === null) P.fallTop = feet;
+  P.fallTop = Math.min(P.fallTop, feet);
+  if (held.roll || pressed.roll) P.rollLand = 0.25; else if (P.rollLand > 0) P.rollLand -= 1 / 60;
+}
+function landFall(plunged) {
+  if (P.fallTop === null || P.fallTop === undefined) { P.fallTop = P.y + P.h; P.fallFree = false; return; }
+  const drop = (P.y + P.h) - P.fallTop, roll = P.rollLand > 0; P.fallTop = P.y + P.h; P.rollLand = 0;
+  if (P.fallFree) { P.fallFree = false; return; }
+  if (drop > 300) { P.landT = Math.max(P.landT, drop > FALL_SAFE ? 0.4 : 0.22); shake = Math.max(shake, drop > FALL_SAFE ? 10 : 5); for (let i = 0; i < 10; i++) fx.push({ k: 'dot', x: pcx() + rnd(-24, 24), y: P.y + P.h - 2, vx: rnd(-200, 200), vy: -rnd(40, 160), life: rnd(0.3, 0.5), c: INK2 }); }
+  if (drop <= FALL_SAFE) return;
+  const soft = plunged || roll, k = Math.pow(clamp((drop - FALL_SAFE) / (FALL_DEADLY - FALL_SAFE), 0, 1), 1.3);
+  if (P.mount) { horse.hp -= horse.hpMax * k * (soft ? 0.5 : 1); floater(pcx(), P.y - 30, 'YOUR HORSE TAKES THE FALL', INK2); if (horse.hp <= 0) dismount(true); return; }
+  if (drop >= FALL_DEADLY * (soft ? 1.6 : 1)) { floater(pcx(), P.y - 30, 'TOO FAR TO FALL', RED); fall('The fall was too far.'); return; }
+  const dmg = Math.max(1, Math.round(P.hpMax * k * (soft ? 0.5 : 1)));
+  P.hp = Math.max(0, P.hp - dmg); SFX.hurt(); burst(pcx(), P.y + P.h - 6, 10, RED);
+  if (soft) { P.rollT = Math.max(P.rollT, 0.3); P.rollV = 260; floater(pcx(), P.y - 30, `YOU ROLL AS YOU LAND · −${dmg}`, INK2); }
+  else floater(pcx(), P.y - 30, `THE FALL HURTS · −${dmg}${P.hp > 0 && !soft ? ' · ROLL AS YOU LAND' : ''}`, RED);
+  if (P.hp <= 0) fall('The fall was too far.');
 }
 function plungeLand() {
   P.plunge = false; P.landT = 0.18; shake = 9; hitstop = 0.05; SFX.thud();
@@ -2156,7 +2185,7 @@ function afterFall() {
 }
 function wakeAtShrine() {
   const s = SHRINES[P.shrine];
-  Object.assign(P, { x: s.x + 40, y: s.gy - PH, h: PH, w: 22, mount: false, vx: 0, vy: 0, hp: P.hpMax, st: P.stMax, mana: P.manaMax, lotus: P.lotusMax, breath: BREATH, dead: false, deadT: 0, atk: null, charging: false, rollT: 0, healT: 0, hitT: 0, inv: 1, shieldT: 0,
+  Object.assign(P, { fallTop: null, x: s.x + 40, y: s.gy - PH, h: PH, w: 22, mount: false, vx: 0, vy: 0, hp: P.hpMax, st: P.stMax, mana: P.manaMax, lotus: P.lotusMax, breath: BREATH, dead: false, deadT: 0, atk: null, charging: false, rollT: 0, healT: 0, hitT: 0, inv: 1, shieldT: 0,
     hang: null, climbT: 0, ladder: null, glide: false, plunge: false, cling: 0, inWater: false, headUnder: false, knives: P.knivesMax, torch: { fuel: P.torchMax, lit: false } });
   drops = []; spawnFoes(); shots = []; resetCrumbles(); snapCam(); TEMPS = []; RAINS = []; ALLY = null; CHS = null; SUMMONS = []; ECHO_HITS = []; WAVES = []; WISPS = []; P.bless = null; P.unseenT = 0; P.shaniT = 0; P.tideT = 0;
 }
@@ -2262,10 +2291,17 @@ toolBtn('tHorse', () => {
   if (P.mount) return;
   horse.state = 'away'; horse.hp = horse.hpMax; callHorse(true);
 });
+let fallTry = 0;
+toolBtn('tFall', () => {   // lift the player high above where they stand, to feel the fall
+  if (P.mount) dismount(false);
+  const H4 = [380, 600, 850, 1150], h = H4[fallTry++ % H4.length];
+  P.y = Math.max(-400, P.y - h); P.vx = P.vy = 0; P.onG = false; P.hang = null; P.ladder = null; P.fallTop = null; P.fallFree = false;
+  floater(pcx(), P.y + P.h + 20, `A DROP OF ${h}`, PENCIL);
+});
 toolBtn('tShrine', () => {
   if (P.mount) dismount(false);
   const i = (P.shrine + 1) % SHRINES.length, s = SHRINES[i];
-  P.x = s.x + 40; P.y = s.gy - PH; P.h = PH; P.vx = P.vy = 0; P.hang = null; P.ladder = null; rest(i); snapCam();
+  P.x = s.x + 40; P.y = s.gy - PH; P.h = PH; P.vx = P.vy = 0; P.hang = null; P.ladder = null; P.fallTop = null; rest(i); snapCam();
 });
 
 /* ---------- soul record panel ---------- */
@@ -2363,7 +2399,7 @@ function travelTo(i) {
   if (danger()) { mapMsg = { t: clock + 2.5, text: ARENAS.some(a => a.fight) ? 'There is no leaving a boss fight. Win, or fall.' : 'The Grasping are hunting you. Get away from them first.' }; return; }
   if (P.mount) dismount(false);
   if (horse.state === 'idle') horse.state = 'away';
-  const s = SHRINES[i]; Object.assign(P, { x: s.x + 40, y: s.gy - PH, h: PH, w: 22, vx: 0, vy: 0, hang: null, ladder: null, climbT: 0, glide: false, plunge: false, cling: 0 });
+  const s = SHRINES[i]; Object.assign(P, { fallTop: null, x: s.x + 40, y: s.gy - PH, h: PH, w: 22, vx: 0, vy: 0, hang: null, ladder: null, climbT: 0, glide: false, plunge: false, cling: 0 });
   $('ovGear').hidden = true; mode = 'play'; clearHeld(); rest(i); snapCam();
   for (let k = 0; k < 30; k++) fx.push({ k: 'ink', x: pcx() + rnd(-20, 20), y: P.y + rnd(0, P.h), vx: rnd(-40, 40), vy: -rnd(20, 80), life: rnd(0.4, 1) });
   banner = { t: 2.6, top: 'YOU TRAVEL', sub: `${s.name}. You arrive rested. If your horse was with you, ring the bell to call it again.` };
@@ -2868,7 +2904,10 @@ function finishCreate() {
 }
 for (const id in HEARD) { const w = SPELL(id); if (w) for (const ph of HEARD[id]) if (!w.alias.includes(ph)) w.alias.push(ph); }
 setTimeout(loadPlaces, 300);
+/*DRAW3*/
 $('setMsg').value = SETTINGS.msg; $('setMsg').addEventListener('change', e => { SETTINGS.msg = e.target.value; saveSettings(); e.target.blur(); });
+$('setLook').value = SETTINGS.look; $('setLook').addEventListener('change', e => { SETTINGS.look = e.target.value; saveSettings(); e.target.blur(); if (V3.want()) bootThree(); lookShow(); });
+if (V3.want()) bootThree(); lookShow();
 $('btnMicCheck').addEventListener('click', e => { e.currentTarget.blur(); micCheck(); });
 $('btnBegin').addEventListener('click', () => { const i = freeSlot(); if (i < 0) return; if (MC) { try { MC.stop(); } catch (_) {} MC = null; }
   setMicMode($('micStart').value); $('ovStart').hidden = true; freshSoul(i); openCreate();
@@ -2886,10 +2925,10 @@ renderSlots(); fit(); requestAnimationFrame(loop);
 window.__life = {
   get P() { return P; }, get soul() { return soul; }, get mode() { return mode; }, get foes() { return foes; }, get cam() { return [camX, camY]; }, get pots() { return pots; },
   SHRINES, CRUMBLES, FAKES, RELICS, castWord, WORDS, findWord, fall, setMicMode, step: dt => update(dt),
-  put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
+  put(x, y) { P.x = x; P.y = y - P.h; P.vx = 0; P.vy = 0; P.onG = false; P.fallTop = null; P.fallFree = true; P.dead = false; P.hang = null; P.ladder = null; P.climbT = 0; snapCam(); },
   equip(list) { list.forEach(id => P.relics.add(id)); P.equip = list.concat([null, null, null, null]).slice(0, 4); },
   noFoes() { foes.forEach(f => f.alive = false); },
-  get horse() { return horse; }, saveNow: () => saveNow(), loadSoul: i => loadSoul(i), readSlot: i => readSlot(i), snapshot: () => snapshot(), get slot() { return slot; }, toTitle: () => toTitle(), importSoul: t => importSoul(t), freeSlot: () => freeSlot(), renderSlots: m => renderSlots(m), SCHOOLS, WAYS, wayOf: () => wayOf(), aloneNow: () => aloneNow(), companions: () => companions(), wayBoon: k => wayBoon(k), schoolBoon: k => schoolBoon(k), moonRegen: () => moonRegen(), moonStamina: () => moonStamina(), staminaGrowth: () => staminaGrowth(), set moonTest(v) { moonTest = v; }, manaGrowth: () => manaGrowth(), bodyHTML: () => bodyHTML(), finishMed: () => finishMed(), PATHS, PATH_STEPS, walk: (k, n) => walk(k, n), pathAt: k => pathAt(k), ARTS, useArt: a => useArt(a), TEACHER, TASKS, openTeacher: () => openTeacher(), SEAT, roadsHTML: () => roadsHTML(), roadBoon: k => roadBoon(k), keepCount: () => keepCount(), SETTINGS, get banner2() { return banner; }, inwardOf: c => inwardOf(c), get MED() { return MED; }, openMeditation: i => openMeditation(i), get colorK() { return colorK; }, livedMind: () => livedMind(), openRiddle: () => openRiddle(), RIDDLES, readSoul: t => readSoul(t), readBody: () => readBody(), soulChart: () => soulChart(), NAVAGRAHA, TABLETS, get READS() { return READS; }, boonV: k => boonV(k), applyDayBoon: () => applyDayBoon(), openStones: () => openStones(), E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, lifeKarma: () => lifeKarma(), set autoAsk(v) { autoAsk = v; }, realmLean: () => realmLean(), DOG, nearDebt: () => nearDebt(), witnesses: t => witnesses(t), begChance: () => begChance(), spawnFoes: () => spawnFoes(), sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
+  get horse() { return horse; }, get camX() { return camX; }, get camY() { return camY; }, V3, setLook(v) { SETTINGS.look = v; $('setLook').value = v; if (V3.want()) bootThree(); lookShow(); }, FALL_SAFE, FALL_DEADLY, saveNow: () => saveNow(), loadSoul: i => loadSoul(i), readSlot: i => readSlot(i), snapshot: () => snapshot(), get slot() { return slot; }, toTitle: () => toTitle(), importSoul: t => importSoul(t), freeSlot: () => freeSlot(), renderSlots: m => renderSlots(m), SCHOOLS, WAYS, wayOf: () => wayOf(), aloneNow: () => aloneNow(), companions: () => companions(), wayBoon: k => wayBoon(k), schoolBoon: k => schoolBoon(k), moonRegen: () => moonRegen(), moonStamina: () => moonStamina(), staminaGrowth: () => staminaGrowth(), set moonTest(v) { moonTest = v; }, manaGrowth: () => manaGrowth(), bodyHTML: () => bodyHTML(), finishMed: () => finishMed(), PATHS, PATH_STEPS, walk: (k, n) => walk(k, n), pathAt: k => pathAt(k), ARTS, useArt: a => useArt(a), TEACHER, TASKS, openTeacher: () => openTeacher(), SEAT, roadsHTML: () => roadsHTML(), roadBoon: k => roadBoon(k), keepCount: () => keepCount(), SETTINGS, get banner2() { return banner; }, inwardOf: c => inwardOf(c), get MED() { return MED; }, openMeditation: i => openMeditation(i), get colorK() { return colorK; }, livedMind: () => livedMind(), openRiddle: () => openRiddle(), RIDDLES, readSoul: t => readSoul(t), readBody: () => readBody(), soulChart: () => soulChart(), NAVAGRAHA, TABLETS, get READS() { return READS; }, boonV: k => boonV(k), applyDayBoon: () => applyDayBoon(), openStones: () => openStones(), E, realBirth: (d, t, c) => realBirth(d, t, c), findCities: q => findCities(q), placesCount: () => CITIES.length, get CR() { return CR; }, gainScroll: (id, n) => gainScroll(id, n), get shots() { return shots; }, get banner() { return banner; }, get BQ() { return BQ; }, openChestAt: x => openChest(CHESTS.find(c => c.x === x)), get CHESTS_() { return CHESTS; }, ARENAS, get WAVES() { return WAVES; }, get WISPS() { return WISPS; }, bossNow: () => bossNow(), hurtFoe: (f, d, h) => hurtFoe(f, d, !!h), hurtPlayer: (d) => hurtPlayer(d, { x: 0, w: 0 }, false), get life() { return life; }, lifeKarma: () => lifeKarma(), set autoAsk(v) { autoAsk = v; }, realmLean: () => realmLean(), DOG, nearDebt: () => nearDebt(), witnesses: t => witnesses(t), begChance: () => begChance(), spawnFoes: () => spawnFoes(), sunAlt: () => sunAlt(), frontFoe: (r, d) => frontFoe(r, d), get CHS() { return CHS; }, get SUMMONS() { return SUMMONS; }, CHANTS, chantHeard: t => chantHeard(t), matchWords: (a, b) => matchWords(a, b), readInscription: id => readInscription(INSCRIPTIONS.find(q => q.id === id)), SKY, skyState: () => skyState(), skyText: () => skyText(), skyFast: v => skyFast(v), cast: (id, pw) => castWord(SPELL(id), pw || 1), learnSpell: id => learnSpell(id), setNight: v => { nightOverride = v; }, get TEMPS() { return TEMPS; }, get RAINS() { return RAINS; }, get ALLY() { return ALLY; }, answerStone: t => answerStone(t), useStone: k => useStone(STONES.find(s => s.k === k)), travelTo: i => travelTo(i), packWeight: () => packWeight(), openContainer: (inv, n, h) => openContainer(inv, n, h), HOME, moveItem: (inv, sp, t) => moveItem(inv, sp, t), NODES, levelOf: () => levelOf(), openShrine: i => openShrine(i), openForge: () => openForge(), applyStats: f => applyStats(f), wMul: w => wMul(w), CHESTS, WEAPONS, GARB, loadNow: () => loadNow(), protNow: () => protNow(), mount: () => mount(), callHorse: f => callHorse(f),
   held, pressed, released, mouse, freeze(v) { frozen = v; },
   run(n, keys = {}, press = {}) { Object.assign(held, keys); for (let i = 0; i < n; i++) { if (i === 0) for (const k in press) { pressed[k] = true; if (press[k] === 'tap') held[k] = true; } update(1 / 60); for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false; if (i === 0) for (const k in press) if (press[k] === 'tap') { held[k] = false; } } for (const k in keys) held[k] = false; render(); },
 };

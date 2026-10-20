@@ -128,6 +128,7 @@ function paintSky() {
 function drawSkyBehind() {
   const k = skyState();
   if (k.dark > 0) { ctx.save(); ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = `rgba(21,21,19,${k.dark * 0.42})`; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+  if (V3.on()) return;
   paintSky(); if (!skyCv.width || !skyCv.height) return; ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'destination-over'; ctx.drawImage(skyCv, 0, 0); ctx.restore();
 }
 function drawSummons() {
@@ -308,11 +309,13 @@ function drawSolid(s) {
   if (s.surf === 'hot') { hatch(s.x, s.y, s.w, 16, 5, RED, 1.4); ctx.strokeStyle = RED; ctx.lineWidth = 1.5; ctx.beginPath(); for (let x = s.x + 12; x < s.x + s.w; x += 30) { const ph = (clock * 1.2 + x * 0.013) % 1, yy = s.y - 4 - ph * 26; ctx.globalAlpha = 1 - ph; ctx.moveTo(x, yy); ctx.quadraticCurveTo(x + 4, yy - 5, x, yy - 10); } ctx.stroke(); ctx.globalAlpha = 1; }
 }
 function drawWorld() {
+  const painted = V3.on();
   // far hills
-  ctx.save(); ctx.translate(-camX * 0.3, -camY * 0.3); ctx.strokeStyle = FAINT; ctx.lineWidth = 2; ctx.beginPath();
+  if (!painted) { ctx.save(); ctx.translate(-camX * 0.3, -camY * 0.3); ctx.strokeStyle = FAINT; ctx.lineWidth = 2; ctx.beginPath();
   for (let x = -200; x < LW * 0.4 + W; x += 40) ctx.lineTo(x, 520 + Math.sin(x * 0.006) * 40 + Math.sin(x * 0.017) * 14);
-  ctx.stroke(); ctx.restore();
+  ctx.stroke(); ctx.restore(); }
   ctx.save(); ctx.translate(-camX, -camY);
+  if (!painted) {
   // wind
   for (const w of WINDS) if (visible(w)) { ctx.strokeStyle = PENCIL; ctx.lineWidth = 1.5; ctx.beginPath(); for (let i = 0; i < 18; i++) { const x = w.x + 20 + (i * 97) % (w.w - 40), y = w.y + w.h - ((clock * 170 + i * 137) % w.h); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 8, y - 12, x, y - 24); ctx.moveTo(x - 4, y - 18); ctx.lineTo(x, y - 24); ctx.lineTo(x + 5, y - 19); } ctx.stroke(); }
   // terrain
@@ -329,6 +332,7 @@ function drawWorld() {
     ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.strokeRect(c.x + 2 + ox, c.y + oy, c.w - 4, c.h);
     ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(c.x + 30 + ox, c.y + oy); ctx.lineTo(c.x + 36 + ox, c.y + 8 + oy); ctx.lineTo(c.x + 30 + ox, c.y + c.h + oy); ctx.stroke();
   }
+  } else for (const c of CRUMBLES) if (visible(c) && c.state === 'gone') { ctx.save(); ctx.setLineDash([4, 6]); ctx.strokeStyle = 'rgba(239,231,212,0.5)'; ctx.lineWidth = 1.5; ctx.strokeRect(c.x + 3, c.y, c.w - 6, c.h); ctx.restore(); }
   drawArenas();
   // props
   SHRINES.forEach((s, i) => { if (visible({ x: s.x - 80, y: s.gy - 160, w: 160, h: 160 })) drawShrine(s, i); });
@@ -387,7 +391,7 @@ function drawWorld() {
   drawPlayer();
   if (nightUnits) { ctx = mainCtx; unitsPending = true; }
   // water over the player
-  for (const w of WATERS) if (visible(w)) {
+  if (!painted) for (const w of WATERS) if (visible(w)) {
     ctx.fillStyle = `rgba(${Math.round(140 - 90 * colorK)},${Math.round(137 + 3 * colorK)},${Math.round(127 + 80 * colorK)},${0.22 + 0.1 * colorK})`; ctx.fillRect(w.x, w.y, w.w, w.h);
     ctx.strokeStyle = PENCIL; ctx.lineWidth = 1.2; ctx.beginPath(); for (let y = w.y + 30; y < w.y + w.h; y += 34) for (let x = w.x + ((y * 3) % 50); x < w.x + w.w - 20; x += 90) { ctx.moveTo(x, y); ctx.lineTo(x + 18, y); } ctx.stroke();
     if (w.top) { ctx.strokeStyle = INK2; ctx.lineWidth = 2; ctx.beginPath(); for (let x = w.x; x <= w.x + w.w; x += 8) { const yy = w.y + Math.sin(x * 0.05 + clock * 3) * 2.5; if (pointSolid(x, w.y + 4) || pointSolid(x - 8, w.y + 4)) ctx.moveTo(x, yy); else ctx.lineTo(x, yy); } ctx.stroke(); }
@@ -396,8 +400,8 @@ function drawWorld() {
   // false walls hide what is behind them
   for (const f of FAKES) if (visible(f)) {
     const see = f.found || has('bead') || pathAt('jnana') >= 1;
-    ctx.save(); ctx.globalAlpha = overlap(P, f) ? 0.25 : see ? 0.55 : 1;
-    ctx.fillStyle = PAPER; ctx.fillRect(f.x, f.y, f.w, f.h); hatch(f.x, f.y, f.w, f.h, 13); ctx.restore();
+    if (!painted) { ctx.save(); ctx.globalAlpha = overlap(P, f) ? 0.25 : see ? 0.55 : 1;
+    ctx.fillStyle = PAPER; ctx.fillRect(f.x, f.y, f.w, f.h); hatch(f.x, f.y, f.w, f.h, 13); ctx.restore(); }
     if (see) { ctx.save(); ctx.setLineDash([6, 5]); ctx.strokeStyle = INK2; ctx.lineWidth = 2; ctx.strokeRect(f.x + 1, f.y + 1, f.w - 2, f.h - 2); ctx.restore(); }
   }
   for (const f of fx) {
@@ -641,8 +645,8 @@ function drawPlayer() {
   if (p.unseenT > 0) { ctx.save(); ctx.globalAlpha = 0.28; drawPlayerBody(p); ctx.restore(); if (Math.random() < 0.3) fx.push({ k: 'ink', x: (p.x + p.w / 2) + rnd(-10, 10), y: p.y + rnd(0, p.h), vx: rnd(-10, 10), vy: -rnd(10, 40), life: 0.6 }); return; }
   drawPlayerBody(p);
 }
-function drawPlayerBody(p) {
-  const cx = (p.x + p.w / 2), feet = p.y + p.h;
+function playerPose(p) {
+  const feet = p.y + p.h;
   let pose, ay = feet;
   if (p.dead || p.hitT > 0) pose = POSE.hurt();
   else if (p.hang) pose = POSE.hang(clock);
@@ -663,19 +667,27 @@ function drawPlayerBody(p) {
   else if (Math.abs(p.vx) > 20) pose = POSE.run(p.run);
   else pose = POSE.idle(clock);
   if (p.mount) { pose = Object.assign({}, pose, { lean: (pose.lean || 0) * 0.6 + (Math.abs(p.vx) > 300 ? 0.25 : 0.05), lF: [1.25, 0.15], lB: [1.0, 0.3] }); ay = feet - 57 + 13 + (Math.abs(p.vx) > 40 && p.onG ? Math.abs(Math.sin(p.run * 0.6)) * -3 : 0); }
+  return { pose, ay };
+}
+function drawPlayerBody(p) {
+  const cx = (p.x + p.w / 2), feet = p.y + p.h, { pose, ay } = playerPose(p);
+  const painted = V3.on() && !p.mount && p === P && V3.joints();
   ctx.save(); if (p.dead) { ctx.translate(cx, feet); ctx.rotate(-p.face * Math.min(1, p.deadT * 2) * Math.PI / 2); ctx.translate(-cx, -feet); ctx.globalAlpha = Math.max(0.2, 1 - p.deadT * 0.5); }
   if (p.mount) drawHorse(cx, feet, p.face, p.run * 0.6, Math.abs(p.vx) > 25 && p.onG, { saddle: true, ink: p.hitT > 0 ? PENCIL : INK });
   if (p.shieldT > 0) { ctx.fillStyle = PAPER; const sx = cx + p.face * (p.mount ? 40 : 26) - 9; ctx.fillRect(sx, feet - 70, 18, 70); hatch(sx, feet - 70, 18, 70, 5); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(sx, feet - 70, 18, 70); }
   if (p.plunge) { ctx.strokeStyle = PENCIL; ctx.lineWidth = 2; ctx.beginPath(); for (let i = -1; i <= 1; i++) { ctx.moveTo(cx + i * 10, p.y - 10); ctx.lineTo(cx + i * 10, p.y - 40); } ctx.stroke(); }
   const robe = p.garb.body === 'robe' && p.rollT <= 0 && p.onG && !p.crouch && !p.inWater && !p.mount;
-  const r = stick(p.mount ? cx - p.face * 6 : cx, ay, pose, p.face, INK, p.looks.build, { hair: p.garb.head === 'helm' || p.garb.head === 'hat' ? 0 : p.looks.hair, robe, eye: true });
+  // painted: the body, cloth, garb, torch and weapon are drawn by three.js; the ink adds only the marks and rings
+  const r = painted ? V3.joints() : stick(p.mount ? cx - p.face * 6 : cx, ay, pose, p.face, INK, p.looks.build, { hair: p.garb.head === 'helm' || p.garb.head === 'hat' ? 0 : p.looks.hair, robe, eye: true });
+  if (!painted) {
   // soul mark: scarf
   ctx.strokeStyle = INK; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(r.neck.x, r.neck.y + 2); for (let i = 1; i <= 4; i++) ctx.lineTo(r.neck.x - p.face * i * 6, r.neck.y + 2 + i * (p.glide ? 0.5 : p.mount && Math.abs(p.vx) > 200 ? 0.3 : 2.5) + Math.sin(clock * 12 + i) * 1.5); ctx.stroke();
   drawGarb(p, r);
+  }
   if (soul.mark && !p.dead) drawMark(soul.mark, r.neck.x + (r.hip.x - r.neck.x) * 0.32, r.neck.y + (r.hip.y - r.neck.y) * 0.32, 0.6, PAPER);
   if (p.glide && !p.dead) { ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(r.hB.x - p.face * 6, r.hB.y); ctx.quadraticCurveTo(cx, r.head.y - 40, r.hF.x + p.face * 6, r.hF.y); ctx.quadraticCurveTo(cx, r.head.y - 22, r.hB.x - p.face * 6, r.hB.y); ctx.fill(); ctx.stroke(); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, r.head.y - 30); ctx.lineTo(cx, r.head.y - 22); ctx.stroke(); }
-  if (p.torch.lit && !p.dead) { const tx = r.hB.x, ty = r.hB.y; ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(tx, ty + 4); ctx.lineTo(tx - p.face * 4, ty - 14); ctx.stroke(); const fl = 7 + Math.sin(clock * 15) * 2, fx0 = tx - p.face * 4, fy0 = ty - 15; ctx.fillStyle = PAPER; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(fx0, fy0 - fl * 1.6); ctx.quadraticCurveTo(fx0 + 6, fy0 - 2, fx0, fy0 + 1); ctx.quadraticCurveTo(fx0 - 6, fy0 - 2, fx0, fy0 - fl * 1.6); ctx.fill(); ctx.stroke(); }
-  if (!p.dead && !p.ladder && !p.hang && p.climbT <= 0 && !(p.inWater && !p.onG) && !p.glide) drawWeapon(p, r);
+  if (p.torch.lit && !p.dead && !painted) { const tx = r.hB.x, ty = r.hB.y; ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(tx, ty + 4); ctx.lineTo(tx - p.face * 4, ty - 14); ctx.stroke(); const fl = 7 + Math.sin(clock * 15) * 2, fx0 = tx - p.face * 4, fy0 = ty - 15; ctx.fillStyle = PAPER; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(fx0, fy0 - fl * 1.6); ctx.quadraticCurveTo(fx0 + 6, fy0 - 2, fx0, fy0 + 1); ctx.quadraticCurveTo(fx0 - 6, fy0 - 2, fx0, fy0 - fl * 1.6); ctx.fill(); ctx.stroke(); }
+  if (!painted && !p.dead && !p.ladder && !p.hang && p.climbT <= 0 && !(p.inWater && !p.onG) && !p.glide) drawWeapon(p, r);
   if (!p.dead) {
     if (p.charging) { ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, p.mount ? p.y + 30 : p.y + p.h / 2, 34, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p.charge / 0.7); ctx.stroke(); }
     if (p.parryT > 0) { ctx.strokeStyle = INK; ctx.lineWidth = has('tortoise') ? 4 : 3; ctx.beginPath(); ctx.arc(cx + p.face * 14, p.y + 22, has('tortoise') ? 32 : 26, p.face > 0 ? -1.2 : Math.PI - 1.2, p.face > 0 ? 1.2 : Math.PI + 1.2); ctx.stroke(); }
@@ -757,11 +769,13 @@ function drawHUD() {
 function render() {
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.clearRect(0, 0, W, H); if (!P || mode === 'map') { ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H); }
-  ctx.strokeStyle = RULE; ctx.lineWidth = 1; ctx.beginPath(); for (let y = 40 - (camY * 0.5) % 34; y < H; y += 34) { ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); } ctx.stroke();
+  const painted = V3.on();
+  if (!painted) { ctx.strokeStyle = RULE; ctx.lineWidth = 1; ctx.beginPath(); for (let y = 40 - (camY * 0.5) % 34; y < H; y += 34) { ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); } ctx.stroke(); }
   if (!P) return;
   if (mode === 'meditate' && MED) { drawMed(); return; }
   if (mode === 'map') { drawMap(); cv.style.cursor = mapHits.some(m => P.visited.has(m.i) && Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18) ? 'pointer' : 'default'; return; }
   const sx = shake ? rnd(-shake, shake) : 0, sy = shake ? rnd(-shake, shake) * 0.6 : 0;
+  if (painted) V3.frame(sx, sy);
   ctx.save(); ctx.translate(sx, sy); drawWorld(); ctx.restore();
   drawSkyBehind();
   if (unitsPending && (!uLayer.width || !uLayer.height)) unitsPending = false;
