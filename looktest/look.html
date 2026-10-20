@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Samsara Look Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#151513;--paper:#f4efe2;--pencil:#8c897f;--gold:#e8b85a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0d0c0b;color:var(--paper);font-family:Literata,Georgia,serif;overflow:hidden}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0d0c0b}
+#cv{display:block;width:100vw;height:56.25vw;max-height:100vh;max-width:177.78vh;outline:none}
+.panel{position:fixed;font-family:"DM Mono",ui-monospace,monospace;font-size:12px;letter-spacing:.04em;background:rgba(14,13,12,.62);border:1px solid rgba(244,239,226,.18);backdrop-filter:blur(6px);padding:10px 12px;color:var(--paper)}
+#title{top:12px;left:12px;max-width:360px}
+#title b{font-family:Literata,Georgia,serif;font-weight:600;font-size:17px;letter-spacing:0;display:block;margin-bottom:2px}
+#title span{color:#cfc8b6;display:block;line-height:1.45}
+#ctl{top:12px;right:12px;width:290px;display:flex;flex-direction:column;gap:8px}
+#ctl label{display:flex;flex-direction:column;gap:4px;color:#cfc8b6}
+#ctl .row{display:flex;gap:6px;flex-wrap:wrap}
+#ctl button{all:unset;cursor:pointer;border:1px solid rgba(244,239,226,.35);padding:5px 8px;color:var(--paper);font:inherit}
+#ctl button.on{background:var(--paper);color:var(--ink)}
+#ctl button:hover{border-color:var(--paper)}
+#ctl input[type=range]{width:100%;accent-color:var(--gold)}
+#ctl .v{color:var(--gold)}
+#keys{bottom:12px;left:12px;color:#cfc8b6;line-height:1.6}
+#keys b{color:var(--paper);font-weight:500}
+#fps{bottom:12px;right:12px;color:#8f8a7c}
+#err{position:fixed;inset:auto 12px 60px 12px;color:#ffb4a8;font-family:"DM Mono",monospace;font-size:12px;white-space:pre-wrap}
+@media (max-width:760px){#ctl{width:auto;left:12px;top:auto;bottom:70px}#title{max-width:calc(100vw - 24px)}#keys{display:none}}
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="cv" tabindex="0" aria-label="Samsara look test: a village path in painted layers, drawn with three.js"></canvas></div>
+<div class="panel" id="title"><b>Samsara · look test</b><span>How the game could look drawn with three.js. Everything here is made by code: stand-in painted layers, real-sky light, wind, cloth, hair, water and the ink filter. No real art yet.</span></div>
+<div class="panel" id="ctl">
+  <label>Time of day <span class="v" id="tLabel">real sky</span><input type="range" id="tSlider" min="0" max="1440" step="1"></label>
+  <div class="row"><button type="button" id="bNow" class="on">Real sky now</button><button type="button" id="bDay">Watch a day</button></div>
+  <label>Ink · color <span class="v" id="cLabel">color</span><input type="range" id="cSlider" min="0" max="100" value="100"></label>
+  <div class="row"><button type="button" id="bReal">Realize (C)</button><button type="button" id="bRain">Rain (R)</button><button type="button" id="bGust">Gust (G)</button></div>
+  <div class="row"><button type="button" id="bLow">Light mode (phones)</button></div>
+</div>
+<div class="panel" id="keys"><b>A D</b> move · <b>Space</b> jump · <b>Shift</b> roll · <b>J</b> or click: strike · <b>G</b> gust · <b>R</b> rain · <b>C</b> realize</div>
+<div class="panel" id="fps"></div>
+<div id="err"></div>
+<script>/*ASTRONOMY*/</script>
+<script type="text/plain" id="threeSrc">/*THREE*/</script>
+<script type="module">
+/*LOOK*/
+</script>
+</body>
+</html>

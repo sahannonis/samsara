@@ -75,6 +75,10 @@ and go to `http://localhost:8000/dist/samsara.html`.
 23. **Groundwork** (nothing looks different): the world now lives in a level file (`levels/proving-grounds.json`: every collision shape, shrine, chest, foe, person and place, plus empty art layers at their depths, ready for painted art), and all drawing lives in its own file (`game/draw-ink.js`), apart from the rules, physics and saving in `game/game.js`. The decision behind it (Sahan): stay on the web, PC on Steam only, and add a three.js drawing beside the ink one for painted layers, real-sky light, glow, water, wind, cloth and hair.
     Also in build 23, from Sahan's lore (reference/lore-so-far-2026-10-17.pdf): the first realization now comes in the first hour. The question rises at a deep stillness once a boss is beaten, and it is realized when that stillness is done right (no thought followed, at least one let pass). In the first boss fight a voice gives the clue: do not sway toward the thoughts, stay with your breath.
 
+### The look test (three.js)
+
+`dist/look-test.html` (sources in `looktest/`): how Samsara could look drawn with three.js. One village scene, playable, in the three moods of the first look-and-feel reference: the ink world (a sepia wash on paper with gold light), color by day, and night in blue and violet. Painted layers at real depths (far mountains with temples, mid hills with a waterfall, near trees and houses, the ground, a front layer of leaves and ferns); light from the real Sun and Moon at the player's place and time, with long shadows when they are low, glow and light rays; wind and gusts that move trees, grass, banners, prayer flags, the scarf, hair and robe; falling leaves and petals, rain with splashes and lightning, mist, fireflies at night, embers from the shrine fire; a pond that mirrors the world and ripples when you wade or rain falls; a cut-out traveler moved by code (walk, run, jump, land, roll, a three-cut sword combo with a trail); a deer that grazes and flees if you run at it; a bell to ring; sound made on the fly; a lighter quality for phones and touch buttons. Everything is made by code with stand-in painting; real art replaces the painting later.
+
 ## Running the tests
 
 ```
@@ -104,6 +108,7 @@ python tests/test_save.py
 - Planet positions: [Astronomy Engine](https://github.com/cosinekitty/astronomy) by Don Cross, MIT license (see `vendor/ASTRONOMY-ENGINE-LICENSE`).
 - City and timezone list: built from [city-timezones](https://github.com/kevinroberts/city-timezones), MIT license, with Sri Lankan towns added.
 - More places: [GeoNames](https://www.geonames.org) via [cities.json](https://github.com/lutangar/cities.json), CC BY 4.0.
+- Drawing for the look test: [three.js](https://threejs.org) r169, MIT license (see `vendor/THREE-LICENSE`).
 - Time zone from coordinates: [tz-lookup](https://github.com/photostructure/tz-lookup), CC0 (see `vendor/TZ-LOOKUP-LICENSE`).
 - Online place search: [OpenStreetMap Nominatim](https://nominatim.openstreetmap.org), © OpenStreetMap contributors (ODbL). Only used when the player presses Search online.
 - Fonts: Rubik Mono One, Kalam, Literata and DM Mono from Google Fonts (SIL Open Font License).

@@ -27,6 +27,14 @@ def game(folder, out):
     out.write_text(page)
     print(f'{out.relative_to(ROOT)}  {len(page) // 1024} KB')
 
+def look_test():
+    """The three.js look test: one page, with three.js and Astronomy Engine inside it."""
+    folder = ROOT / 'looktest'
+    look = '\n'.join((folder / f).read_text() for f in ['1-core.js', '2-world.js', '3-life.js', '4-main.js'])
+    page = (folder / 'page.html').read_text().replace('/*ASTRO*/', (ROOT / 'vendor' / 'astronomy.browser.min.js').read_text()).replace('/*THREE*/', (ROOT / 'vendor' / 'three.module.min.js').read_text()).replace('/*LOOK*/', look)
+    (DIST / 'look-test.html').write_text(page)
+    print(f'dist/look-test.html  {len(page) // 1024} KB')
+
 def star_panel():
     page = (ROOT / 'star-panel' / 'page.html').read_text().replace('/*ENGINE*/', ENGINE)
     (DIST / 'star-panel.html').write_text(page)
@@ -47,5 +55,6 @@ if __name__ == '__main__':
         game(d, DIST / 'history' / f'{d.name}.html')
     star_panel()
     ink_tower()
+    look_test()
     (DIST / 'chant-test.html').write_text((ROOT / 'chant-test' / 'samsara-chant-test.html').read_text())
     print('dist/chant-test.html')
