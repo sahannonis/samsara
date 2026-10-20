@@ -1,4 +1,4 @@
-"""Headless test of build 19: meditation (breathing with the guide, thoughts that pass or are followed), its gifts,
+"""Headless test of build 19 (rule updated in build 23 from the lore: the question rises after a boss is beaten): meditation (breathing with the guide, thoughts that pass or are followed), its gifts,
 the first riddle (wrong, understood, realized) and the first color.
 
     python build.py && python tests/test_stillness.py
@@ -76,7 +76,8 @@ async def main():
         # understood without having lived it: words, not color
         pg2, errs2 = await newpage(b)
         async def run2(n, keys={}, press={}): await pg2.evaluate(f"__life.run({n},{json.dumps(keys)},{json.dumps(press)})")
-        await pg2.evaluate("__life.soul.dhyana = 2; __life.put(220,1000)"); await run2(3); await run2(1, {}, {'use': 1}); await run2(1); await pg2.click('#shrineMed'); await run2(1)
+        await pg2.evaluate("__life.soul.bossKills.chief = 1; __life.put(220,1000)"); await run2(3); await run2(1, {}, {'use': 1}); await run2(1); await pg2.click('#shrineMed'); await run2(1)
+        await pg2.evaluate("__life.MED.followed = 1")   # a thought was followed: understood, not yet lived
         for c in range(4):
             for ph in range(4):
                 await run2(240, {'jump': True} if ph < 2 else {})

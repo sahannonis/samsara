@@ -1810,6 +1810,7 @@ const bossNow = () => foes.find(f => f.boss && f.alive && f.ar.fight);
 function startFight(a, B) {
   a.fight = true; a.hit = false; B.state = 'intro'; B.t = 1.3;
   zoneTag = { name: a.name, sub: a.sub, t: 3.4 }; tone(110, 55, 0.9, 'sawtooth', 0.06); shake = 6;
+  if (!soul.understood.has('mind') && !soul.heardClue) { soul.heardClue = true; setTimeout(() => { if (a.fight) floater(pcx(), P.y - 70, 'Do not sway toward the thoughts. Stay with your breath.', INK2); }, 1600); }
   if (P.mount) { dismount(false); horse.state = 'away'; floater(pcx(), P.y - 46, 'YOUR HORSE WILL NOT COME IN', PENCIL); }
   for (const g of a.gates) if (overlap(P, g)) P.x = g.x < a.l ? a.l + 2 : a.r - P.w - 2;
   floater(pcx(), P.y - 30, 'THE WAY CLOSES BEHIND YOU', RED);
@@ -2235,7 +2236,7 @@ toolBtn('tPaths', () => {
   BQ = []; banner = { t: 4, top: 'EVERY ROAD, ONE STEP', sub: `Test tool: each road you can still walk took one step (the third counts as if walked in another life too). Steps now: ${PATH_KEYS.map(k => `${PATHS[k].name} ${pathAt(k)}`).join(' · ')}${soul.aloneClosed ? ' (alone: closed)' : ''}. Rest at a shrine to feel them.` };
 });
 toolBtn('tTeacher', () => { if (ARENAS.some(a => a.fight)) return; if (P.mount) dismount(false); P.x = TEACHER.x - 40; P.y = TEACHER.gy - PH; P.vx = P.vy = 0; P.hang = null; P.ladder = null; snapCam(); P.mats.petal += 1; P.seeds += 40; banner = { t: 3, top: 'THE TEACHER', sub: 'Test tool: you stand by the teacher at the pool shrine, with a petal and 40 seeds. Press E.' }; });
-toolBtn('tLived', () => { soul.testLived = true; soul.dhyana = Math.max(soul.dhyana || 0, 2); banner = { t: 3, top: 'THE LESSON, LIVED', sub: 'Test tool: the game now counts the first lesson as lived (as if you had been reborn, beaten a boss and fallen to one, and sat in stillness twice). One deep stillness at a shrine brings the question.' }; });
+toolBtn('tLived', () => { soul.testLived = true; banner = { t: 3, top: 'THE LESSON, LIVED', sub: 'Test tool: the game now counts the first lesson as lived (as if you had beaten the first boss and sat in stillness the right way). One deep stillness at a shrine brings the question.' }; });
 toolBtn('tColor', () => { if (!realized('mind')) { soul.understood.add('mind'); soul.realized.add('mind'); } colorK = colorK > 0 ? 0 : 1; banner = { t: 2.4, top: colorK ? 'COLOR' : 'INK', sub: 'Test tool: the first color, on or off, without the riddle.' }; });
 toolBtn('tStones', () => { if (ARENAS.some(a => a.fight)) return; if (P.mount) dismount(false); P.x = NAVAGRAHA[0].x - 40; P.y = NAVAGRAHA[0].gy - PH; P.vx = P.vy = 0; P.hang = null; P.ladder = null; P.visited.add(5); snapCam(); P.mats.petal += 2; P.mats.ember += 1; P.seeds += 100; banner = { t: 3, top: 'THE NINE STONES', sub: 'Test tool: you stand before them with an offering for each reading (100 seeds, 2 petals, 1 ember stone). Press E.' }; });
 toolBtn('tTablets', () => { TABLETS.forEach(t => soul.tablets.add(t.id)); banner = { t: 2.6, top: 'BOTH TABLETS', sub: 'Test tool: the stones can now read the long seasons and the periods of your life.' }; });
@@ -2459,6 +2460,7 @@ function finishMed() {
   P.mana = P.manaMax; mode = 'play'; MED = null; clearHeld();
   if (!deep) { walk('dhyana', 1); showBanner({ t: 3.4, top: 'YOUR MIND WANDERED', sub: `Calm ${Math.round(M.calm)} of 100. ${P.manaMax ? 'Your mana returns.' : 'Your breath steadies.'} Stillness comes to those who keep the breath and let the thoughts pass.` }); return; }
   soul.dhyana = (soul.dhyana || 0) + 1; life.deepMed = true;
+  if (M.followed === 0 && M.passed >= 1 && bossBeaten()) soul.cleanStill = true;   // done right, after the first boss: no thought followed, at least one let pass
   let grew = false; if (P.manaTierMax && (life.medMana || 0) < 10) { life.medMana = (life.medMana || 0) + 2; applyStats(false); grew = true; }
   else if (P.noMana && (life.medSt || 0) < 15) { life.medSt = (life.medSt || 0) + 3; applyStats(false); P.stMax = P.stBase; grew = true; }
   const gifts = [P.manaMax ? 'your mana returns' : 'your breath is your own again'];
@@ -2471,10 +2473,13 @@ function finishMed() {
   walk('dhyana', 3); walk('alone', 1);
   if (!realized('mind')) {
     if (soul.understood.has('mind')) { if (livedMind()) realize(); }
-    else if (soul.dhyana >= 3 || soul.testLived) life.riddleAt = 2;
+    else if (bossBeaten() || soul.testLived) life.riddleAt = 2;
   }
 }
-function livedMind() { return !!soul.testLived || (soul.lives.length >= 2 && Object.values(soul.bossKills).some(v => v > 0) && (soul.bossFalls || 0) > 0 && (soul.dhyana || 0) >= 3); }
+// the lore (Sahan, Oct 2026): the first lesson is not hard but tricky. It is lived by doing the meditation right,
+// letting the thoughts pass and staying with the breath, once the first boss has been faced and beaten.
+const bossBeaten = () => Object.values(soul.bossKills).some(v => v > 0);
+function livedMind() { return !!soul.testLived || (bossBeaten() && !!soul.cleanStill); }
 const RIDDLES = [
   { q: 'A rope lies on a dark path, and a traveller takes it for a snake. His fear is real; his heart pounds. Where does the snake live?', a: ['In the rope', 'In the dark', 'In the mind that sees it', 'In the grass nearby'], r: 2 },
   { q: 'Two travellers cross the same river. One calls it a blessing, the other a curse. Where are the blessing and the curse?', a: ['In the river', 'In the ones who cross it', 'In the sky above it', 'In the gods of the river'], r: 1 },
