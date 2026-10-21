@@ -26,6 +26,7 @@ async def main():
         R['boot'] = await ev("({ready: __life.V3.ready, failed: __life.V3.failed, why: __life.V3.why, look: document.getElementById('setLook').value, gl: getComputedStyle(document.getElementById('gl')).display})")
         if not R['boot']['ready']: bad.append('three.js did not start: ' + str(R['boot']))
         async def run(n, keys={}, press={}): await ev(f"__life.run({n},{json.dumps(keys)},{json.dumps(press)})")
+        await ev("__life.V3.use3D(false)")   # this test is about the cut-out body; test_body3d.py tries the 3D one
         async def show(name, wait=350):
             await pg.wait_for_timeout(wait); box = await fr.bounding_box(); await pg.screenshot(path=OUT + 'b26_' + name + '.png', clip=box, timeout=90000)
         async def stats(): return await ev("__life.V3.stats")

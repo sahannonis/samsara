@@ -22,6 +22,17 @@ async def main():
         for i in range(60):
             if await ev("__life.V3.ready"): break
             await pg.wait_for_timeout(250)
+        bad = []
+        # first Sahan's Mixamo character, packed into the page (art/characters/test3d)
+        for i in range(60):
+            if await ev("__life.V3.body3D().moves.length >= 7"): break
+            await pg.wait_for_timeout(250)
+        packed = await ev("__life.V3.body3D()"); print('packed', packed)
+        if len(packed['moves']) < 7: bad.append(f"the packed character should have its 7 moves: {packed}")
+        await ev("__life.V3.setDpr(0.4); __life.put(1200,1000)"); await ev("(()=>{ for (let i = 0; i < 30; i++) { __life.run(1, {right: true}); __life.V3.frame(0,0); } })()")
+        url = await ev("(()=>{ __life.V3.setDpr(1.5); __life.V3.frame(0,0); const u = document.getElementById('gl').toDataURL('image/png'); __life.V3.setDpr(0.4); return u; })()")
+        Image.open(io.BytesIO(base64.b64decode(url.split(',')[1]))).save(S + 'b27_arissa_walk.png')
+        # then the made-by-code test body, through the test tool's file picker
         await pg.set_input_files('#glbFiles', FILES)
         for i in range(40):
             if await ev("__life.V3.body3D().moves.length > 0"): break
@@ -30,7 +41,7 @@ async def main():
         await ev("__life.V3.setDpr(0.4); __life.put(1200,1000); __life.V3.setWeather('clear', true)")
         async def play(n, keys={}, press={}):
             await ev(f"(()=>{{ for (let i = 0; i < {n}; i++) {{ __life.run(1, {json.dumps(keys)}, i === 0 ? {json.dumps(press)} : {{}}); __life.V3.frame(0,0); }} }})()")
-        shots=[]; keys={}; bad=[]
+        shots=[]; keys={}
         async def close(name, wx=60, wy=48):
             url = await ev("(()=>{ __life.V3.setDpr(1.5); __life.V3.frame(0,0); const u = document.getElementById('gl').toDataURL('image/png'); __life.V3.setDpr(0.4); return u; })()")
             im = Image.open(io.BytesIO(base64.b64decode(url.split(',')[1]))); k = im.size[0] / 960

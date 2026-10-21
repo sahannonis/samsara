@@ -793,15 +793,20 @@ void main(){
     // replace what was there
     if (B3.model) { B3.wrap.remove(B3.model.scene); B3.mixer && B3.mixer.stopAllAction(); }
     B3.model = model; B3.mats = []; B3.acts = {}; B3.w = {}; B3.t = {}; B3.bones = {};
-    for (const m of model.meshes) { m.material = bodyMat(m.userData.mat); m.renderOrder = 55; B3.mats.push(m.material); }
+    for (const m of model.meshes) { m.material = bodyMat(m.userData.mat); m.renderOrder = 55; B3.mats.push(m.material); if (/weapon|sword|bow|shield/i.test(m.name)) m.visible = false; }   // the game shows its own weapons
     model.scene.traverse(o => { if (o.isBone) B3.bones[o.name] = o; });
     const find = (...words) => Object.values(B3.bones).find(b => words.every(w => b.name.toLowerCase().includes(w.toLowerCase())));
     const hips = find('hips') || Object.values(B3.bones)[0];
     B3.joint = { hips, head: find('head') || hips, neck: find('neck') || find('head') || hips, sh: find('spine2') || find('spine') || hips,
       hF: find('right', 'hand') || find('hand') || hips, hB: find('left', 'hand') || find('hand') || hips, fF: find('right', 'foot') || hips, fB: find('left', 'foot') || hips };
-    // keep the body over its place: no root motion in x and z (the game moves the body)
-    const hp = hips.position.clone();
-    for (const c of Object.values(clips)) for (const tr of c.tracks) if (tr.name === `${hips.name}.position`) for (let i = 0; i < tr.values.length; i += 3) { tr.values[i] = hp.x; tr.values[i + 2] = hp.z; }
+    // keep the body over its place: no root motion along the ground (the game moves the body), and none upward in a
+    // jump (the game lifts the body). Worked out in true world directions: Blender often turns and shrinks the skeleton
+    model.scene.updateMatrixWorld(true);
+    const pq = new THREE.Quaternion(); if (hips.parent) hips.parent.getWorldQuaternion(pq); const iq = pq.clone().invert();
+    const rest = hips.position.clone().applyQuaternion(pq), v3 = new THREE.Vector3();
+    for (const [k, c] of Object.entries(clips)) for (const tr of c.tracks) if (tr.name === `${hips.name}.position`) for (let i = 0; i < tr.values.length; i += 3) {
+      v3.set(tr.values[i], tr.values[i + 1], tr.values[i + 2]).applyQuaternion(pq); v3.x = rest.x; v3.z = rest.z; if (k.includes('jump')) v3.y = rest.y;
+      v3.applyQuaternion(iq); tr.values[i] = v3.x; tr.values[i + 1] = v3.y; tr.values[i + 2] = v3.z; }
     B3.wrap.add(model.scene);
     B3.mixer = new THREE.AnimationMixer(model.scene);
     for (const [k, c] of Object.entries(clips)) { const a = B3.mixer.clipAction(c); a.play(); a.setEffectiveWeight(0); B3.acts[k] = a; B3.w[k] = 0; B3.t[k] = 0; }

@@ -63,7 +63,7 @@ function makeGLB(THREE) {
     const roots = (json.scenes && json.scenes[json.scene || 0] ? json.scenes[json.scene || 0].nodes : nodes.map((_, i) => i).filter(i => !nodes[i].parent));
     for (const r of roots) scene.add(nodes[r]);
     scene.updateMatrixWorld(true);
-    for (const m of skinned) m.bind(m.userData.skeleton, m.matrixWorld);
+    for (const m of skinned) m.bind(m.userData.skeleton, new THREE.Matrix4());   // glTF: a skinned body's own node transform is ignored; the bones place it
     // animations
     const clips = (json.animations || []).map((an, ai) => {
       const tracks = [];
