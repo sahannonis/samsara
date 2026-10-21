@@ -5,7 +5,10 @@ file's own (newest) move, keeps the body once (from the first file, with only it
   idle.glb (the body and its idle), and one small file per move with only the move in it.
 
     python art/characters/pack_mixamo.py OUT_DIR idle=Idle.glb walk=walking.glb run=running.glb jump=jump.glb roll=roll.glb slash=swordslash.glb death=dying.glb
-The order matters: give the files in the order they were exported."""
+The order matters: give the files in the order they were exported.
+
+More moves for a body already packed (each file's own move is its last one):
+    python art/characters/pack_mixamo.py --moves OUT_DIR block=Blocking.glb climb=Climbing.glb ..."""
 import json, struct, sys, pathlib
 
 def read(path):
@@ -81,6 +84,15 @@ def body_only(j, anim, name):
     views = {a['bufferView'] for a in j['accessors'] if 'bufferView' in a} | {im['bufferView'] for im in j['images'] if 'bufferView' in im}
     return j, views
 
+if __name__ == '__main__' and len(sys.argv) > 2 and sys.argv[1] == '--moves':
+    # more moves for a body already packed: each file's own move is its last one (Blender adds the newest at the end)
+    out = pathlib.Path(sys.argv[2]); out.mkdir(parents=True, exist_ok=True)
+    for arg in sys.argv[3:]:
+        name, path = arg.split('=', 1); j, b = read(path); anim = j['animations'][-1]
+        dur = max(j['accessors'][s['input']].get('max', [0])[0] for s in anim['samplers'])
+        jj, views = anim_only(j, anim, name); size = write(out / f'{name}.glb', jj, b, views)
+        print(f'{name}.glb  {size // 1024} KB  {dur:.2f} s')
+    sys.exit(0)
 if __name__ == '__main__':
     out = pathlib.Path(sys.argv[1]); out.mkdir(parents=True, exist_ok=True)
     seen = set()

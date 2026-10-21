@@ -25,13 +25,35 @@ async def main():
         bad = []
         # first Sahan's Mixamo character, packed into the page (art/characters/test3d)
         for i in range(60):
-            if await ev("__life.V3.body3D().moves.length >= 7"): break
+            if await ev("__life.V3.body3D().moves.length >= 27"): break
             await pg.wait_for_timeout(250)
         packed = await ev("__life.V3.body3D()"); print('packed', packed)
-        if len(packed['moves']) < 7: bad.append(f"the packed character should have its 7 moves: {packed}")
+        if len(packed['moves']) < 27: bad.append(f"the packed character should have its 27 moves: {packed}")
         await ev("__life.V3.setDpr(0.4); __life.put(1200,1000)"); await ev("(()=>{ for (let i = 0; i < 30; i++) { __life.run(1, {right: true}); __life.V3.frame(0,0); } })()")
         url = await ev("(()=>{ __life.V3.setDpr(1.5); __life.V3.frame(0,0); const u = document.getElementById('gl').toDataURL('image/png'); __life.V3.setDpr(0.4); return u; })()")
         Image.open(io.BytesIO(base64.b64decode(url.split(',')[1]))).save(S + 'b27_arissa_walk.png')
+        # build 29: every state picks its move
+        async def step(n, keys={}, press={}):
+            await ev(f"(()=>{{ for (let i = 0; i < {n}; i++) {{ __life.run(1, {json.dumps(keys)}, i === 0 ? {json.dumps(press)} : {{}}); __life.V3.frame(0,0); }} }})()")
+        k3 = lambda: ev("__life.V3.body3D().key")
+        got = {}
+        await ev("__life.put(420,1000); __life.P.slotIdx = 0; __life.P.st = __life.P.stMax"); await step(20)
+        await step(4, {'right': True}); got['setting off'] = await k3()
+        await step(30, {'right': True, 'dash': True}); await step(3, {'right': False, 'left': True, 'dash': True}); got['turn at a run'] = await k3()
+        await step(25, {'left': True, 'dash': True}); await step(3, {'left': False, 'dash': False}); got['let go at a run'] = await k3()
+        await step(30); await step(20, {'down': True}); got['crouch'] = await k3(); await step(15, {'down': True, 'right': True}); got['crawl'] = await k3(); await step(10, {'down': False, 'right': False})
+        await ev("__life.P.st = __life.P.stMax"); await step(1, {}, {'parry': True}); await step(3); got['parry'] = await k3(); await step(30)
+        await ev("__life.P.slotIdx = 1; __life.P.swapT = 0.4"); await step(8); got['bow out'] = await k3(); await step(30)
+        await ev("__life.P.st = __life.P.stMax; __life.mouse.in = true; __life.mouse.x = __life.P.x - __life.camX + 220; __life.mouse.y = __life.P.y - __life.camY"); await step(20, {'heavy': True}, {'heavy': True}); got['bow drawn'] = await k3()
+        await step(1, {'heavy': False}); await ev("__life.mouse.in = false; __life.P.slotIdx = 0"); await step(30)
+        await ev("__life.put(3453,1100)"); await step(1, {'up': True}, {'up': 1}); await step(30, {'up': True}); got['ladder'] = await k3(); await step(1, {'up': False})
+        await ev("__life.put(4290,1100); __life.P.face = 1"); await step(40, {'jump': True, 'right': True}, {'jump': 1}); got['hang'] = await k3(); await step(1, {'jump': False, 'right': False}); await step(30)
+        await ev("__life.P.hp = __life.P.hpMax; __life.P.breath = 8; __life.put(5300,1100)"); await step(30); got['in water, still'] = await k3(); await step(20, {'right': True}); got['in water, moving'] = await k3(); await step(5, {'right': False})
+        want3 = {'setting off': 'start_walk', 'turn at a run': 'run_turn', 'let go at a run': 'run_stop', 'crouch': 'crouch_idle', 'crawl': 'crouch_walk', 'parry': 'block', 'bow out': 'bow_equip', 'bow drawn': 'bow_draw',
+                 'ladder': 'ladder', 'hang': 'ledge_climb', 'in water, still': 'tread', 'in water, moving': 'swim'}
+        for k, v in want3.items():
+            if got.get(k) != v: bad.append(f'{k} should play {v}, played {got.get(k)}')
+        print('states:', got)
         # then the made-by-code test body, through the test tool's file picker
         await pg.set_input_files('#glbFiles', FILES)
         for i in range(40):
@@ -69,6 +91,9 @@ async def main():
         if not (feet - 75 < head < feet - 35): bad.append(f'the 3D body should stand about as tall as the traveler: feet {feet} head {head}')
         await ev("__life.V3.use3D(false)"); await play(2); off = await ev("__life.V3.body3D().on")
         if off: bad.append('the cut-out body should come back')
+        # meditation last (it leaves play): the body sits in stillness at the shrine
+        await ev("__life.V3.use3D(true)"); await ev("__life.put(220,1000)"); await step(3); await step(1, {}, {'use': 1}); await step(1); await pg.click('#shrineMed'); await step(5); got['meditation'] = await k3()
+        if got['meditation'] != 'meditate': bad.append(f"meditation should sit, played {got['meditation']}")
         print('moves played:', keys); print('errors:', errs); print('PROBLEMS:', bad or 'none')
         if bad or errs: raise SystemExit(1)
         await b.close()

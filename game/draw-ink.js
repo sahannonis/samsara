@@ -650,6 +650,7 @@ function drawPlayer() {
 function playerPose(p) {
   const feet = p.y + p.h;
   let pose, ay = feet;
+  if (mode === 'meditate') return { pose: POSE.sit(), ay: feet };   // seated in stillness
   if (p.dead || p.hitT > 0) pose = POSE.hurt();
   else if (p.hang) pose = POSE.hang(clock);
   else if (p.climbT > 0) pose = POSE.crouch(0);
@@ -774,7 +775,7 @@ function render() {
   const painted = V3.on();
   if (!painted) { ctx.strokeStyle = RULE; ctx.lineWidth = 1; ctx.beginPath(); for (let y = 40 - (camY * 0.5) % 34; y < H; y += 34) { ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); } ctx.stroke(); }
   if (!P) return;
-  if (mode === 'meditate' && MED) { drawMed(); return; }
+  if (mode === 'meditate' && MED && !painted) { drawMed(); return; }
   if (mode === 'map') { drawMap(); cv.style.cursor = mapHits.some(m => P.visited.has(m.i) && Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18) ? 'pointer' : 'default'; return; }
   const sx = shake ? rnd(-shake, shake) : 0, sy = shake ? rnd(-shake, shake) * 0.6 : 0;
   if (painted) {
@@ -783,6 +784,7 @@ function render() {
     ctx = inkCtx; ctx.setTransform(k, 0, 0, k, 0, 0); ctx.clearRect(0, 0, W, H); drawWorld(true); ctx = mainCtx;
     V3.frame(sx, sy, inkCv);
     ctx.save(); ctx.translate(sx - camX, sy - camY); drawPlayer(); ctx.restore();   // the body's ink marks stay on top
+    if (mode === 'meditate' && MED) { drawMed(true); return; }   // the traveler sits at the shrine; the breath is drawn over the world
   } else {
   ctx.save(); ctx.translate(sx, sy); drawWorld(); ctx.restore();
   drawSkyBehind();
@@ -794,8 +796,8 @@ function render() {
   cv.style.cursor = mode === 'play' && mouse.in ? 'none' : mode === 'map' && mapHits.some(m => P.visited.has(m.i) && Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18) ? 'pointer' : 'default';
   if (mode === 'play' && mouse.in) { const dkc = darkAt(mouse.x + camX, mouse.y + camY); ctx.strokeStyle = dkc ? PAPER : INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 9, 0, Math.PI * 2); ctx.moveTo(mouse.x - 15, mouse.y); ctx.lineTo(mouse.x - 5, mouse.y); ctx.moveTo(mouse.x + 5, mouse.y); ctx.lineTo(mouse.x + 15, mouse.y); ctx.moveTo(mouse.x, mouse.y - 15); ctx.lineTo(mouse.x, mouse.y - 5); ctx.moveTo(mouse.x, mouse.y + 5); ctx.lineTo(mouse.x, mouse.y + 15); ctx.stroke(); }
 }
-function drawMed() {
-  const M = MED; ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
+function drawMed(over) {
+  const M = MED; if (over) { ctx.fillStyle = 'rgba(251,250,246,0.62)'; ctx.fillRect(0, 0, W, H); } else { ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H); }
   const ph = medPhase(Math.min(M.t, MED_CYCLES * 16 - 0.001)), cx = W / 2, cy = 250, ideal = ph.i === 0 ? ph.k : ph.i === 1 ? 1 : ph.i === 2 ? 1 - ph.k : 0;
   const rough = 1 - M.calm / 100 + (M.stir > 0 ? 0.6 : 0);
   // the pond
@@ -805,7 +807,7 @@ function drawMed() {
   // the guide circle and your own breath
   ctx.strokeStyle = HATCH; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(cx, cy, 40 + ideal * 80, 0, Math.PI * 2); ctx.stroke();
   ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(cx, cy, 40 + M.breath * 80, 0, Math.PI * 2); ctx.stroke();
-  const old = ctx; stick(cx, 352, POSE.sit(), 1, INK, P.looks.build, { hair: P.looks.hair, robe: P.looks.robe, s: 1.4 });
+  if (!over) stick(cx, 352, POSE.sit(), 1, INK, P.looks.build, { hair: P.looks.hair, robe: P.looks.robe, s: 1.4 });
   ctx.textAlign = 'center'; ctx.fillStyle = INK; ctx.font = `20px ${FD}`; ctx.fillText(ph.p[1].toUpperCase(), cx, 92);
   ctx.font = `15px ${FH}`; ctx.fillStyle = INK2; ctx.fillText(ph.p[0] === 'in' || ph.p[0] === 'full' ? 'Hold Space' : 'Let go of Space', cx, 116);
   if (life.birth && life.birth.inward) { ctx.font = `13px ${FH}`; ctx.fillStyle = PENCIL; ctx.fillText(life.birth.inward > 1 ? 'This body is deeply turned inward: stillness comes very easily.' : 'This body is turned inward: stillness comes easily.', cx, 138); }
