@@ -49,8 +49,12 @@ async def main():
         await ev("__life.put(3453,1100)"); await step(1, {'up': True}, {'up': 1}); await step(30, {'up': True}); got['ladder'] = await k3(); await step(1, {'up': False})
         await ev("__life.put(4290,1100); __life.P.face = 1"); await step(40, {'jump': True, 'right': True}, {'jump': 1}); got['hang'] = await k3(); await step(1, {'jump': False, 'right': False}); await step(30)
         await ev("__life.P.hp = __life.P.hpMax; __life.P.breath = 8; __life.put(5300,1100)"); await step(30); got['in water, still'] = await k3(); await step(20, {'right': True}); got['in water, moving'] = await k3(); await step(5, {'right': False})
+        # meditation: the body sits in stillness at the shrine (then stand up and go on)
+        await ev("__life.put(220,1000)"); await step(3); await step(1, {}, {'use': 1}); await step(1); await pg.click('#shrineMed'); await step(5); got['meditation'] = await k3()
+        await ev("__life.finishMed(); __life.noFoes()"); await step(5)   # resting at the shrine wakes the foes again
+        if await ev("__life.mode") != 'play': bad.append('meditation should end back in play')
         want3 = {'setting off': 'start_walk', 'turn at a run': 'run_turn', 'let go at a run': 'run_stop', 'crouch': 'crouch_idle', 'crawl': 'crouch_walk', 'parry': 'block', 'bow out': 'bow_equip', 'bow drawn': 'bow_draw',
-                 'ladder': 'ladder', 'hang': 'ledge_climb', 'in water, still': 'tread', 'in water, moving': 'swim'}
+                 'ladder': 'ladder', 'hang': 'ledge_climb', 'in water, still': 'tread', 'in water, moving': 'swim', 'meditation': 'meditate'}
         for k, v in want3.items():
             if got.get(k) != v: bad.append(f'{k} should play {v}, played {got.get(k)}')
         print('states:', got)
@@ -91,9 +95,6 @@ async def main():
         if not (feet - 75 < head < feet - 35): bad.append(f'the 3D body should stand about as tall as the traveler: feet {feet} head {head}')
         await ev("__life.V3.use3D(false)"); await play(2); off = await ev("__life.V3.body3D().on")
         if off: bad.append('the cut-out body should come back')
-        # meditation last (it leaves play): the body sits in stillness at the shrine
-        await ev("__life.V3.use3D(true)"); await ev("__life.put(220,1000)"); await step(3); await step(1, {}, {'use': 1}); await step(1); await pg.click('#shrineMed'); await step(5); got['meditation'] = await k3()
-        if got['meditation'] != 'meditate': bad.append(f"meditation should sit, played {got['meditation']}")
         print('moves played:', keys); print('errors:', errs); print('PROBLEMS:', bad or 'none')
         if bad or errs: raise SystemExit(1)
         await b.close()
