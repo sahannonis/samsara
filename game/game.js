@@ -731,7 +731,7 @@ function bodyHTML() {
    rested at, with what you carried; foes return as after a rest, and a fight in progress starts over.
    A death is saved the moment it happens, with the births on offer, so leaving the page cannot undo it.
    The real birth is only kept in a save when the player chose to keep it (this device, or later Steam Cloud). */
-const BUILD = 26, SAVE_V = 1, SLOTS = 3, SLOT_KEY = i => `samsara.soul.${i}`;
+const BUILD = 27, SAVE_V = 1, SLOTS = 3, SLOT_KEY = i => `samsara.soul.${i}`;
 let slot = null, saveT = 0, saveClock = 0, savedFx = 0, saveFail = false;
 // automated tests never write saves unless they ask to
 const canWrite = () => { try { return !navigator.webdriver || localStorage.getItem('samsara.testSave') === '1'; } catch (_) { return false; } };
@@ -2302,6 +2302,18 @@ toolBtn('tHorseLook', () => {   // the painted horse as Sahan's frames, or as cu
   const m = V3.horseMode(V3.horseMode() === 'frames' ? 'parts' : 'frames');
   banner = { t: 2.2, top: 'THE HORSE', sub: m === 'frames' ? 'Test tool: the horse as drawn frames.' : 'Test tool: the horse as cut-out parts.' };
 });
+toolBtn('tLoad3D', () => {   // build 27: try a rigged 3D body from .glb files (the body, and its moves, one file each)
+  if (!V3.ready) { banner = { t: 2.4, top: '3D BODY', sub: 'The 3D body is part of the painted look. Choose Painted under Settings.' }; return; }
+  $('glbFiles').click();
+});
+$('glbFiles').addEventListener('change', async e => {
+  const list = [...e.target.files]; e.target.value = ''; if (!list.length) return;
+  try { const files = await Promise.all(list.map(async f => ({ name: f.name, buf: await f.arrayBuffer() })));
+    const r = await V3.load3D(files); V3.use3D(true);
+    banner = { t: 4, top: '3D BODY', sub: `Loaded ${list.length} file${list.length > 1 ? 's' : ''}: ${r.moves.length ? 'moves ' + r.moves.join(', ') : 'no moves found'}.` };
+  } catch (err) { banner = { t: 4, top: '3D BODY', sub: 'That did not load: ' + err.message }; }
+});
+toolBtn('tUse3D', () => { if (!V3.ready) return; const on = V3.use3D(!V3.body3D().on); banner = { t: 2.2, top: '3D BODY', sub: on ? 'Test tool: the 3D body.' : 'Test tool: the cut-out body.' }; });
 let fallTry = 0;
 toolBtn('tFall', () => {   // lift the player high above where they stand, to feel the fall
   if (P.mount) dismount(false);

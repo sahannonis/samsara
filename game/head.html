@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Samsara Build 26</title>
+<title>Samsara Build 27</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&family=Kalam:wght@400;700&display=swap">
@@ -150,7 +150,7 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
 <body>
 <div class="wrap">
   <header>
-    <div><span class="eyebrow">Samsara · test build 26</span><h1>The horse in frames</h1></div>
+    <div><span class="eyebrow">Samsara · test build 27</span><h1>A body in 3D</h1></div>
     <span class="lbl" id="lifeLabel">Life 1</span>
   </header>
 
@@ -159,9 +159,9 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
     <canvas id="cv" aria-label="Samsara test: a long proving ground of planks, ledges, water, walls, wind and darkness"></canvas>
 
     <div class="ov" id="ovStart"><div class="ov-in">
-      <span class="eyebrow">Samsara · test build 26 · the horse in frames</span>
+      <span class="eyebrow">Samsara · test build 27 · a body in 3D</span>
       <h2>Samsara</h2>
-      <p class="hand">The night horse now moves with Sahan's own drawn frames: it breathes when it stands, walks, runs and jumps. A test tool switches back to the cut-out horse to compare. Shrines burn, fires light the night, and the weather comes and goes. The old ink look is in Settings.</p>
+      <p class="hand">A test of a rigged 3D body in the painted world: it walks, runs, jumps, cuts, rolls and falls by the game's own timing, and turns through the front. Load your own .glb files from the test tools. The horse moves with Sahan's drawn frames. The old ink look is in Settings.</p>
       <div class="row">
         <label class="lbl" for="micStart">Mic</label>
         <select id="micStart">
@@ -274,6 +274,9 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
         <button class="btn ghost" id="tShrine" type="button">Jump to the next shrine</button>
         <button class="btn ghost" id="tWeather" type="button">Weather: clear, windy, mist, rain, storm, then on its own</button>
         <button class="btn ghost" id="tHorseLook" type="button">Horse: drawn frames or cut-out parts</button>
+        <button class="btn ghost" id="tLoad3D" type="button">Load a 3D body (.glb files: the body and its moves)</button>
+        <button class="btn ghost" id="tUse3D" type="button">3D body or cut-out body</button>
+        <input type="file" id="glbFiles" accept=".glb" multiple hidden>
         <button class="btn ghost" id="tFall" type="button">Lift me up to fall (380 / 600 / 850 / 1150)</button>
         <button class="btn ghost" id="tChants" type="button">Teach me every chant</button>
         <button class="btn ghost" id="tSpells" type="button">Teach me every spell</button>

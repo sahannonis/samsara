@@ -23,6 +23,7 @@ function lookShow() {
   const n = document.getElementById('setLookNote'); if (n) n.textContent = V3.want() ? (V3.failed ? 'Your browser could not start WebGL, so the ink drawing stays. ' + V3.why : V3.ready ? 'Painted with three.js. The ink world turns to color with the first realization.' : 'Loading the painted world…') : 'The hand-drawn ink world.';
 }
 
+/*GLB*/
 function makeV3(THREE) {
   THREE.ColorManagement.enabled = false;
   const glc = document.getElementById('gl');
@@ -748,6 +749,107 @@ void main(){
   V3.horseFrame = () => ({ mode: HF.mode, anim: HF.anim, f: HF.f });
   V3.horseState = () => ({ on: HORSE.on, speed: Math.round(HORSE.speed), neck: +HORSE.neck.toFixed(2), tail: +HORSE.tail.toFixed(2), legs: Object.fromEntries(Object.entries(HB.legs).map(([k, L]) => [k, +L.a.toFixed(2)])) });
 
+  /* ---------- the traveler in 3D (build 27, a test): a rigged model from a .glb, played by the game's own state ----------
+     Looping moves (idle, walk, run) play by speed; the others are scrubbed by the game's own timers, so a cut is always
+     exactly as long as the rules say (jump by its rise and fall, slash by the attack, roll by the roll, death by the fall). */
+  const GLB = makeGLB(THREE);
+  const B3 = { on: false, want: true, wrap: new THREE.Group(), model: null, mixer: null, acts: {}, w: {}, t: {}, yaw: Math.PI / 2, mats: [], bones: {}, name: '', clipNames: [], lastRollT: 0, rollDur: 0.5 };
+  B3.wrap.visible = false; scene.add(B3.wrap);
+  function bodyMat(m) {
+    return new THREE.ShaderMaterial({
+      uniforms: { ...U, map: { value: m.map }, uHasMap: { value: m.map ? 1 : 0 }, uColor: { value: new THREE.Vector4(...m.color) }, uOpacity: { value: 1 } },
+      vertexShader: `
+        #include <common>
+        #include <skinning_pars_vertex>
+        varying vec2 vUv; varying vec3 vN; varying vec3 vW3;
+        void main(){
+          vUv = uv;
+          #include <skinbase_vertex>
+          #include <beginnormal_vertex>
+          #include <skinnormal_vertex>
+          #include <begin_vertex>
+          #include <skinning_vertex>
+          vec4 wp = modelMatrix * vec4(transformed, 1.0); vW3 = wp.xyz;
+          vN = normalize(mat3(modelMatrix) * objectNormal);
+          gl_Position = projectionMatrix * viewMatrix * wp; }`,
+      fragmentShader: `uniform sampler2D map; uniform float uHasMap, uOpacity, uNight; uniform vec4 uColor; uniform vec3 uAmb, uLightCol; uniform vec2 uLightDir; varying vec2 vUv; varying vec3 vN; varying vec3 vW3; ${LIGHTS}
+        void main(){ vec4 base = uColor; if (uHasMap > 0.5) base *= texture2D(map, vUv); if (base.a < 0.35) discard;
+          vec3 N = normalize(vN); vec3 L = normalize(vec3(uLightDir.x, uLightDir.y, 0.75));
+          float d = dot(N, L); float band = smoothstep(-0.15, 0.2, d) * 0.6 + smoothstep(0.45, 0.62, d) * 0.4;   // two soft painted steps of light
+          float rim = pow(1.0 - abs(N.z), 3.0);
+          vec3 c = base.rgb * (uAmb * (0.5 + 0.3 * band) + uLightCol * band * 0.55) + uLightCol * rim * 0.22 * smoothstep(-0.2, 0.3, d) + base.rgb * lightAt(vW3) * (0.35 + uNight * 1.2);
+          gl_FragColor = vec4(c, uOpacity); }`,
+      transparent: true, depthTest: true, depthWrite: true, side: m.double ? THREE.DoubleSide : THREE.FrontSide });
+  }
+  const keyOf = s => String(s).toLowerCase().replace(/\.glb$/, '').replace(/^.*\|/, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  async function load3D(files) {   // files: [{ name, buf }]. The first with a skinned body is the body; every animation is a move, named by its file
+    let model = null; const clips = {};
+    for (const f of files) {
+      const r = await GLB.parse(f.buf);
+      if (!model && r.skinned.length) model = r;
+      r.clips.forEach((c, i) => { const k = r.clips.length > 1 ? keyOf(c.name) || `${keyOf(f.name)}_${i}` : keyOf(f.name); clips[k] = c; });
+    }
+    if (!model) throw new Error('none of the files has a rigged body');
+    // replace what was there
+    if (B3.model) { B3.wrap.remove(B3.model.scene); B3.mixer && B3.mixer.stopAllAction(); }
+    B3.model = model; B3.mats = []; B3.acts = {}; B3.w = {}; B3.t = {}; B3.bones = {};
+    for (const m of model.meshes) { m.material = bodyMat(m.userData.mat); m.renderOrder = 55; B3.mats.push(m.material); }
+    model.scene.traverse(o => { if (o.isBone) B3.bones[o.name] = o; });
+    const find = (...words) => Object.values(B3.bones).find(b => words.every(w => b.name.toLowerCase().includes(w.toLowerCase())));
+    const hips = find('hips') || Object.values(B3.bones)[0];
+    B3.joint = { hips, head: find('head') || hips, neck: find('neck') || find('head') || hips, sh: find('spine2') || find('spine') || hips,
+      hF: find('right', 'hand') || find('hand') || hips, hB: find('left', 'hand') || find('hand') || hips, fF: find('right', 'foot') || hips, fB: find('left', 'foot') || hips };
+    // keep the body over its place: no root motion in x and z (the game moves the body)
+    const hp = hips.position.clone();
+    for (const c of Object.values(clips)) for (const tr of c.tracks) if (tr.name === `${hips.name}.position`) for (let i = 0; i < tr.values.length; i += 3) { tr.values[i] = hp.x; tr.values[i + 2] = hp.z; }
+    B3.wrap.add(model.scene);
+    B3.mixer = new THREE.AnimationMixer(model.scene);
+    for (const [k, c] of Object.entries(clips)) { const a = B3.mixer.clipAction(c); a.play(); a.setEffectiveWeight(0); B3.acts[k] = a; B3.w[k] = 0; B3.t[k] = 0; }
+    B3.clipNames = Object.keys(clips); B3.name = files[0] && files[0].name;
+    // measure it standing (first idle frame, or the bind pose): scale it to the traveler's height, feet on the ground
+    const first = B3.acts[pickKey(['idle'])]; if (first) { first.setEffectiveWeight(1); first.time = 0; }
+    B3.wrap.scale.setScalar(1); B3.wrap.position.set(0, 0, 0); B3.wrap.rotation.set(0, 0, 0); B3.mixer.update(0); B3.wrap.updateMatrixWorld(true);
+    let y0 = Infinity, y1 = -Infinity; const v = new THREE.Vector3(); for (const b of Object.values(B3.bones)) { b.getWorldPosition(v); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
+    const hgt = Math.max(1e-3, y1 - y0); B3.scale = 60 / (hgt * 1.04); B3.foot = y0 - hgt * 0.015;
+    if (first) first.setEffectiveWeight(0);
+    B3.on = true; return { body: model.meshes.length, moves: B3.clipNames, bones: Object.keys(B3.bones).length };
+  }
+  function pickKey(words) { for (const w of words) { const k = B3.clipNames.find(n => n === w) || B3.clipNames.find(n => n.includes(w)); if (k) return k; } return null; }
+  function pose3D(dt) {
+    const p = P, show = B3.on && B3.want && !p.mount; B3.wrap.visible = show; if (!show) return false;
+    const idle = pickKey(['idle', 'stand', 'breath']) || B3.clipNames[0];
+    if (p.rollT > B3.lastRollT + 0.01) B3.rollDur = Math.max(0.2, p.rollT); B3.lastRollT = p.rollT;
+    let key = idle, scrub = null, speed = 1, fast = false;
+    const sp = Math.abs(p.vx);
+    if (p.dead && pickKey(['death', 'dying', 'die'])) { key = pickKey(['death', 'dying', 'die']); scrub = Math.min(1, p.deadT / 1.6); }
+    else if (p.rollT > 0 && pickKey(['roll', 'dodge'])) { key = pickKey(['roll', 'dodge']); scrub = 1 - p.rollT / B3.rollDur; fast = true; }
+    else if (p.atk && !p.atk.bow && pickKey(['slash', 'attack', 'sword', 'swing'])) { key = (p.atk.heavy && pickKey(['heavy'])) || pickKey(['slash', 'attack', 'sword', 'swing']); scrub = clamp(p.atk.t / Math.max(0.05, p.atk.dur), 0, 1); fast = true; }
+    else if (!p.onG && !p.inWater && pickKey(['jump'])) { key = pickKey(['jump']); scrub = 0.3 + 0.45 * clamp((p.vy + 700) / 1400, 0, 1); }
+    else if (p.inWater && !p.onG && pickKey(['swim'])) { key = pickKey(['swim']); speed = 1; }
+    else if (sp > 330 && pickKey(['run', 'sprint'])) { key = pickKey(['run', 'sprint']); speed = sp / 520; }
+    else if (sp > 20 && pickKey(['walk'])) { key = pickKey(['walk']); speed = Math.max(0.5, sp / 240); }
+    else if (sp > 20 && pickKey(['run'])) { key = pickKey(['run']); speed = sp / 520; }
+    const rate = 1 - Math.exp(-dt * (fast ? 28 : 11));
+    for (const k of B3.clipNames) { const a = B3.acts[k], d = a.getClip().duration || 1;
+      B3.w[k] = dt > 0 ? lerp(B3.w[k], k === key ? 1 : 0, rate) : (k === key ? 1 : 0);
+      if (k === key && scrub !== null) B3.t[k] = scrub * d * 0.999; else if (k === key) B3.t[k] = (B3.t[k] + dt * speed) % d;
+      a.enabled = true; a.setEffectiveWeight(B3.w[k]); a.time = B3.t[k]; }
+    B3.key = key; B3.mixer.update(0);
+    // facing: turn through the front, the way a body really turns
+    const yawT = p.face > 0 ? Math.PI / 2 : -Math.PI / 2; B3.yaw = dt > 0 ? lerp(B3.yaw, yawT, 1 - Math.exp(-dt * 14)) : yawT;
+    const ay = p.inWater && !p.onG ? p.y + 34 : p.y + p.h;
+    B3.wrap.scale.setScalar(B3.scale); B3.wrap.rotation.set(0, B3.yaw, 0); B3.wrap.position.set(pcx(), -ay - B3.foot * B3.scale, 0); B3.wrap.updateMatrixWorld(true);
+    const a = bodyAlpha(p); for (const m of B3.mats) m.uniforms.uOpacity.value = a; B3.wrap.visible = a > 0.01;
+    const v = new THREE.Vector3(), G = b => { b.getWorldPosition(v); return { x: v.x, y: -v.y }; };
+    J = { hF: G(B3.joint.hF), hB: G(B3.joint.hB), head: G(B3.joint.head), neck: G(B3.joint.neck), hip: G(B3.joint.hips), sh: G(B3.joint.sh), fF: G(B3.joint.fF), fB: G(B3.joint.fB), hr: 6.5, tip: G(B3.joint.hF), robe: false, act: false, id: curW().id };
+    return true;
+  }
+  V3.load3D = async files => { const r = await load3D(files); return r; };
+  V3.use3D = on => { B3.want = on; return B3.on && B3.want; };
+  V3.body3D = () => ({ on: B3.on && B3.want && B3.wrap.visible, name: B3.name, moves: B3.clipNames, key: B3.key, yaw: +B3.yaw.toFixed(2), scale: +(B3.scale || 0).toFixed(2) });
+  // Sahan's files, packed into the page when they are in art/characters (build.py)
+  if (ART && ART.body3d) (async () => { try { const files = await Promise.all(Object.entries(ART.body3d).map(async ([name, src]) => ({ name, buf: await (await fetch(src)).arrayBuffer() }))); await load3D(files); } catch (e) { console.warn('3D body', e); } })();
+
   /* the rig's pose: the ink body's own joint angles (0 points down, positive swings forward) */
   const rot = (a, l) => [Math.sin(a) * l, -Math.cos(a) * l];
   const PS = { lean: 0, aF0: 0.25, aF1: 0.45, aB0: -0.2, aB1: 0.05, lF0: 0.14, lF1: 0.02, lB0: -0.14, lB1: -0.02, bob: 0, wpn: 0.6 };
@@ -977,10 +1079,11 @@ void main(){
     const sk = applySky();
     ST.color = lerp(ST.color, colorK, 1 - Math.exp(-Math.max(dt, 0.016) * 4)); POST.final.uniforms.uColor.value = colorK >= 1 ? 1 : ST.color;
     POST.final.uniforms.uHurt.value = P.hitT > 0 ? 0.6 : Math.max(0, POST.final.uniforms.uHurt.value - dt * 2);
-    poseHorse(dt, U.uWind.value + U.uGust.value); const j = poseRig(dt); dressRig(P);
-    const alpha = bodyAlpha(P); RIG.visible = alpha > 0.01; for (const m of RIGM) m.uniforms.uOpacity.value = alpha; for (const m of RIB_MATS) m.uniforms.uOpacity.value = alpha;
+    poseHorse(dt, U.uWind.value + U.uGust.value); let j = poseRig(dt); dressRig(P);
+    const in3D = pose3D(dt); if (in3D) j = J;
+    const alpha = bodyAlpha(P); RIG.visible = alpha > 0.01 && !in3D; for (const m of RIGM) m.uniforms.uOpacity.value = alpha; for (const m of RIB_MATS) m.uniforms.uOpacity.value = alpha;
     for (const m of RIGM) if (m.uniforms.uFlip) m.uniforms.uFlip.value = P.face;
-    for (const r of Object.values(RIBS)) if (V3._hide) r.mesh.visible = false;
+    for (const r of Object.values(RIBS)) if (V3._hide || (in3D && r !== RIBS.scarf)) r.mesh.visible = false;
     for (const k of ['thB', 'shB', 'footB']) if (P.mount) PART[k].visible = false;   // the far leg is behind the horse
     step(dt);
     // the shadow falls away from the light, longer when it is low

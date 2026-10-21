@@ -23,7 +23,12 @@ def art_json():
         b = (parts / f'{n}.png').read_bytes(); w, h = struct.unpack('>II', b[16:24])
         return {'src': 'data:image/png;base64,' + base64.b64encode(b).decode(), 'w': w, 'h': h}
     fr = one('frames'); fr['meta'] = json.loads((parts / 'frames.json').read_text())
-    return json.dumps({'horse': {n: one(n) for n in names}, 'horseFrames': fr})
+    out = {'horse': {n: one(n) for n in names}, 'horseFrames': fr}
+    chars = ROOT / 'art' / 'characters' / 'test3d'   # a 3D body to try (build 27): its .glb files, model first
+    if chars.exists():
+        files = sorted(chars.glob('*.glb'))
+        if files: out['body3d'] = {f.name: 'data:model/gltf-binary;base64,' + base64.b64encode(f.read_bytes()).decode() for f in files}
+    return json.dumps(out)
 
 def game(folder, out):
     head = (folder / 'head.html').read_text()
@@ -34,6 +39,8 @@ def game(folder, out):
     # from build 24: the painted look, drawn with three.js (three.js itself rides along as text)
     draw3 = folder / 'draw-three.js'
     if draw3.exists(): code = code.replace('/*DRAW3*/', draw3.read_text())
+    glb = folder / 'glb.js'
+    if glb.exists(): code = code.replace('/*GLB*/', glb.read_text())
     # from build 25: Sahan's art, packed into the page (the night horse's parts)
     if '/*ART*/' in code: code = code.replace('/*ART*/null', art_json())
     level = folder / 'level.json' if (folder / 'level.json').exists() else ROOT / 'levels' / 'proving-grounds.json'
