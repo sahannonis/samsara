@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Samsara Build 27</title>
+<title>Samsara Build 28</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Mono:wght@400;500&family=Kalam:wght@400;700&display=swap">
@@ -150,18 +150,19 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
 <body>
 <div class="wrap">
   <header>
-    <div><span class="eyebrow">Samsara · test build 27</span><h1>A body in 3D</h1></div>
+    <div><span class="eyebrow">Samsara · test build 28</span><h1>Life in the moves</h1></div>
     <span class="lbl" id="lifeLabel">Life 1</span>
   </header>
 
   <div class="frame" id="frame">
     <canvas id="gl" style="display:none" aria-hidden="true"></canvas>
+    <div id="fpsTag" hidden style="position:absolute;left:8px;top:6px;z-index:2;font:600 11px ui-monospace,monospace;color:#efe7d4;background:rgba(21,21,19,.55);padding:2px 6px;pointer-events:none"></div>
     <canvas id="cv" aria-label="Samsara test: a long proving ground of planks, ledges, water, walls, wind and darkness"></canvas>
 
     <div class="ov" id="ovStart"><div class="ov-in">
-      <span class="eyebrow">Samsara · test build 27 · a body in 3D</span>
+      <span class="eyebrow">Samsara · test build 28 · life in the moves</span>
       <h2>Samsara</h2>
-      <p class="hand">A test of a rigged 3D body in the painted world: it walks, runs, jumps, cuts, rolls and falls by the game's own timing, and turns through the front. Load your own .glb files from the test tools. The horse moves with Sahan's drawn frames. The old ink look is in Settings.</p>
+      <p class="hand">The body now walks at a human pace and runs when you hold Shift (a tap still rolls). It gathers speed and slows, leans into a start, lands with weight, turns round, and freezes for a heartbeat when a blow lands. The camera leads where you are going. Your Mixamo character is the 3D body; the old ink look is in Settings.</p>
       <div class="row">
         <label class="lbl" for="micStart">Mic</label>
         <select id="micStart">
@@ -197,7 +198,7 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
         <span>Hold <kbd>Space</kbd> while falling: glide (Kite cloth)</span>
         <span><kbd>Left click</kbd> attack · hold for heavy</span>
         <span><kbd>Right click</kbd> parry (time it)</span>
-        <span><kbd>Shift</kbd> dodge roll (rolls under low gaps)</span>
+        <span>Tap <kbd>Shift</kbd> (or <kbd>L</kbd>) to dodge roll (rolls under low gaps) · hold <kbd>Shift</kbd> to run</span>
         <span><kbd>Q</kbd> switch weapon · <kbd>F</kbd> lotus</span>
         <span><kbd>E</kbd> rest and level up, forge, talk, give, open, ride</span>
         <span>Strike trees and ore to gather · swim into lotus flowers</span>
@@ -237,6 +238,13 @@ footer{font-size:13px;color:var(--pencil);border-top:1px solid var(--rule);paddi
           <option value="ink">Ink (the hand-drawn test look)</option>
         </select>
         <span class="note" id="setLookNote"></span>
+      </div>
+      <div class="mic">
+        <label class="lbl" for="setFps">Frame rate</label>
+        <select id="setFps">
+          <option value="off">Hidden</option>
+          <option value="on">Shown (top left of the game)</option>
+        </select>
       </div>
       <div class="mic">
         <label class="lbl" for="setAmb">World sound</label>

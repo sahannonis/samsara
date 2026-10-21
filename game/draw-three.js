@@ -754,7 +754,7 @@ void main(){
      exactly as long as the rules say (jump by its rise and fall, slash by the attack, roll by the roll, death by the fall). */
   const GLB = makeGLB(THREE);
   const B3 = { on: false, want: true, wrap: new THREE.Group(), model: null, mixer: null, acts: {}, w: {}, t: {}, yaw: Math.PI / 2, mats: [], bones: {}, name: '', clipNames: [], lastRollT: 0, rollDur: 0.5 };
-  B3.wrap.visible = false; scene.add(B3.wrap);
+  B3.wrap.visible = false; B3.tilt = new THREE.Group(); B3.tilt.add(B3.wrap); scene.add(B3.tilt);
   function bodyMat(m) {
     return new THREE.ShaderMaterial({
       uniforms: { ...U, map: { value: m.map }, uHasMap: { value: m.map ? 1 : 0 }, uColor: { value: new THREE.Vector4(...m.color) }, uOpacity: { value: 1 } },
@@ -813,7 +813,7 @@ void main(){
     B3.clipNames = Object.keys(clips); B3.name = files[0] && files[0].name;
     // measure it standing (first idle frame, or the bind pose): scale it to the traveler's height, feet on the ground
     const first = B3.acts[pickKey(['idle'])]; if (first) { first.setEffectiveWeight(1); first.time = 0; }
-    B3.wrap.scale.setScalar(1); B3.wrap.position.set(0, 0, 0); B3.wrap.rotation.set(0, 0, 0); B3.mixer.update(0); B3.wrap.updateMatrixWorld(true);
+    B3.tilt.position.set(0, 0, 0); B3.tilt.rotation.set(0, 0, 0); B3.tilt.scale.set(1, 1, 1); B3.wrap.scale.setScalar(1); B3.wrap.position.set(0, 0, 0); B3.wrap.rotation.set(0, 0, 0); B3.mixer.update(0); B3.tilt.updateMatrixWorld(true);
     let y0 = Infinity, y1 = -Infinity; const v = new THREE.Vector3(); for (const b of Object.values(B3.bones)) { b.getWorldPosition(v); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
     const hgt = Math.max(1e-3, y1 - y0); B3.scale = 60 / (hgt * 1.04); B3.foot = y0 - hgt * 0.015;
     if (first) first.setEffectiveWeight(0);
@@ -831,19 +831,24 @@ void main(){
     else if (p.atk && !p.atk.bow && pickKey(['slash', 'attack', 'sword', 'swing'])) { key = (p.atk.heavy && pickKey(['heavy'])) || pickKey(['slash', 'attack', 'sword', 'swing']); scrub = clamp(p.atk.t / Math.max(0.05, p.atk.dur), 0, 1); fast = true; }
     else if (!p.onG && !p.inWater && pickKey(['jump'])) { key = pickKey(['jump']); scrub = 0.3 + 0.45 * clamp((p.vy + 700) / 1400, 0, 1); }
     else if (p.inWater && !p.onG && pickKey(['swim'])) { key = pickKey(['swim']); speed = 1; }
-    else if (sp > 330 && pickKey(['run', 'sprint'])) { key = pickKey(['run', 'sprint']); speed = sp / 520; }
-    else if (sp > 20 && pickKey(['walk'])) { key = pickKey(['walk']); speed = Math.max(0.5, sp / 240); }
-    else if (sp > 20 && pickKey(['run'])) { key = pickKey(['run']); speed = sp / 520; }
-    const rate = 1 - Math.exp(-dt * (fast ? 28 : 11));
+    else if (sp > 20 && p.onG && (pickKey(['walk']) || pickKey(['run']))) key = 'move';   // walk and run blended by speed, below
+    const rate = 1 - Math.exp(-dt * (fast ? 28 : 11)), walkK = pickKey(['walk']), runK = pickKey(['run', 'sprint']);
+    // one stride for both: the walk and the run share a phase, so their feet stay in step while they blend
+    const wr = walkK && runK ? smooth(170, 250, sp) : runK ? 1 : 0, dW = walkK ? B3.acts[walkK].getClip().duration : 1, dR = runK ? B3.acts[runK].getClip().duration : 1;
+    if (key === 'move') B3.ph = ((B3.ph || 0) + dt * lerp((sp / 150) / dW, (sp / 270) / dR, wr)) % 1;
+    const target = k => key === 'move' ? (k === walkK ? 1 - wr : k === runK ? wr : 0) : (k === key ? 1 : 0);
     for (const k of B3.clipNames) { const a = B3.acts[k], d = a.getClip().duration || 1;
-      B3.w[k] = dt > 0 ? lerp(B3.w[k], k === key ? 1 : 0, rate) : (k === key ? 1 : 0);
-      if (k === key && scrub !== null) B3.t[k] = scrub * d * 0.999; else if (k === key) B3.t[k] = (B3.t[k] + dt * speed) % d;
+      B3.w[k] = dt > 0 ? lerp(B3.w[k], target(k), rate) : target(k);
+      if (key === 'move' && (k === walkK || k === runK)) B3.t[k] = B3.ph * d;
+      else if (k === key && scrub !== null) B3.t[k] = scrub * d * 0.999; else if (k === key) B3.t[k] = (B3.t[k] + dt * speed) % d;
       a.enabled = true; a.setEffectiveWeight(B3.w[k]); a.time = B3.t[k]; }
-    B3.key = key; B3.mixer.update(0);
+    B3.key = key === 'move' ? (wr > 0.5 ? runK : walkK) : key; B3.mixer.update(0);
     // facing: turn through the front, the way a body really turns
     const yawT = p.face > 0 ? Math.PI / 2 : -Math.PI / 2; B3.yaw = dt > 0 ? lerp(B3.yaw, yawT, 1 - Math.exp(-dt * 14)) : yawT;
     const ay = p.inWater && !p.onG ? p.y + 34 : p.y + p.h;
-    B3.wrap.scale.setScalar(B3.scale); B3.wrap.rotation.set(0, B3.yaw, 0); B3.wrap.position.set(pcx(), -ay - B3.foot * B3.scale, 0); B3.wrap.updateMatrixWorld(true);
+    const sq = 1 - 0.1 * Math.sin(Math.min(1, FEEL.squash) * Math.PI / 2) + 0.06 * FEEL.stretch, step = key === pickKey(['slash', 'attack', 'sword', 'swing']) && scrub !== null ? Math.sin(Math.min(1, scrub * 1.6) * Math.PI) * 7 : 0;
+    B3.tilt.position.set(pcx() + p.face * step, -ay, 0); B3.tilt.rotation.set(0, 0, -p.face * FEEL.lean * 0.8); B3.tilt.scale.set(1 + 0.06 * FEEL.squash, sq, 1);   // lean into speed, squash on landing, step into a cut
+    B3.wrap.scale.setScalar(B3.scale); B3.wrap.rotation.set(0, B3.yaw, 0); B3.wrap.position.set(0, -B3.foot * B3.scale, 0); B3.tilt.updateMatrixWorld(true);
     const a = bodyAlpha(p); for (const m of B3.mats) m.uniforms.uOpacity.value = a; B3.wrap.visible = a > 0.01;
     const v = new THREE.Vector3(), G = b => { b.getWorldPosition(v); return { x: v.x, y: -v.y }; };
     J = { hF: G(B3.joint.hF), hB: G(B3.joint.hB), head: G(B3.joint.head), neck: G(B3.joint.neck), hip: G(B3.joint.hips), sh: G(B3.joint.sh), fF: G(B3.joint.fF), fB: G(B3.joint.fB), hr: 6.5, tip: G(B3.joint.hF), robe: false, act: false, id: curW().id };
@@ -859,6 +864,21 @@ void main(){
   const rot = (a, l) => [Math.sin(a) * l, -Math.cos(a) * l];
   const PS = { lean: 0, aF0: 0.25, aF1: 0.45, aB0: -0.2, aB1: 0.05, lF0: 0.14, lF1: 0.02, lB0: -0.14, lB1: -0.02, bob: 0, wpn: 0.6 };
   let J = null;   // the last joints, in game units, for the ink layer's extras
+  /* life in the moves (build 28): how the body leans into speeding up and slowing down, squashes when it lands, stretches
+     when it leaves the ground, and flips round on a turn. Read from the game each frame, shared by both bodies */
+  const FEEL = { vx: 0, acc: 0, wasG: true, vy: 0, squash: 0, stretch: 0, face: 1, turn: 1, lean: 0 };
+  function feel(dt) {
+    const p = P; if (dt <= 0) return FEEL;
+    const a = (p.vx - FEEL.vx) / dt; FEEL.vx = p.vx; FEEL.acc = lerp(FEEL.acc, clamp(a, -3000, 3000), 1 - Math.exp(-dt * 10));
+    if (p.onG && !FEEL.wasG) FEEL.squash = clamp(FEEL.vy / 900, 0.25, 1);   // the harder the landing, the deeper the squash
+    if (!p.onG && FEEL.wasG && p.vy < -200) FEEL.stretch = 1;
+    FEEL.wasG = p.onG; FEEL.vy = p.vy;
+    FEEL.squash = Math.max(0, FEEL.squash - dt * 6); FEEL.stretch = Math.max(0, FEEL.stretch - dt * 5);
+    if (p.face !== FEEL.face) { FEEL.face = p.face; FEEL.turn = -1; } FEEL.turn = Math.min(1, FEEL.turn + dt / 0.09);
+    const run = p.onG && !p.atk && p.rollT <= 0 && Math.abs(p.vx) > 20;
+    FEEL.lean = lerp(FEEL.lean, run || p.onG ? clamp(FEEL.acc * p.face / 2600, -0.16, 0.22) : 0, 1 - Math.exp(-dt * 8));
+    return FEEL;
+  }
   /* swings: real arcs. A cut alternates down and up within a quick chain; a heavy blow comes from behind the head.
      The blade leads (eased out fast) and the arm follows, the body leans into it and the feet open into a lunge.
      Each: upper arm, forearm and blade angles at the start and the end, the lean, and the back arm (balance). */
@@ -907,6 +927,11 @@ void main(){
     const p = P, { pose, ay } = playerPose(p), robe = p.garb.body === 'robe' && p.rollT <= 0 && p.onG && !p.crouch && !p.inWater;
     const k = 1 - Math.exp(-dt * (p.atk || p.rollT > 0 ? 34 : 18));
     const tg = { lean: pose.lean, aF0: pose.aF[0], aF1: pose.aF[1], aB0: pose.aB[0], aB1: pose.aB[1], lF0: pose.lF[0], lF1: pose.lF[1], lB0: pose.lB[0], lB1: pose.lB[1] };
+    const sp = Math.abs(p.vx), moving = p.onG && sp > 20 && !p.atk && p.rollT <= 0 && !p.crouch && !p.mount && !p.ladder && !p.hang && !(p.inWater && !p.onG);
+    if (moving) { const k = clamp(sp / 270, 0.35, 1.1);   // a walk swings little, a run swings wide and leans
+      for (const key of ['lF0', 'lF1', 'lB0', 'lB1']) tg[key] *= lerp(0.55, 1.05, k); tg.aF0 *= lerp(0.5, 1.1, k); tg.aB0 *= lerp(0.5, 1.1, k); tg.aF1 = lerp(0.35, tg.aF1, k); tg.aB1 = lerp(0.3, tg.aB1, k);
+      tg.lean = lerp(0.05, 0.34, clamp((sp - 120) / 160, 0, 1)); }
+    tg.lean += FEEL.lean;
     const wa = weaponAngle(p, PS.aF1);
     if (wa.body) Object.assign(tg, wa.body);
     for (const key in tg) PS[key] = dt > 0 && !(wa.direct && wa.body && key in wa.body && wa.act) ? lerp(PS[key], tg[key], k) : tg[key];
@@ -939,7 +964,8 @@ void main(){
     // the whole body: placed at the feet, mirrored by facing, tipped over when dead
     const seat = p.mount && V3.horseSeat ? V3.horseSeat() : null;
     const fx0 = seat ? seat.x : pcx(), fy0 = seat ? seat.y + hipH * RS - 2 : ay;
-    RIG.position.set(fx0, -fy0, 0); RIG.scale.set(p.face * RS, RS, 1); RIG.rotation.z = p.dead ? p.face * Math.min(1, p.deadT * 2) * Math.PI / 2 : 0;
+    const sq = 1 - 0.12 * Math.sin(Math.min(1, FEEL.squash) * Math.PI / 2) + 0.07 * FEEL.stretch, wd = 1 + 0.08 * FEEL.squash - 0.04 * FEEL.stretch, flip = p.dead ? 1 : FEEL.turn < 1 ? Math.max(0.08, Math.abs(FEEL.turn)) : 1;
+    RIG.position.set(fx0, -fy0, 0); RIG.scale.set(p.face * RS * wd * flip, RS * sq, 1);   // squash on landing, stretch on leaving, a quick flip on a turn RIG.rotation.z = p.dead ? p.face * Math.min(1, p.deadT * 2) * Math.PI / 2 : 0;
     const c = Math.cos(RIG.rotation.z), s = Math.sin(RIG.rotation.z);
     const G = (xy) => { const lx = xy[0] * p.face * RS, ly = xy[1] * RS; return { x: fx0 + lx * c - ly * s, y: fy0 - (lx * s + ly * c) }; };
     const tip = rot(PS.wpn, main === WPN.spear ? 140 : main === WPN.staff ? 90 : main === WPN.mace ? 80 : 74);
@@ -1084,8 +1110,9 @@ void main(){
     const sk = applySky();
     ST.color = lerp(ST.color, colorK, 1 - Math.exp(-Math.max(dt, 0.016) * 4)); POST.final.uniforms.uColor.value = colorK >= 1 ? 1 : ST.color;
     POST.final.uniforms.uHurt.value = P.hitT > 0 ? 0.6 : Math.max(0, POST.final.uniforms.uHurt.value - dt * 2);
-    poseHorse(dt, U.uWind.value + U.uGust.value); let j = poseRig(dt); dressRig(P);
-    const in3D = pose3D(dt); if (in3D) j = J;
+    const dtA = hitstop > 0 ? 0 : dt; feel(dtA);   // bodies freeze for the heartbeat when a blow lands
+    poseHorse(dtA, U.uWind.value + U.uGust.value); let j = poseRig(dtA); dressRig(P);
+    const in3D = pose3D(dtA); if (in3D) j = J;
     const alpha = bodyAlpha(P); RIG.visible = alpha > 0.01 && !in3D; for (const m of RIGM) m.uniforms.uOpacity.value = alpha; for (const m of RIB_MATS) m.uniforms.uOpacity.value = alpha;
     for (const m of RIGM) if (m.uniforms.uFlip) m.uniforms.uFlip.value = P.face;
     for (const r of Object.values(RIBS)) if (V3._hide || (in3D && r !== RIBS.scarf)) r.mesh.visible = false;

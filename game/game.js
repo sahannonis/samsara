@@ -2,6 +2,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const LEVEL = /*LEVEL*/null;
+const WALK_SPEED = 150, RUN_SPEED = 270;   // build 28: a walk at a human pace, and a run on Shift
 const W = 960, H = 540, GRAV = 2000, LW = LEVEL.size.w, LH = LEVEL.size.h, PH = 52, CH = 34, BREATH = 8, TORCH = 60, KNIVES = 5;
 const INK = '#151513', INK2 = '#3d3b35', PENCIL = '#8c897f', PAPER = '#fbfaf6', RULE = '#ebe8de', FAINT = '#e2ded3', RED = '#c4252b', HATCH = '#cfcbc0';
 const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -150,7 +151,7 @@ const dk = document.createElement('canvas'), dctx = dk.getContext('2d');
 let scale = 1;
 function fit() { const r = cv.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2); cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); dk.width = cv.width; dk.height = cv.height; scale = cv.width / W; }
 addEventListener('resize', fit);
-const KEYS = { KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyW: 'up', ArrowUp: 'up', Space: 'jump', KeyS: 'down', ArrowDown: 'down', KeyJ: 'light', KeyK: 'heavy', KeyL: 'roll', ShiftLeft: 'roll', ShiftRight: 'roll', KeyI: 'parry', KeyF: 'heal', KeyQ: 'swap', KeyE: 'use', KeyV: 'talk', KeyC: 'chant', KeyR: 'arrow' };
+const KEYS = { KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyW: 'up', ArrowUp: 'up', Space: 'jump', KeyS: 'down', ArrowDown: 'down', KeyJ: 'light', KeyK: 'heavy', KeyL: 'roll', ShiftLeft: 'dash', ShiftRight: 'dash', KeyI: 'parry', KeyF: 'heal', KeyQ: 'swap', KeyE: 'use', KeyV: 'talk', KeyC: 'chant', KeyR: 'arrow' };
 for (let i = 1; i <= 8; i++) KEYS['Digit' + i] = 'h' + i;
 const held = {}, pressed = {}, released = {};
 let mode = 'start';
@@ -378,7 +379,7 @@ function spawnFoes() {
   WAVES = WAVES.filter(v => !v.hostile);
 }
 function resetCrumbles() { CRUMBLES.forEach(c => { c.state = 'solid'; c.t = 0; }); }
-function camTarget() { return [clamp(P.x + P.w / 2 - W * 0.45 + P.face * 40, 0, LW - W), clamp(P.y + P.h / 2 - H * 0.56, 0, LH - H)]; }
+function camTarget() { return [clamp(P.x + P.w / 2 - W * 0.45 + (P.camLead ?? P.face * 40), 0, LW - W), clamp(P.y + P.h / 2 - H * 0.56, 0, LH - H)]; }
 function snapCam() { [camX, camY] = camTarget(); }
 
 /* ---------- deeds & karma ---------- */
@@ -731,7 +732,7 @@ function bodyHTML() {
    rested at, with what you carried; foes return as after a rest, and a fight in progress starts over.
    A death is saved the moment it happens, with the births on offer, so leaving the page cannot undo it.
    The real birth is only kept in a save when the player chose to keep it (this device, or later Steam Cloud). */
-const BUILD = 27, SAVE_V = 1, SLOTS = 3, SLOT_KEY = i => `samsara.soul.${i}`;
+const BUILD = 28, SAVE_V = 1, SLOTS = 3, SLOT_KEY = i => `samsara.soul.${i}`;
 let slot = null, saveT = 0, saveClock = 0, savedFx = 0, saveFail = false;
 // automated tests never write saves unless they ask to
 const canWrite = () => { try { return !navigator.webdriver || localStorage.getItem('samsara.testSave') === '1'; } catch (_) { return false; } };
@@ -1025,8 +1026,14 @@ function updatePlayer(dt) {
   tickArts(dt); tickWay(dt);
   if (P.healT > 0) { P.healT -= dt; if (P.healT <= 0) { const hv = Math.round(40 * (1 + boonV('heal'))); P.hp = Math.min(P.hpMax, P.hp + hv); floater(pcx(), P.y - 20, `+${hv}`); } }
   if (P.atk) { const A = P.atk; A.t += dt; if (A.t >= A.a0 && A.t <= A.a1) doHits(A); if (A.t >= A.dur) P.atk = null; }
+  // Shift (build 28): a tap rolls (on letting go, the way souls-likes do), holding it runs
+  if (pressed.dash) { P.dashT = 0; P.dashRan = false; }
+  if (held.dash) P.dashT = (P.dashT || 0) + dt;
+  P.running = !!held.dash && P.dashT > 0.16 && !!mx && P.st > 0 && !P.crouch && !P.charging;
+  if (P.running) P.dashRan = true;   // once it has become a run, letting go does not roll
+  const rollNow = pressed.roll || (released.dash && (P.dashT || 0) < 0.25 && !P.dashRan);
   if (!busy()) {
-    if (pressed.roll && P.onG && !P.inWater && P.st > 0 && !P.mount) { const LD = loadNow(); if (LD.cls === 'over') floater(pcx(), P.y - 20, 'TOO HEAVY TO ROLL', PENCIL); else { if (mx) P.face = mx; spend(22 * (P.school === 'Vayu' ? 0.7 : 1) * (inHand('daggers') ? 0.7 : 1) * (P.skills.has('light_feet') ? 0.75 : 1) * LD.st); P.rollT = LD.dur; P.rollIF = LD.iF; P.rollV = LD.roll * (1 + 0.01 * (P.stats.agi - 10)); P.charging = false; P.mDown = false; SFX.roll(); } }
+    if (rollNow && P.onG && !P.inWater && P.st > 0 && !P.mount) { const LD = loadNow(); if (LD.cls === 'over') floater(pcx(), P.y - 20, 'TOO HEAVY TO ROLL', PENCIL); else { if (mx) P.face = mx; spend(22 * (P.school === 'Vayu' ? 0.7 : 1) * (inHand('daggers') ? 0.7 : 1) * (P.skills.has('light_feet') ? 0.75 : 1) * LD.st); P.rollT = LD.dur; P.rollIF = LD.iF; P.rollV = LD.roll * (1 + 0.01 * (P.stats.agi - 10)); P.charging = false; P.mDown = false; SFX.roll(); } }
     else if (!P.onG && !P.inWater && !P.mount && held.down && (pressed.mouseL || pressed.light)) { P.plunge = true; P.mDown = false; P.bufLight = 0; P.charging = false; P.vx = 0; P.glide = false; SFX.air(); }
     else if ((pressed.light || P.bufLight > 0) && P.st > 0) { if (P.bufLight > 0) faceAim(); P.bufLight = 0; lightAttack(W8); }
     else if (pressed.heavy && P.st > 0) { P.charging = true; P.charge = 0; P.chargeSrc = 'key'; }
@@ -1066,7 +1073,10 @@ function updatePlayer(dt) {
   // horizontal
   const surf = P.onG && P.groundS ? P.groundS.surf : null;
   const LD = loadNow();
-  let tgt = mx * 250 * LD.walk * (P.shaniT > 0 ? 0.7 : 1) * (P.school === 'Vayu' && !P.noMana ? 1.08 : 1);
+  // walk at a human pace; hold Shift to run. A jump keeps the pace it was taken at
+  if (P.onG) P.runAir = P.running; const pace = (P.onG ? P.running : P.runAir) ? RUN_SPEED : WALK_SPEED;
+  if (P.running && P.onG && Math.abs(P.vx) > 120) { P.st = Math.max(0, P.st - 7 * dt); P.stDelay = Math.max(P.stDelay || 0, 0.3); }
+  let tgt = mx * pace * LD.walk * (P.shaniT > 0 ? 0.7 : 1) * (P.school === 'Vayu' && !P.noMana ? 1.08 : 1);
   if (P.charging) tgt = mx * 90;
   if (P.crouch) tgt = mx * 110;
   if (surf === 'mud') tgt *= wears('boots') ? 0.8 : 0.45;
@@ -1081,7 +1091,7 @@ function updatePlayer(dt) {
   else if (P.atk && P.onG) P.vx *= 0.8;
   else if (surf === 'ice') P.vx += (tgt - P.vx) * Math.min(1, dt * (wears('cleats') ? 12 : 2.2));
   else if (!P.onG && !P.inWater) P.vx += (tgt - P.vx) * Math.min(1, dt * 14);
-  else P.vx = tgt;
+  else { const speeding = Math.sign(tgt) === Math.sign(P.vx) && Math.abs(tgt) > Math.abs(P.vx); P.vx += (tgt - P.vx) * Math.min(1, dt * (speeding ? 12 : tgt === 0 ? 16 : 20)); if (Math.abs(P.vx) < 2 && !tgt) P.vx = 0; }   // the body gathers speed and slows, never all at once
   if (mx && (!P.atk || P.mount) && !P.charging && P.rollT <= 0 && P.hitT <= 0 && P.kickT <= 0 && !P.plunge) P.face = mx;
   if (P.onG) P.horseJumped = false;
   // jumping
@@ -1182,7 +1192,7 @@ function trackFall(wasG) {
   if (P.inWater || P.glide || P.ladder || P.hang || P.climbT > 0 || P.cling || windAt(pcx(), P.y + P.h / 2)) { P.fallTop = feet; return; }   // water, cloth, holds and winds all catch you
   if (wasG || P.fallTop === undefined || P.fallTop === null) P.fallTop = feet;
   P.fallTop = Math.min(P.fallTop, feet);
-  if (held.roll || pressed.roll) P.rollLand = 0.25; else if (P.rollLand > 0) P.rollLand -= 1 / 60;
+  if (held.roll || pressed.roll || held.dash || released.dash) P.rollLand = 0.25; else if (P.rollLand > 0) P.rollLand -= 1 / 60;
 }
 function landFall(plunged) {
   if (P.fallTop === null || P.fallTop === undefined) { P.fallTop = P.y + P.h; P.fallFree = false; return; }
@@ -2039,7 +2049,7 @@ function dismount(thrown) {
   if (thrown) { P.hitT = 0.4; P.vy = -300; P.vx = -P.face * 200; }
 }
 function rideMove(dt, mx, surf) {
-  const gallop = held.roll && mx && P.st > 0 && P.onG;
+  const gallop = (held.roll || held.dash) && mx && P.st > 0 && P.onG;
   if (gallop) { P.st -= 24 * dt; P.stDelay = 0.4; }
   let tgt = mx * (gallop ? 600 : 400);
   if (surf === 'mud') tgt *= 0.6;
@@ -2452,6 +2462,7 @@ function update(dt) {
   for (const f of fx) { f.life -= dt; f.x += (f.vx || 0) * dt; f.y += (f.vy || 0) * dt; if (f.k === 'dot') f.vy += 900 * dt; }
   fx = fx.filter(f => f.life > 0);
   for (const f of floaters) { f.life -= dt; f.y -= 34 * dt; } floaters = floaters.filter(f => f.life > 0);
+  P.camLead = (P.camLead ?? P.face * 40) + ((P.face * 50 + clamp(P.vx, -300, 300) * 0.12) - (P.camLead ?? P.face * 40)) * Math.min(1, dt * 2.2);   // lead ahead, ease round on a turn
   const [tx, ty] = camTarget();
   camX += (tx - camX) * Math.min(1, dt * 5); camY += (ty - camY) * Math.min(1, dt * 4.5);
   shake = Math.max(0, shake - dt * 30);
@@ -2459,8 +2470,11 @@ function update(dt) {
 
 const visible = (r, m = 40) => r.x < camX + W + m && r.x + r.w > camX - m && r.y < camY + H + m && r.y + r.h > camY - m;
 let last = performance.now(), frozen = false;
+const FPS = { n: 0, t: 0, ms: 0, worst: 0 };
 function loop(now) {
-  const dt = Math.min(0.033, (now - last) / 1000); last = now;
+  const raw = (now - last) / 1000, dt = Math.min(0.033, raw); last = now;
+  FPS.n++; FPS.t += raw; FPS.worst = Math.max(FPS.worst, raw);
+  if (FPS.t >= 0.5) { const tag = $('fpsTag'); if (tag) { tag.hidden = SETTINGS.fps !== 'on'; tag.textContent = `${Math.round(FPS.n / FPS.t)} FPS · slowest ${Math.round(FPS.worst * 1000)} ms${V3.ready && V3.want() ? ' · painted' : ''}`; } FPS.n = 0; FPS.t = 0; FPS.worst = 0; }
   if (!frozen) update(dt); render();
   for (const k in pressed) pressed[k] = false; for (const k in released) released[k] = false;
   requestAnimationFrame(loop);
@@ -2929,6 +2943,7 @@ for (const id in HEARD) { const w = SPELL(id); if (w) for (const ph of HEARD[id]
 setTimeout(loadPlaces, 300);
 /*DRAW3*/
 $('setMsg').value = SETTINGS.msg; $('setMsg').addEventListener('change', e => { SETTINGS.msg = e.target.value; saveSettings(); e.target.blur(); });
+if (!SETTINGS.fps) SETTINGS.fps = 'off'; $('setFps').value = SETTINGS.fps; $('setFps').addEventListener('change', e => { SETTINGS.fps = e.target.value; saveSettings(); e.target.blur(); $('fpsTag').hidden = SETTINGS.fps !== 'on'; });
 if (!SETTINGS.amb) SETTINGS.amb = 'on'; $('setAmb').value = SETTINGS.amb; $('setAmb').addEventListener('change', e => { SETTINGS.amb = e.target.value; saveSettings(); e.target.blur(); });
 $('setLook').value = SETTINGS.look; $('setLook').addEventListener('change', e => { SETTINGS.look = e.target.value; saveSettings(); e.target.blur(); if (V3.want()) bootThree(); lookShow(); });
 if (V3.want()) bootThree(); lookShow();
