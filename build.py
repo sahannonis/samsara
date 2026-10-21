@@ -22,7 +22,8 @@ def art_json():
     def one(n):
         b = (parts / f'{n}.png').read_bytes(); w, h = struct.unpack('>II', b[16:24])
         return {'src': 'data:image/png;base64,' + base64.b64encode(b).decode(), 'w': w, 'h': h}
-    return json.dumps({'horse': {n: one(n) for n in names}})
+    fr = one('frames'); fr['meta'] = json.loads((parts / 'frames.json').read_text())
+    return json.dumps({'horse': {n: one(n) for n in names}, 'horseFrames': fr})
 
 def game(folder, out):
     head = (folder / 'head.html').read_text()
@@ -67,6 +68,10 @@ def ink_tower():
 if __name__ == '__main__':
     DIST.mkdir(exist_ok=True)
     game(ROOT / 'game', DIST / 'samsara.html')
+    # the same page with its build number in the name, to send and keep
+    import re, shutil
+    n = re.search(r'const BUILD = (\d+)', (ROOT / 'game' / 'game.js').read_text()).group(1)
+    shutil.copy(DIST / 'samsara.html', DIST / f'samsara-build-{n}.html'); print(f'dist/samsara-build-{n}.html')
     for d in sorted((ROOT / 'history').iterdir()):
         game(d, DIST / 'history' / f'{d.name}.html')
     star_panel()

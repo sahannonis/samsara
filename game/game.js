@@ -731,7 +731,7 @@ function bodyHTML() {
    rested at, with what you carried; foes return as after a rest, and a fight in progress starts over.
    A death is saved the moment it happens, with the births on offer, so leaving the page cannot undo it.
    The real birth is only kept in a save when the player chose to keep it (this device, or later Steam Cloud). */
-const BUILD = 25, SAVE_V = 1, SLOTS = 3, SLOT_KEY = i => `samsara.soul.${i}`;
+const BUILD = 26, SAVE_V = 1, SLOTS = 3, SLOT_KEY = i => `samsara.soul.${i}`;
 let slot = null, saveT = 0, saveClock = 0, savedFx = 0, saveFail = false;
 // automated tests never write saves unless they ask to
 const canWrite = () => { try { return !navigator.webdriver || localStorage.getItem('samsara.testSave') === '1'; } catch (_) { return false; } };
@@ -2296,6 +2296,11 @@ toolBtn('tWeather', () => {   // the painted look's weather: step through each k
   if (!V3.ready) { banner = { t: 2.4, top: 'WEATHER', sub: 'Weather is part of the painted look. Choose Painted under Settings.' }; return; }
   const k = WEATHER_ORDER[weatherTry++ % WEATHER_ORDER.length]; V3.setWeather(k);
   banner = { t: 2.2, top: 'WEATHER', sub: k ? `Test tool: ${k}.` : 'Test tool: the weather chooses itself again.' };
+});
+toolBtn('tHorseLook', () => {   // the painted horse as Sahan's frames, or as cut-out parts, to compare
+  if (!V3.ready) { banner = { t: 2.4, top: 'THE HORSE', sub: 'The painted horse is part of the painted look. Choose Painted under Settings.' }; return; }
+  const m = V3.horseMode(V3.horseMode() === 'frames' ? 'parts' : 'frames');
+  banner = { t: 2.2, top: 'THE HORSE', sub: m === 'frames' ? 'Test tool: the horse as drawn frames.' : 'Test tool: the horse as cut-out parts.' };
 });
 let fallTry = 0;
 toolBtn('tFall', () => {   // lift the player high above where they stand, to feel the fall

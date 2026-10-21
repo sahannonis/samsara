@@ -675,6 +675,31 @@ void main(){
     }
     HORSE.stand = Math.max(...Object.values(HB.legs).map(L => L.len)) - at(0.5, 0.6)[1];   // body centre height when standing
   }
+  /* the horse as frames (build 26): Sahan's idle, walk, run and jump drawn whole, played by speed and the jump's rise and fall.
+     The cut-out horse above stays, behind a test switch, to compare. */
+  const HF = { mesh: null, meta: null, mode: 'frames', anim: 'idle', f: 0, dist: 0, K: 1 };
+  if (ART && ART.horseFrames) {
+    const a = ART.horseFrames, M = a.meta, img = new Image(), tex = new THREE.Texture(img); tex.minFilter = THREE.LinearMipmapLinearFilter; tex.generateMipmaps = true; tex.anisotropy = 4;
+    img.onload = () => { tex.needsUpdate = true; }; img.src = a.src; HF.meta = M;
+    const med = M.anims.idle.map(f => f.saddle[1]).sort((x, y) => x - y)[M.anims.idle.length >> 1]; HF.K = 54 / med;   // the back stands 54 high, as the cut-out horse
+    const [CW, CH] = M.cell, Wd = CW * HF.K, Hd = CH * HF.K, geo = new THREE.PlaneGeometry(Wd, Hd);
+    geo.translate(Wd / 2 - M.anchor[0] * HF.K, Hd / 2 - (CH - M.anchor[1]) * HF.K, 0);
+    const mat = spriteMat(tex, { rim: 0.3, order: 47 }); mat.uniforms.uTexel.value.set(0.35 / a.w, 0.35 / a.h);
+    HF.mesh = new THREE.Mesh(geo, mat); HF.mesh.renderOrder = 47; HF.mesh.frustumCulled = false; HORSE.g.add(HF.mesh); HORSE.mats.push(mat);
+    HF.setCell = k => { const c = k % M.cols, r = Math.floor(k / M.cols), u0 = c * CW / a.w, u1 = (c + 1) * CW / a.w, v1 = 1 - r * CH / a.h, v0 = 1 - (r + 1) * CH / a.h, uv = geo.attributes.uv;
+      uv.setXY(0, u0, v1); uv.setXY(1, u1, v1); uv.setXY(2, u0, v0); uv.setXY(3, u1, v0); uv.needsUpdate = true; };
+    HF.setCell(0);
+  }
+  function frameHorse(s, dt, sp) {   // which frame to show, and where the saddle is
+    const A = HF.meta.anims, t = clock;
+    let anim = s.air ? 'jump' : sp < 40 ? 'idle' : sp < 480 ? 'walk' : 'run', f;   // riding is a walk, Shift is the gallop
+    if (anim === 'jump') { const vy = s.ridden ? P.vy : 0; f = clamp(Math.round((vy + 650) / 1300 * (A.jump.length - 1)), 0, A.jump.length - 1); }
+    else if (anim === 'idle') f = Math.floor(t * 5) % A.idle.length;
+    else { if (anim !== HF.anim) HF.dist = 0; HF.dist += sp * dt; const stride = anim === 'walk' ? 200 : 270; f = Math.floor((HF.dist / stride) * A[anim].length) % A[anim].length; }
+    HF.anim = anim; HF.f = f; const fr = A[anim][f]; HF.setCell(fr.cell);
+    return { x: s.x + s.face * fr.saddle[0] * HF.K - s.face * 3, y: s.gy - fr.saddle[1] * HF.K + 2 };
+  }
+  let seatF = null;
   const HSHADOW = new THREE.Mesh(new THREE.PlaneGeometry(90, 12), new THREE.MeshBasicMaterial({ map: SHADOW_TEX, transparent: true, depthWrite: false, depthTest: false, opacity: 0.5 })); HSHADOW.renderOrder = 25; HSHADOW.frustumCulled = false; scene.add(HSHADOW);
   function horseNow() { // where the horse is and what it is doing, read from the game
     const h = horse; if (!h || !HB.body) return null;
@@ -687,6 +712,8 @@ void main(){
     const s = horseNow(); HORSE.on = !!s; HORSE.g.visible = !!s; HSHADOW.visible = !!s; if (!s) { HORSE.lastX = null; return; }
     const t = clock, dx = HORSE.lastX === null ? 0 : s.x - HORSE.lastX; HORSE.lastX = s.x;
     if (dt > 0) HORSE.speed = lerp(HORSE.speed, Math.min(Math.abs(dx) / dt, 900), 1 - Math.exp(-dt * 8));
+    const framed = HF.mode === 'frames' && !!HF.mesh; HB.bodyG.visible = !framed; if (HF.mesh) HF.mesh.visible = framed;
+    seatF = framed ? frameHorse(s, dt, HORSE.speed) : null;
     const sp = HORSE.speed, moving = sp > 40 && !s.air, gal = sp > 470 ? 1 : smooth(320, 470, sp), sn = clamp(sp / 600, 0, 1);
     if (moving) HORSE.ph += dt * sp / lerp(62, 105, gal) * TAU;
     const ph = HORSE.ph, k = dt > 0 ? 1 - Math.exp(-dt * 14) : 1;
@@ -710,11 +737,15 @@ void main(){
     const tailT = sn * 0.55 + (s.air ? 0.3 : 0) + Math.sin(t * 1.7) * 0.06 + (moving ? Math.sin(ph * 2) * 0.08 * gal : 0);
     HORSE.tailV += ((tailT - HORSE.tail) * 40 - HORSE.tailV * 6) * Math.min(dt, 0.05); HORSE.tail += HORSE.tailV * Math.min(dt, 0.05); HB.tailG.rotation.z = HORSE.tail;
     for (const m of HORSE.mats) { m.uniforms.uOpacity.value = s.alpha * (s.hurt && Math.floor(t * 16) % 2 ? 0.55 : 1); m.uniforms.uFlip.value = -s.face; if (m.uniforms.uHairAmp) { m.uniforms.uHairAmp.value = 0.8 + sn * 2.6 + wind * 0.8; m.uniforms.uFlow.value = sn * 1.2 + wind * 0.3; } }
-    HORSE.g.position.set(s.x, -s.gy, 0); HORSE.g.scale.set(-s.face, 1, 1); HORSE.g.updateMatrixWorld(true);
+    if (HF.mesh) HF.mesh.material.uniforms.uFlip.value = s.face;
+    HORSE.g.position.set(s.x, -s.gy, 0); HORSE.g.scale.set(-s.face, 1, 1); if (HF.mesh) HF.mesh.scale.x = -1;   // the parts face left, the frames face right
+    HORSE.g.updateMatrixWorld(true);
     HSHADOW.position.set(s.x, -s.gy + 1, 0); HSHADOW.material.opacity = (s.air ? 0.25 : 0.5) * s.alpha;
   }
   const _seat = new THREE.Vector3();
-  V3.horseSeat = () => { if (!HORSE.on) return null; HORSE.seat.getWorldPosition(_seat); return { x: _seat.x, y: -_seat.y }; };
+  V3.horseSeat = () => { if (!HORSE.on) return null; if (seatF) return seatF; HORSE.seat.getWorldPosition(_seat); return { x: _seat.x, y: -_seat.y }; };
+  V3.horseMode = m => { if (m) HF.mode = m; return HF.mode; };
+  V3.horseFrame = () => ({ mode: HF.mode, anim: HF.anim, f: HF.f });
   V3.horseState = () => ({ on: HORSE.on, speed: Math.round(HORSE.speed), neck: +HORSE.neck.toFixed(2), tail: +HORSE.tail.toFixed(2), legs: Object.fromEntries(Object.entries(HB.legs).map(([k, L]) => [k, +L.a.toFixed(2)])) });
 
   /* the rig's pose: the ink body's own joint angles (0 points down, positive swings forward) */

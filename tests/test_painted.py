@@ -1,4 +1,4 @@
-"""Headless test of builds 24 and 25: the painted look (three.js) in the real game. It boots, draws the land, sky, water,
+"""Headless test of builds 24 to 26: the painted look (three.js) in the real game. It boots, draws the land, sky, water,
 grass and the traveler, follows the game's own poses (walk, jump, roll, attack, hang, climb, swim, glide, crouch,
 dead), turns from ink to color, goes dark at night, never breaks the rules, and can be switched back to ink.
 
@@ -27,7 +27,7 @@ async def main():
         if not R['boot']['ready']: bad.append('three.js did not start: ' + str(R['boot']))
         async def run(n, keys={}, press={}): await ev(f"__life.run({n},{json.dumps(keys)},{json.dumps(press)})")
         async def show(name, wait=350):
-            await pg.wait_for_timeout(wait); box = await fr.bounding_box(); await pg.screenshot(path=OUT + 'b25_' + name + '.png', clip=box, timeout=90000)
+            await pg.wait_for_timeout(wait); box = await fr.bounding_box(); await pg.screenshot(path=OUT + 'b26_' + name + '.png', clip=box, timeout=90000)
         async def stats(): return await ev("__life.V3.stats")
         async def play(n, keys={}, press={}):   # step the game and draw each step, as in real play
             await ev(f"(()=>{{ for (let i = 0; i < {n}; i++) {{ __life.run(1, {json.dumps(keys)}, i === 0 ? {json.dumps(press)} : {{}}); __life.V3.frame(0,0); }} }})()")
@@ -38,7 +38,7 @@ async def main():
             from PIL import Image; import base64, io
             im = Image.open(io.BytesIO(base64.b64decode(url.split(',')[1]))); k = im.size[0] / 960
             px, py = await ev("[__life.P.x + __life.P.w / 2 - __life.camX, __life.P.y + __life.P.h / 2 - __life.camY]")
-            im.crop((int((px - wx) * k), int((py - wy) * k), int((px + wx) * k), int((py + wy) * k))).save(OUT + 'b25_' + name + '.png')
+            im.crop((int((px - wx) * k), int((py - wy) * k), int((px + wx) * k), int((py + wy) * k))).save(OUT + 'b26_' + name + '.png')
         await run(30); await show('01_start_ink', 700)
         R['stats_start'] = await stats()
         if not R['stats_start'] or R['stats_start'].get('frames', 0) < 2: bad.append('no painted frames drawn')
@@ -100,6 +100,9 @@ async def main():
         await play(1, {}, {'use': 1}); await play(5); await play(1, {}, {'use': 1}); await play(5)
         R['mounted'] = await ev("__life.P.mount")
         await play(50, {'right': True, 'roll': True}); R['gallop'] = await ev("__life.V3.horseState()"); await close('19_gallop_close', 110, 75)
+        R['gallop_frame'] = await ev("__life.V3.horseFrame()")
+        if R['mounted'] and R['gallop_frame']['anim'] != 'run': bad.append(f"a gallop should play the run frames: {R['gallop_frame']}")
+        await ev("__life.V3.horseMode('parts')"); await play(4); await close('19c_gallop_parts', 110, 75); R['parts_mode'] = await ev("__life.V3.horseFrame().mode"); await ev("__life.V3.horseMode('frames')")
         if R['mounted'] and R['gallop']['speed'] < 300: bad.append(f"a galloping horse should be fast: {R['gallop']}")
         seat = await ev("__life.V3.horseSeat()"); hip = await ev("__life.V3.joints().hip")
         R['rider_on_seat'] = round(abs(seat['y'] - hip['y']), 1)
