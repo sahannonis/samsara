@@ -799,6 +799,8 @@ void main(){
     const hips = find('hips') || Object.values(B3.bones)[0];
     B3.joint = { hips, head: find('head') || hips, neck: find('neck') || find('head') || hips, sh: find('spine2') || find('spine') || hips,
       hF: find('right', 'hand') || find('hand') || hips, hB: find('left', 'hand') || find('hand') || hips, fF: find('right', 'foot') || hips, fB: find('left', 'foot') || hips };
+    const end = w => Object.values(B3.bones).find(b => b.name.toLowerCase().endsWith(w)) || null;   // arm and leg bones, for poses the moves do not have (build 30)
+    Object.assign(B3.joint, { uaL: end('leftarm'), faL: end('leftforearm'), uaR: end('rightarm'), faR: end('rightforearm'), ulL: end('leftupleg'), lgL: end('leftleg'), ulR: end('rightupleg'), lgR: end('rightleg') });
     // keep the body over its place: no root motion along the ground (the game moves the body), and none upward in a
     // jump (the game lifts the body). Worked out in true world directions: Blender often turns and shrinks the skeleton
     model.scene.updateMatrixWorld(true);
@@ -834,31 +836,70 @@ void main(){
       staff: G(cyl(0.9, 62, wood, 0), cyl(1.2, 3, gold, 30), cyl(1.2, 3, gold, -30)),
       daggerF: G(cyl(0.7, 5, dark, 0), box(4, 0.8, 1.4, gold, 2.8), box(1.5, 14, 0.5, steel, 10)),
       daggerB: G(cyl(0.7, 5, dark, 0), box(4, 0.8, 1.4, gold, 2.8), box(1.5, 13, 0.5, steel, 9.5)),
-      bow: (() => { const c = new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, -22, 0), new THREE.Vector3(9, 0, 0), new THREE.Vector3(0, 22, 0)); const g = G(new THREE.Mesh(new THREE.TubeGeometry(c, 16, 0.8, 5), wood));
-        const sg = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 44, 3), M([0.86, 0.82, 0.7, 1])); g.add(sg); return g; })(),
     };
-    W3.longbow = W3.bow.clone(); W3.longbow.scale.set(1, 1.45, 1);
-    for (const k in W3) W3[k].traverse(o => { if (o.isMesh) { o.renderOrder = 55.5; o.frustumCulled = false; } });
+    // a bow (build 30): its belly bulges along +X, which is turned toward the target; the string runs tip, nock, tip and the
+    // back hand pulls the nock; an arrow sits on the string while it is drawn
+    const bowOf = (len, mat) => { const c = new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, -len, 0), new THREE.Vector3(9, 0, 0), new THREE.Vector3(0, len, 0)); const g = G(new THREE.Mesh(new THREE.TubeGeometry(c, 18, 0.8, 5), mat));
+      const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, -len, 0, 0, 0, 0, 0, len, 0]), 3));
+      const str = new THREE.Line(sg, new THREE.LineBasicMaterial({ color: 0xe8e0c8, transparent: true })); str.frustumCulled = false; g.add(str);
+      const shaft = new THREE.Mesh(new THREE.BoxGeometry(30, 0.7, 0.7).translate(15, 0, 0), wood), head = new THREE.Mesh(new THREE.ConeGeometry(1.3, 4, 5).rotateZ(-Math.PI / 2).translate(31, 0, 0), iron);
+      const fl = new THREE.Mesh(new THREE.BoxGeometry(5, 2.2, 0.3).translate(2.5, 0, 0), M([0.86, 0.82, 0.7, 1])), arrow = G(shaft, head, fl); arrow.visible = false; g.add(arrow);
+      Object.assign(g.userData, { len, str, arrow }); return g; };
+    W3.bow = bowOf(22, wood); W3.longbow = bowOf(31, M([0.86, 0.8, 0.66, 1]));
+    for (const k in W3) W3[k].traverse(o => { if (o.isMesh || o.isLine) { o.renderOrder = 55.5; o.frustumCulled = false; } });
     return W3;
   }
   function holdWeapons() {   // put each weapon on a grip under its hand; the grip cancels the skeleton's scale so weapons are sized in game units
     const W3 = weapon3D(), grip = (bone) => { const g = new THREE.Group(); bone.add(g); return g; };
     B3.grip = { F: grip(B3.joint.hF), B: grip(B3.joint.hB) }; B3.w3 = W3;
     for (const k of ['blade', 'empty', 'mace', 'spear', 'staff', 'daggerF']) { W3[k].visible = false; B3.grip.F.add(W3[k]); }
-    for (const k of ['daggerB', 'bow', 'longbow']) { W3[k].visible = false; B3.grip.B.add(W3[k]); }
+    W3.daggerB.visible = false; B3.grip.B.add(W3.daggerB);
+    // the bows are placed in the world each frame at the front hand (build 30), so they always face the target the right way
+    if (!B3.bowG) { B3.bowG = new THREE.Group(); scene.add(B3.bowG); } B3.bowG.clear(); for (const k of ['bow', 'longbow']) { W3[k].visible = false; B3.bowG.add(W3[k]); }
+    // the torch (build 30): a stick with the living flame of the cut-out torch, held upright in the hand
+    if (!B3.t3) { const st = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 0.8, 22, 6).translate(0, 6, 0), bodyMat({ color: [0.3, 0.19, 0.11, 1], map: null, alpha: 'OPAQUE', double: false }));
+      const wrapT = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.4, 4, 6).translate(0, 16, 0), bodyMat({ color: [0.5, 0.36, 0.22, 1], map: null, alpha: 'OPAQUE', double: false }));
+      const fm = new THREE.ShaderMaterial({ uniforms: { ...U, uOpacity: { value: 1 } }, vertexShader: TORCH.flame.material.vertexShader, fragmentShader: TORCH.flame.material.fragmentShader, transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending });
+      const fl = new THREE.Mesh(new THREE.PlaneGeometry(22 * RS * 1.15, 34 * RS * 1.15).translate(0, 15 * RS * 1.15 + 15, 0), fm);
+      st.renderOrder = wrapT.renderOrder = 55.4; fl.renderOrder = 55.8; for (const m of [st, wrapT, fl]) m.frustumCulled = false;
+      B3.t3 = new THREE.Group(); B3.t3.add(st, wrapT, fl); B3.t3.userData = { mats: [st.material, wrapT.material, fm] }; B3.t3.visible = false; scene.add(B3.t3); }
     setGrip(B3.gripRot || [0, 0, -Math.PI / 2]);
   }
+  /* turning bones for poses the moves do not have (build 30): the torch arm, the legs astride the horse, the chest toward the aim */
+  const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _d = new THREE.Vector3(), _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), ZAX = new THREE.Vector3(0, 0, 1);
+  // three.js only writes a bone when the move's value changes, so a held pose would keep our turn from the frame before and
+  // add to it: every bone we turn is put back to the move's own pose before the next frame
+  const KEPT = new Map(), keep = b => { if (!KEPT.has(b)) KEPT.set(b, b.quaternion.clone()); };
+  function restoreKept() { for (const [b, q] of KEPT) b.quaternion.copy(q); KEPT.clear(); }
+  function aimBone(bone, child, dir, w) {   // turn a bone, in world terms, so it points at its child along dir; w blends from the move's own pose
+    if (!bone || !child || !bone.parent || w <= 0.001) return; keep(bone);
+    bone.getWorldPosition(_v1); child.getWorldPosition(_v2); _v2.sub(_v1); if (_v2.lengthSq() < 1e-12) return; _v2.normalize();
+    _q1.setFromUnitVectors(_v2, _v3.copy(dir).normalize()); bone.getWorldQuaternion(_q2); _q1.multiply(_q2);
+    bone.parent.getWorldQuaternion(_q3); _q3.invert().multiply(_q1); bone.quaternion.slerp(_q3, Math.min(1, w)); bone.updateMatrixWorld(true);
+  }
+  function turnBone(bone, axis, ang) {   // turn a bone about a world axis
+    if (!bone || !bone.parent || Math.abs(ang) < 1e-4) return; keep(bone);
+    _q1.setFromAxisAngle(axis, ang); bone.getWorldQuaternion(_q2); _q1.multiply(_q2); bone.parent.getWorldQuaternion(_q3); _q3.invert().multiply(_q1); bone.quaternion.copy(_q3); bone.updateMatrixWorld(true);
+  }
   function setGrip(r) { B3.gripRot = r; if (!B3.grip) return; for (const g of Object.values(B3.grip)) g.rotation.set(r[0], r[1], r[2]); }
-  function showWeapons(p) {
+  function showWeapons(p, drawing, pulled) {
     if (!B3.w3) return; const id = curW().id, W3 = B3.w3, show = !p.dead && !p.ladder && !p.hang && p.climbT <= 0 && !(p.inWater && !p.onG) && !p.glide && mode !== 'meditate';
     for (const k in W3) W3[k].visible = false; if (!show) return;
     if (id === 'daggers') { W3.daggerF.visible = true; W3.daggerB.visible = !p.torch.lit; } else if (W3[id]) W3[id].visible = true; else W3.blade.visible = true;
     // the grips cancel the body's scale, so a weapon is the same size on any model
     const sc = new THREE.Vector3(); for (const g of Object.values(B3.grip)) { g.parent.getWorldScale(sc); g.scale.setScalar(1 / Math.max(1e-6, sc.x)); }
+    const bw = (id === 'bow' || id === 'longbow') && W3[id]; if (!bw) return;
+    // the bow in the front (left) hand: the belly toward the target, upright and tipped a little forward when carried
+    B3.joint.hB.getWorldPosition(_v1); const fw = p.face;
+    const ang = drawing ? (mouse.in ? Math.atan2(-(aimY() - -_v1.y), aimX() - _v1.x) : fw > 0 ? 0 : Math.PI) : fw > 0 ? -0.22 : Math.PI + 0.22;
+    B3.bowG.position.set(_v1.x, _v1.y + (drawing ? 0 : bw.userData.len * 0.25), _v1.z); B3.bowG.rotation.set(0, 0, ang); B3.bowG.updateMatrixWorld(true);
+    let nx = 0; if (pulled) { B3.joint.hF.getWorldPosition(_v2); B3.bowG.worldToLocal(_v2); nx = clamp(_v2.x, -34, 0); }   // the back hand pulls the string; let go, it snaps back
+    const pos = bw.userData.str.geometry.attributes.position; pos.setX(1, nx); pos.needsUpdate = true;
+    bw.userData.arrow.visible = !!pulled; bw.userData.arrow.position.set(nx, 0, 0);
   }
   function pickKey(words) { for (const w of words) { const k = B3.clipNames.find(n => n === w) || B3.clipNames.find(n => n.includes(w)); if (k) return k; } return null; }
   function pose3D(dt) {
-    const p = P, show = B3.on && B3.want && !p.mount; B3.wrap.visible = show; if (!show) return false;
+    const p = P, sitK = pickKey(['sit_idle', 'sitting', 'sit']), show = B3.on && B3.want && (!p.mount || !!sitK); B3.wrap.visible = show; if (B3.t3) B3.t3.visible = false; if (B3.bowG) B3.bowG.visible = show; if (!show) return false;
     const idle = pickKey(['idle', 'stand', 'breath']) || B3.clipNames[0];
     if (p.rollT > B3.lastRollT + 0.01) B3.rollDur = Math.max(0.2, p.rollT); B3.lastRollT = p.rollT;
     let key = idle, scrub = null, speed = 1, fast = false;
@@ -866,17 +907,27 @@ void main(){
     // short timed pieces (build 29): setting off, sliding to a stop, turning at a run. Each plays a part of its move, then hands back
     const startPiece = (k, dur, a0, a1, lockYaw) => { if (K(k)) Object.assign(S, { key: K(k), t: 0, dur, a0, a1, lockYaw: lockYaw ?? null }); };
     if (dt > 0) {
-      const moving = p.onG && sp > 20 && !p.crouch && !p.atk && p.rollT <= 0 && !p.inWater;
-      if (p.face !== B3.lastFace && p.onG && (B3.lastSp || 0) > 190 && !p.crouch && !p.atk) startPiece('run_turn', 0.42, 0.05, 0.95, B3.lastFace > 0 ? Math.PI / 2 : -Math.PI / 2);
+      const moving = p.onG && sp > 20 && !p.crouch && !p.atk && p.rollT <= 0 && !p.inWater && !p.mount;
+      if (p.mount) S.key = null;
+      else if (p.face !== B3.lastFace && p.onG && (B3.lastSp || 0) > 190 && !p.crouch && !p.atk) startPiece('run_turn', 0.42, 0.05, 0.95, B3.lastFace > 0 ? Math.PI / 2 : -Math.PI / 2);
       else if (moving && (B3.lastSp || 0) < 15 && !S.key) startPiece('start_walk', 0.42, 0.0, 0.42);
-      else if (p.onG && sp > 180 && !held.left && !held.right && !p.atk && p.rollT <= 0 && !p.crouch && !S.key) startPiece('run_stop', 0.55, 0.08, 0.6);   // let go at a run: slide to a stop
+      else if (!p.mount && p.onG && sp > 180 && !held.left && !held.right && !p.atk && p.rollT <= 0 && !p.crouch && !S.key) startPiece('run_stop', 0.55, 0.08, 0.6);   // let go at a run: slide to a stop
       if (S.key) { S.t += dt; const cut = p.dead || p.rollT > 0 || p.atk || !p.onG || p.hitT > 0 || (S.key === K('start_walk') && sp < 15) || (S.key === K('run_stop') && (held.left || held.right)); if (S.t >= S.dur || cut) S.key = null; }
     }
     B3.lastFace = p.face; B3.lastSp = sp;
     if (p.parryT > B3.lastParry + 0.01) B3.parryDur = Math.max(0.1, p.parryT); B3.lastParry = p.parryT;
     if (p.swapT > B3.lastSwap + 0.01) B3.swapDur = Math.max(0.1, p.swapT); B3.lastSwap = p.swapT;
     if (p.climbT > 0 && !B3.climbing) { B3.climbing = true; B3.climbWater = !!p.inWater; } if (p.climbT <= 0) B3.climbing = false;
+    // Draw Arrow: reach to the quiver (0 to 0.3), nock (to 0.6), pull to full draw at its last frame; the charge plays it from the reach
+    const drawing = bow && (p.charging || (p.atk && p.atk.bow && p.atk.t < 0.18)), pull = bow && p.charging, drawK = () => 0.25 + 0.75 * Math.min(1, p.charge / (wid === 'longbow' ? 1 : 0.7));
+    const slashK = K('slash', 'attack', 'sword', 'swing'), slashing = p.atk && !p.atk.bow && slashK;
     if (p.dead && K('death', 'dying', 'die')) { key = K('death', 'dying', 'die'); scrub = Math.min(1, p.deadT / 1.6); }
+    else if (p.mount) {   // on horseback (build 30): seated, legs astride (below); cuts and the bow play from the saddle
+      if (slashing) { key = (p.atk.heavy && K('heavy')) || slashK; scrub = clamp(p.atk.t / Math.max(0.05, p.atk.dur), 0, 1); fast = true; }
+      else if (bow && p.atk && p.atk.bow && K('bow_draw')) { key = K('bow_draw'); scrub = 1; fast = true; }
+      else if (bow && p.charging && K('bow_draw')) { key = K('bow_draw'); scrub = drawK(); }
+      else key = sitK;
+    }
     else if (mode === 'meditate' && K('meditate', 'sit_pose', 'pray')) { key = K('meditate', 'sit_pose', 'pray'); scrub = 0.5; }
     else if (p.climbT > 0 && K('ledge_climb', 'climb_up')) { const w = B3.climbWater && K('swim_out'); key = w || K('ledge_climb', 'climb_up'); const k = 1 - p.climbT / 0.24; scrub = w ? 0.45 + 0.5 * k : 0.25 + 0.7 * k; fast = true; }
     else if (p.hang && K('ledge_climb', 'climb_up')) { key = K('ledge_climb', 'climb_up'); scrub = 0.06 + Math.sin(clock * 2) * 0.01; }
@@ -885,9 +936,9 @@ void main(){
     else if (p.parryT > 0 && K('block', 'parry')) { key = K('block', 'parry'); scrub = 0.1 + 0.45 * (1 - p.parryT / (B3.parryDur || 0.2)); fast = true; }
     else if (p.atk && !p.atk.bow && K('slash', 'attack', 'sword', 'swing')) { key = (p.atk.heavy && K('heavy')) || K('slash', 'attack', 'sword', 'swing'); scrub = clamp(p.atk.t / Math.max(0.05, p.atk.dur), 0, 1); fast = true; }
     else if (bow && p.swapT > 0 && K('bow_equip')) { key = K('bow_equip'); scrub = 1 - p.swapT / (B3.swapDur || 0.4); fast = true; }
-    else if (bow && p.atk && p.atk.bow && K('bow_draw')) { key = K('bow_draw'); scrub = 0.78 + 0.22 * clamp(p.atk.t / Math.max(0.05, p.atk.dur), 0, 1); fast = true; }
+    else if (bow && p.atk && p.atk.bow && K('bow_draw')) { key = K('bow_draw'); scrub = 1; fast = true; }   // the shot: held at full draw while the arm follows through, then back
     else if (bow && p.charging && sp > 20 && p.onG && K('aim_walk')) { const back = Math.sign(p.vx) !== p.face; key = (back && K('aim_walk_back')) || K('aim_walk'); speed = (back ? -1 : 1) * Math.max(0.6, sp / 90) * (back && K('aim_walk_back') ? -1 : 1); }
-    else if (bow && p.charging && K('bow_draw')) { key = K('bow_draw'); scrub = 0.75 * Math.min(1, p.charge / (wid === 'longbow' ? 1 : 0.7)); }
+    else if (bow && p.charging && K('bow_draw')) { key = K('bow_draw'); scrub = drawK(); }
     else if (p.inWater && !p.onG && K('swim', 'tread')) { const mv = sp > 30 || held.up || held.down; key = (mv && K('swim')) || K('tread') || K('swim'); speed = mv ? Math.max(0.7, sp / 170) : 1; }
     else if (!p.onG && !p.inWater && K('jump')) { key = K('jump'); scrub = 0.3 + 0.45 * clamp((p.vy + 700) / 1400, 0, 1); }
     else if (p.crouch && p.onG && K('crouch_idle', 'crouch')) { const mv = sp > 15 && K('crouch_walk'); key = mv || K('crouch_idle', 'crouch'); speed = mv ? Math.max(0.6, sp / 110) : 1; }
@@ -903,22 +954,46 @@ void main(){
       if (key === 'move' && (k === walkK || k === runK)) B3.t[k] = B3.ph * d;
       else if (k === key && scrub !== null) B3.t[k] = scrub * d * 0.999; else if (k === key) B3.t[k] = (((B3.t[k] + dt * speed) % d) + d) % d;
       a.enabled = true; a.setEffectiveWeight(B3.w[k]); a.time = B3.t[k]; }
-    B3.key = key === 'move' ? (wr > 0.5 ? runK : walkK) : key; B3.mixer.update(0);
+    B3.key = key === 'move' ? (wr > 0.5 ? runK : walkK) : key; restoreKept(); B3.mixer.update(0);
     // facing: turn through the front, the way a body really turns
     const yawT = p.face > 0 ? Math.PI / 2 : -Math.PI / 2, turning = S.key && S.lockYaw !== null && key === S.key;
     if (turning) B3.yaw = S.lockYaw; else if (B3.wasTurning) { B3.yaw = yawT; for (const k of B3.clipNames) B3.w[k] = k === key || key === 'move' ? B3.w[k] : 0; } else B3.yaw = dt > 0 ? lerp(B3.yaw, yawT, 1 - Math.exp(-dt * 14)) : yawT;
     B3.wasTurning = turning;
-    const ay = p.inWater && !p.onG ? p.y + 34 : p.y + p.h;
+    const ay = p.inWater && !p.onG ? p.y + 34 : p.y + p.h, seat = p.mount && V3.horseSeat ? V3.horseSeat() : null;
     const sq = 1 - 0.1 * Math.sin(Math.min(1, FEEL.squash) * Math.PI / 2) + 0.06 * FEEL.stretch, step = key === pickKey(['slash', 'attack', 'sword', 'swing']) && scrub !== null ? Math.sin(Math.min(1, scrub * 1.6) * Math.PI) * 7 : 0;
-    B3.tilt.position.set(pcx() + p.face * step, -ay, 0); B3.tilt.rotation.set(0, 0, -p.face * FEEL.lean * 0.8); B3.tilt.scale.set(1 + 0.06 * FEEL.squash, sq, 1);   // lean into speed, squash on landing, step into a cut
+    const ride = seat ? clamp(Math.abs(HORSE.speed || 0) / 480, 0, 1) : 0;
+    B3.tilt.position.set(pcx() + p.face * step, -ay, 0); B3.tilt.rotation.set(0, 0, seat ? -p.face * 0.16 * ride : -p.face * FEEL.lean * 0.8); B3.tilt.scale.set(1 + (seat ? 0 : 0.06 * FEEL.squash), seat ? 1 : sq, 1);   // lean into speed, squash on landing, step into a cut
     B3.wrap.scale.setScalar(B3.scale); B3.wrap.rotation.set(0, B3.yaw, 0); B3.wrap.position.set(0, -B3.foot * B3.scale, 0); B3.tilt.updateMatrixWorld(true);
-    const a = bodyAlpha(p); for (const m of B3.mats) m.uniforms.uOpacity.value = a; B3.wrap.visible = a > 0.01; showWeapons(p);
+    // poses the moves do not have (build 30), laid over the move
+    const JB = B3.joint, fw = p.face;
+    if (seat) {   // astride the saddle: thighs down and forward round the horse's sides, shins hanging to the stirrups
+      JB.hips.getWorldPosition(_v3); const hz = _v3.z;
+      for (const [ul, lg, ft] of [[JB.ulL, JB.lgL, JB.fB], [JB.ulR, JB.lgR, JB.fF]]) { if (!ul || !lg) continue; ul.getWorldPosition(_v3); const side = Math.sign(_v3.z - hz) || 1;
+        aimBone(ul, lg, _d.set(fw * 0.62, -0.74, side * 0.34), 1); aimBone(lg, ft, _d.set(-fw * 0.08, -1, side * 0.06), 1); }
+      if (!slashing && !drawing && !(p.atk && p.atk.bow)) for (const [ua, fa, h] of [[JB.uaL, JB.faL, JB.hB], [JB.uaR, JB.faR, JB.hF]]) { aimBone(ua, fa, _d.set(fw * 0.4, -0.92, 0), 0.85); aimBone(fa, h, _d.set(fw * 0.96, -0.1, 0), 0.85); }   // hands forward at the reins
+    }
+    const DBG = V3._dbg || {};
+    if (drawing && mouse.in && JB.sh && !DBG.noAim) {   // the chest turns up or down toward the aim, and both arms go with it
+      JB.sh.getWorldPosition(_v3); const e = clamp(Math.atan2(-(aimY() - -_v3.y), Math.abs(aimX() - _v3.x)), -0.85, 0.85);
+      B3.aimE = dt > 0 ? lerp(B3.aimE || 0, e, 1 - Math.exp(-dt * 18)) : e; turnBone(JB.sh, ZAX, fw * B3.aimE);
+    } else B3.aimE = 0;
+    // the torch: held up and forward in the front hand (with the bow, in the drawing hand, so the bow hand stays free)
+    const tOn = p.torch.lit && !p.dead, tHand = bow ? JB.hF : JB.hB;
+    const tArm = tOn && !p.ladder && !p.hang && p.climbT <= 0 && !(p.inWater && !p.onG) && p.rollT <= 0 && mode !== 'meditate' && !(bow && (drawing || p.atk || p.swapT > 0));
+    B3.torchW = dt > 0 ? lerp(B3.torchW || 0, tArm ? 1 : 0, 1 - Math.exp(-dt * 12)) : (tArm ? 1 : 0);
+    if (B3.torchW > 0.01 && !DBG.noTorchArm) { const [ua, fa] = bow ? [JB.uaR, JB.faR] : [JB.uaL, JB.faL]; aimBone(ua, fa, _d.set(fw * 0.3, -0.95, 0), B3.torchW); aimBone(fa, tHand, _d.set(fw * 0.72, 0.7, 0), B3.torchW); }
+    if (seat) {   // the hips sit on the saddle, wherever the move put them
+      JB.hips.getWorldPosition(_v3); B3.tilt.position.x += seat.x - _v3.x; B3.tilt.position.y += -(seat.y - 4) - _v3.y; B3.tilt.updateMatrixWorld(true);
+    }
+    const a = bodyAlpha(p); for (const m of B3.mats) m.uniforms.uOpacity.value = a; B3.wrap.visible = a > 0.01; if (B3.bowG) B3.bowG.visible = B3.wrap.visible; showWeapons(p, drawing, pull && (p.charge || 0) > 0.12);
+    if (B3.t3) { B3.t3.visible = tOn && B3.wrap.visible; if (tOn) { tHand.getWorldPosition(_v3); B3.t3.position.copy(_v3); B3.t3.rotation.set(0, 0, -fw * (0.2 + 0.25 * (1 - B3.torchW))); for (const m of B3.t3.userData.mats) m.uniforms.uOpacity.value = a; } }
     const v = new THREE.Vector3(), G = b => { b.getWorldPosition(v); return { x: v.x, y: -v.y }; };
-    J = { hF: G(B3.joint.hF), hB: G(B3.joint.hB), head: G(B3.joint.head), neck: G(B3.joint.neck), hip: G(B3.joint.hips), sh: G(B3.joint.sh), fF: G(B3.joint.fF), fB: G(B3.joint.fB), hr: 6.5, tip: G(B3.joint.hF), robe: false, act: false, id: curW().id };
+    J = { hF: G(B3.joint.hF), hB: G(tOn ? tHand : B3.joint.hB), head: G(B3.joint.head), neck: G(B3.joint.neck), hip: G(B3.joint.hips), sh: G(B3.joint.sh), fF: G(B3.joint.fF), fB: G(B3.joint.fB), hr: 6.5, tip: G(B3.joint.hF), robe: false, act: false, id: curW().id };
     return true;
   }
   V3.load3D = async files => { const r = await load3D(files); return r; };
   V3.setGrip = r => setGrip(r);
+  V3._B3 = () => B3;   // for the tests
   V3.use3D = on => { B3.want = on; return B3.on && B3.want; };
   V3.body3D = () => ({ on: B3.on && B3.want && B3.wrap.visible, name: B3.name, moves: B3.clipNames, key: B3.key, yaw: +B3.yaw.toFixed(2), scale: +(B3.scale || 0).toFixed(2) });
   // Sahan's files, packed into the page when they are in art/characters (build.py)

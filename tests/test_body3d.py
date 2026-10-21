@@ -53,6 +53,35 @@ async def main():
         await ev("__life.put(220,1000)"); await step(3); await step(1, {}, {'use': 1}); await step(1); await pg.click('#shrineMed'); await step(5); got['meditation'] = await k3()
         await ev("__life.finishMed(); __life.noFoes()"); await step(5)   # resting at the shrine wakes the foes again
         if await ev("__life.mode") != 'play': bad.append('meditation should end back in play')
+        # build 30: the bow faces the target (its belly toward the aim), the back hand pulls the string with an arrow on it
+        B3 = "__life.V3._B3()"
+        await ev("__life.put(1200,1000); __life.P.face = 1; __life.P.slotIdx = 1; __life.P.st = __life.P.stMax; __life.mouse.in = true; __life.mouse.x = __life.P.x - __life.camX + 220; __life.mouse.y = __life.P.y - __life.camY + 10"); await step(30)
+        await step(1, {'heavy': True}, {'heavy': True}); await step(30, {'heavy': True})
+        bw = await ev(f"(()=>{{ const B = {B3}, g = B.bowG, e = g.matrixWorld.elements, b = B.w3.bow; return {{ belly: +e[0].toFixed(2), nock: +b.userData.str.geometry.attributes.position.getX(1).toFixed(1), arrow: b.userData.arrow.visible, shown: b.visible && g.visible }}; }})()")
+        R30 = {'bow': bw}
+        if not (bw['shown'] and bw['belly'] > 0.5): bad.append(f"the bow's belly should face the target: {bw}")
+        if not (bw['nock'] < -6 and bw['arrow']): bad.append(f"the drawn string should come back to the hand with an arrow: {bw}")
+        # aiming high for a while keeps the cape hanging from the shoulders (the turn must not pile up frame on frame)
+        await ev("__life.mouse.y = __life.P.y - __life.camY - 160"); await step(40, {'heavy': True})
+        cape = await ev(f"(()=>{{ const B = {B3}, V = B.wrap.position.constructor, k = Object.keys(B.bones).filter(n => /cloak/i.test(n)).sort().pop(); if (!k) return null; const a = new V(), c = new V(); B.joint.sh.getWorldPosition(a); B.bones[k].getWorldPosition(c); return +(a.y - c.y).toFixed(1); }})()")
+        R30['cape below chest'] = cape
+        if cape is not None and cape < 15: bad.append(f"the cape should hang below the chest when aiming up: {cape}")
+        await step(1, {'heavy': False}); await ev("__life.mouse.in = false; __life.P.slotIdx = 0"); await step(30)
+        # the torch: held up in the free hand, with its flame and light
+        await ev("__life.P.torch.fuel = 100; __life.P.torch.lit = true"); await step(30)
+        tr = await ev(f"(()=>{{ const B = {B3}, V = B.wrap.position.constructor, h = new V(), hp = new V(); B.joint.hB.getWorldPosition(h); B.joint.hips.getWorldPosition(hp); return {{ shown: B.t3.visible, raised: +(h.y - hp.y).toFixed(1), at: +B.t3.position.distanceTo(h).toFixed(1) }}; }})()")
+        R30['torch'] = tr
+        if not (tr['shown'] and tr['raised'] > 6 and tr['at'] < 1): bad.append(f"the torch should be held up in the hand: {tr}")
+        await ev("__life.P.torch.lit = false"); await step(10)
+        # on horseback: seated (Sitting Idle) with the hips on the saddle
+        await ev("__life.P.st = __life.P.stMax; __life.put(700, 1000); __life.P.lotus = 3"); await step(20); await step(1, {}, {'use': 1}); await step(5); await step(1, {}, {'use': 1}); await step(20)
+        await step(30, {'right': True})
+        rd = await ev("(()=>{ const s = __life.V3.horseSeat(), j = __life.V3.joints(); return { mount: __life.P.mount, key: __life.V3.body3D().key, on: __life.V3.body3D().on, seat: s && j ? +Math.hypot(s.x - j.hip.x, s.y - 4 - j.hip.y).toFixed(1) : null }; })()")
+        R30['ride'] = rd
+        if not rd['mount']: bad.append(f"the traveler should be riding: {rd}")
+        elif not (rd['on'] and rd['key'] == 'sit_idle' and rd['seat'] is not None and rd['seat'] < 3): bad.append(f"the 3D rider should sit on the saddle: {rd}")
+        await step(1, {}, {'use': 1}); await step(10)
+        print('build 30:', R30)
         want3 = {'setting off': 'start_walk', 'turn at a run': 'run_turn', 'let go at a run': 'run_stop', 'crouch': 'crouch_idle', 'crawl': 'crouch_walk', 'parry': 'block', 'bow out': 'bow_equip', 'bow drawn': 'bow_draw',
                  'ladder': 'ladder', 'hang': 'ledge_climb', 'in water, still': 'tread', 'in water, moving': 'swim', 'meditation': 'meditate'}
         for k, v in want3.items():

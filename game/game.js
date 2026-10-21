@@ -732,7 +732,7 @@ function bodyHTML() {
    rested at, with what you carried; foes return as after a rest, and a fight in progress starts over.
    A death is saved the moment it happens, with the births on offer, so leaving the page cannot undo it.
    The real birth is only kept in a save when the player chose to keep it (this device, or later Steam Cloud). */
-const BUILD = 29, SAVE_V = 1, SLOTS = 3, SLOT_KEY = i => `samsara.soul.${i}`;
+const BUILD = 30, SAVE_V = 1, SLOTS = 3, SLOT_KEY = i => `samsara.soul.${i}`;
 let slot = null, saveT = 0, saveClock = 0, savedFx = 0, saveFail = false;
 // automated tests never write saves unless they ask to
 const canWrite = () => { try { return !navigator.webdriver || localStorage.getItem('samsara.testSave') === '1'; } catch (_) { return false; } };
