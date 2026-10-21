@@ -90,7 +90,7 @@ async def main():
         # then the made-by-code test body, through the test tool's file picker
         await pg.set_input_files('#glbFiles', FILES)
         for i in range(40):
-            if await ev("__life.V3.body3D().moves.length > 0"): break
+            if await ev("__life.V3.body3D().moves.length > 0 && __life.V3.body3D().moves.length < 27"): break   # the test body (7 moves) has replaced the packed one
             await pg.wait_for_timeout(250)
         print('loaded', await ev("JSON.stringify(__life.V3.body3D())"))
         await ev("__life.V3.setDpr(0.4); __life.put(1200,1000); __life.V3.setWeather('clear', true)")
