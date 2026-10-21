@@ -9,6 +9,7 @@ let ctx = mainCtx;
 // at night, living things are drawn on their own layer and given a pale moonlit edge so they stand out
 const uLayer = document.createElement('canvas'), uctx = uLayer.getContext('2d');
 let unitsPending = false;
+const inkCv = document.createElement('canvas'), inkCtx = inkCv.getContext('2d');
 function drawDog() {
   const x = DOG.x, g = DOG.gy, fed = life && life.fedDog, ph = clock * (fed ? 10 : 2);
   ctx.strokeStyle = INK2; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.beginPath();
@@ -308,7 +309,7 @@ function drawSolid(s) {
   if (s.surf === 'ice') { ctx.fillStyle = PAPER; ctx.fillRect(s.x, s.y, s.w, 14); ctx.strokeStyle = INK2; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(s.x, s.y + 14); ctx.lineTo(s.x + s.w, s.y + 14); for (let x = s.x + 20; x < s.x + s.w; x += 46) { ctx.moveTo(x, s.y + 11); ctx.lineTo(x + 14, s.y + 4); ctx.moveTo(x + 8, s.y + 12); ctx.lineTo(x + 16, s.y + 8); } ctx.stroke(); }
   if (s.surf === 'hot') { hatch(s.x, s.y, s.w, 16, 5, RED, 1.4); ctx.strokeStyle = RED; ctx.lineWidth = 1.5; ctx.beginPath(); for (let x = s.x + 12; x < s.x + s.w; x += 30) { const ph = (clock * 1.2 + x * 0.013) % 1, yy = s.y - 4 - ph * 26; ctx.globalAlpha = 1 - ph; ctx.moveTo(x, yy); ctx.quadraticCurveTo(x + 4, yy - 5, x, yy - 10); } ctx.stroke(); ctx.globalAlpha = 1; }
 }
-function drawWorld() {
+function drawWorld(noPlayer) {
   const painted = V3.on();
   // far hills
   if (!painted) { ctx.save(); ctx.translate(-camX * 0.3, -camY * 0.3); ctx.strokeStyle = FAINT; ctx.lineWidth = 2; ctx.beginPath();
@@ -335,10 +336,10 @@ function drawWorld() {
   } else for (const c of CRUMBLES) if (visible(c) && c.state === 'gone') { ctx.save(); ctx.setLineDash([4, 6]); ctx.strokeStyle = 'rgba(239,231,212,0.5)'; ctx.lineWidth = 1.5; ctx.strokeRect(c.x + 3, c.y, c.w - 6, c.h); ctx.restore(); }
   drawArenas();
   // props
-  SHRINES.forEach((s, i) => { if (visible({ x: s.x - 80, y: s.gy - 160, w: 160, h: 160 })) drawShrine(s, i); });
+  if (!painted) { SHRINES.forEach((s, i) => { if (visible({ x: s.x - 80, y: s.gy - 160, w: 160, h: 160 })) drawShrine(s, i); });
   const hx = HUT.x, hg = HUT.gy; ctx.fillStyle = PAPER; ctx.fillRect(hx - 60, hg - 90, 120, 90); hatch(hx - 60, hg - 90, 120, 90, 9); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(hx - 60, hg - 90, 120, 90);
   ctx.beginPath(); ctx.moveTo(hx - 80, hg - 88); ctx.lineTo(hx, hg - 150); ctx.lineTo(hx + 80, hg - 88); ctx.closePath(); ctx.fillStyle = PAPER; ctx.fill(); ctx.stroke();
-  ctx.fillStyle = INK; ctx.fillRect(hx - 16, hg - 52, 32, 52);
+  ctx.fillStyle = INK; ctx.fillRect(hx - 16, hg - 52, 32, 52); }
   for (const [id, x, gy] of RELIC_SPOTS) {
     if (!visible({ x: x - 30, y: gy - 70, w: 60, h: 70 })) continue;
     ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.fillRect(x - 15, gy - 12, 30, 12); ctx.strokeRect(x - 15, gy - 12, 30, 12);
@@ -347,7 +348,7 @@ function drawWorld() {
     ctx.strokeStyle = PENCIL; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, by, 16 + Math.sin(clock * 3) * 2, 0, Math.PI * 2); ctx.stroke();
     relicIcon(id, x, by, 1);
   }
-  for (const p of pots) if (!p.broken && visible({ x: p.x - 20, y: p.gy - 40, w: 40, h: 40 })) { ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(p.x - 6, p.gy - 28); ctx.lineTo(p.x + 6, p.gy - 28); ctx.quadraticCurveTo(p.x + 16, p.gy - 14, p.x + 8, p.gy); ctx.lineTo(p.x - 8, p.gy); ctx.quadraticCurveTo(p.x - 16, p.gy - 14, p.x - 6, p.gy - 28); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x - 11, p.gy - 14); ctx.lineTo((p.x + p.w / 2), p.gy - 14); ctx.lineWidth = 1.5; ctx.stroke(); }
+  if (!painted) for (const p of pots) if (!p.broken && visible({ x: p.x - 20, y: p.gy - 40, w: 40, h: 40 })) { ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(p.x - 6, p.gy - 28); ctx.lineTo(p.x + 6, p.gy - 28); ctx.quadraticCurveTo(p.x + 16, p.gy - 14, p.x + 8, p.gy); ctx.lineTo(p.x - 8, p.gy); ctx.quadraticCurveTo(p.x - 16, p.gy - 14, p.x - 6, p.gy - 28); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x - 11, p.gy - 14); ctx.lineTo((p.x + p.w / 2), p.gy - 14); ctx.lineWidth = 1.5; ctx.stroke(); }
   for (const d of drops) { ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.a); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(4, 0); ctx.stroke(); ctx.restore(); }
   // past bodies & shades
   ctx.textAlign = 'center';
@@ -364,20 +365,20 @@ function drawWorld() {
   if (soul.debt && life.debtGhost && visible({ x: soul.debt.x - 40, y: soul.debt.gy - 80, w: 80, h: 80 })) drawDebt();
   for (const t of TABLETS) if (visible({ x: t.x - 30, y: t.gy - 60, w: 60, h: 60 })) drawTablet(t);
   if (visible({ x: HOME.x - 40, y: HOME.gy - 60, w: 80, h: 60 })) drawHome();
-  for (const c of CHESTS) if (visible({ x: c.x - 24, y: c.gy - 40, w: 48, h: 40 })) {
+  if (!painted) for (const c of CHESTS) if (visible({ x: c.x - 24, y: c.gy - 40, w: 48, h: 40 })) {
     const open = chestOpen(c); ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
     ctx.fillRect(c.x - 17, c.gy - 20, 34, 20); hatch(c.x - 17, c.gy - 20, 34, 20, 6); ctx.strokeRect(c.x - 17, c.gy - 20, 34, 20);
     ctx.save(); ctx.translate(c.x - 17, c.gy - 20); if (open) ctx.rotate(-1.1); ctx.fillStyle = PAPER; ctx.fillRect(0, -8, 34, 8); ctx.strokeRect(0, -8, 34, 8); ctx.restore();
     if (!open) { ctx.fillStyle = INK; ctx.fillRect(c.x - 3, c.gy - 16, 6, 7); }
     if (c.sealed && !open) { ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(c.x, c.gy - 44, 9, 0, Math.PI * 2); ctx.stroke(); }
   }
-  const nightUnits = skyState().dark > 0.25;
+  const nightUnits = !painted && skyState().dark > 0.25;
   if (nightUnits) { if (uLayer.width !== cv.width || uLayer.height !== cv.height) { uLayer.width = cv.width; uLayer.height = cv.height; } const m = ctx.getTransform(); uctx.setTransform(1, 0, 0, 1, 0, 0); uctx.clearRect(0, 0, uLayer.width, uLayer.height); uctx.setTransform(m); ctx = uctx; }
   // villager
   stick(villager.x, villager.gy, POSE.sit(), -1, INK2, 3, { hollow: true, s: 0.95 });
   if (!villager.helped && life.n === 1) { ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(villager.x + 4, villager.gy - 26, 4, 0, Math.PI * 2); ctx.fill(); }
   if (villager.talkT > 0) speech(villager.x, villager.gy - 110, villager.line);
-  if (horse && horse.state !== 'ridden' && horse.state !== 'away' && !(horse.state === 'fled' && horse.fleeT <= 0)) {
+  if (!V3.on() && horse && horse.state !== 'ridden' && horse.state !== 'away' && !(horse.state === 'fled' && horse.fleeT <= 0)) {
     const fl = horse.state === 'fled', hx = fl ? horse.fleeX : horse.x;
     if (visible({ x: hx - 60, y: horse.gy - 90, w: 120, h: 90 })) drawHorse(hx, horse.gy, horse.face, clock * 14, fl, { alpha: fl ? horse.fleeT / 1.4 : horse.arriveT > 0 ? 1 - horse.arriveT / 0.8 : 1, graze: !fl && Math.sin(horse.graze * 0.5) > -0.3, saddle: horse.state !== 'wild', ink: horse.state === 'wild' ? INK2 : INK });
   }
@@ -388,7 +389,7 @@ function drawWorld() {
     if (s.arrow && s.kind && s.kind !== 'reed') { ctx.fillStyle = s.kind === 'ember' ? RED : INK; ctx.beginPath(); ctx.arc(s.x, s.y, s.kind === 'iron' ? 3.5 : 3, 0, Math.PI * 2); ctx.fill(); if (s.kind === 'ember' && Math.random() < 0.5) fx.push({ k: 'flame', x: s.x, y: s.y, vx: 0, vy: -30, life: 0.2 }); if (s.kind === 'ink' && Math.random() < 0.5) fx.push({ k: 'ink', x: s.x, y: s.y, vx: 0, vy: 20, life: 0.3 }); }
     else { const sp = Math.hypot(s.vx, s.vy) || 1; ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); for (let i = 1; i < 4; i++) { ctx.globalAlpha = 0.5 / i; ctx.beginPath(); ctx.arc(s.x - s.vx / sp * i * 12, s.y - s.vy / sp * i * 12, s.r * (1 - i * 0.18), 0, Math.PI * 2); ctx.fill(); } ctx.globalAlpha = 1; }
   }
-  drawPlayer();
+  if (!noPlayer) drawPlayer();
   if (nightUnits) { ctx = mainCtx; unitsPending = true; }
   // water over the player
   if (!painted) for (const w of WATERS) if (visible(w)) {
@@ -425,9 +426,10 @@ function drawOverDark() {
   // text that should read even in the dark: hints, floaters, the villager's words, the breath meter
   ctx.save(); ctx.translate(-camX, -camY);
   for (const s of SOLIDS) if (s.surf === 'hot' && visible(s) && darkAt(s.x + 1, s.y + 1)) { hatch(s.x, s.y, s.w, 16, 5, RED, 1.4); ctx.strokeStyle = RED; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x, s.y + 1); ctx.lineTo(s.x + s.w, s.y + 1); for (let x = s.x + 12; x < s.x + s.w; x += 30) { const ph = (clock * 1.2 + x * 0.013) % 1, yy = s.y - 4 - ph * 26; ctx.moveTo(x, yy); ctx.quadraticCurveTo(x + 4, yy - 5, x, yy - 10); } ctx.stroke(); }
+  if (V3.on()) { ctx.font = `12px ${FD}`; ctx.textAlign = 'center'; SHRINES.forEach((s, i) => { if (visible({ x: s.x - 80, y: s.gy - 260, w: 160, h: 260 })) { ctx.fillStyle = P.shrine === i ? '#efe7d4' : 'rgba(239,231,212,0.7)'; ctx.fillText(s.name.toUpperCase(), s.x, s.gy - 238); } }); }
   ctx.textAlign = 'center'; ctx.font = `19px ${FH}`;
   for (const [x, y, t] of HINTS) { if (x < camX - 300 || x > camX + W + 300 || y < camY - 40 || y > camY + H + 40) continue; ctx.fillStyle = darkAt(x, y) ? '#b9b6ac' : INK2; ctx.fillText(t, x, y); }
-  const sh = nearShrine(); if (sh >= 0 && !P.dead) { ctx.fillStyle = darkAt(SHRINES[sh].x, SHRINES[sh].gy - 170) ? '#b9b6ac' : INK2; ctx.fillText('E: rest and level up', SHRINES[sh].x, SHRINES[sh].gy - 170); }
+  const sh = nearShrine(); if (sh >= 0 && !P.dead) { ctx.fillStyle = darkAt(SHRINES[sh].x, SHRINES[sh].gy - 170) ? '#b9b6ac' : INK2; ctx.fillText('E: rest and level up', SHRINES[sh].x, SHRINES[sh].gy - (V3.on() ? 258 : 170)); }
   if (!P.mount && horse && (horse.state === 'wild' || horse.state === 'idle') && Math.abs(pcx() - horse.x) < 70 && Math.abs(P.y + P.h - horse.gy) < 50) { ctx.fillStyle = INK2; ctx.fillText(horse.state === 'wild' ? 'E: offer the horse a lotus' : 'E: ride', horse.x, horse.gy - 96); }
   else if (P.mount && P.onG && Math.abs(P.vx) < 40) { ctx.fillStyle = INK2; ctx.fillText('E: get down · Shift: gallop', pcx(), P.y - 26); }
   { const q = nearInscription(); if (q) { ctx.fillStyle = INK2; ctx.fillText(soul.chants.has(q.id) ? 'E: read the chant again' : 'E: read the carved chant', q.x, q.gy - 70); } }
@@ -671,9 +673,9 @@ function playerPose(p) {
 }
 function drawPlayerBody(p) {
   const cx = (p.x + p.w / 2), feet = p.y + p.h, { pose, ay } = playerPose(p);
-  const painted = V3.on() && !p.mount && p === P && V3.joints();
+  const painted = V3.on() && p === P && V3.joints();
   ctx.save(); if (p.dead) { ctx.translate(cx, feet); ctx.rotate(-p.face * Math.min(1, p.deadT * 2) * Math.PI / 2); ctx.translate(-cx, -feet); ctx.globalAlpha = Math.max(0.2, 1 - p.deadT * 0.5); }
-  if (p.mount) drawHorse(cx, feet, p.face, p.run * 0.6, Math.abs(p.vx) > 25 && p.onG, { saddle: true, ink: p.hitT > 0 ? PENCIL : INK });
+  if (p.mount && !painted) drawHorse(cx, feet, p.face, p.run * 0.6, Math.abs(p.vx) > 25 && p.onG, { saddle: true, ink: p.hitT > 0 ? PENCIL : INK });
   if (p.shieldT > 0) { ctx.fillStyle = PAPER; const sx = cx + p.face * (p.mount ? 40 : 26) - 9; ctx.fillRect(sx, feet - 70, 18, 70); hatch(sx, feet - 70, 18, 70, 5); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(sx, feet - 70, 18, 70); }
   if (p.plunge) { ctx.strokeStyle = PENCIL; ctx.lineWidth = 2; ctx.beginPath(); for (let i = -1; i <= 1; i++) { ctx.moveTo(cx + i * 10, p.y - 10); ctx.lineTo(cx + i * 10, p.y - 40); } ctx.stroke(); }
   const robe = p.garb.body === 'robe' && p.rollT <= 0 && p.onG && !p.crouch && !p.inWater && !p.mount;
@@ -775,9 +777,16 @@ function render() {
   if (mode === 'meditate' && MED) { drawMed(); return; }
   if (mode === 'map') { drawMap(); cv.style.cursor = mapHits.some(m => P.visited.has(m.i) && Math.hypot(mouse.x - m.x, mouse.y - m.y) < 18) ? 'pointer' : 'default'; return; }
   const sx = shake ? rnd(-shake, shake) : 0, sy = shake ? rnd(-shake, shake) * 0.6 : 0;
-  if (painted) V3.frame(sx, sy);
+  if (painted) {
+    // the ink world that is not painted yet goes into its own picture, which three.js lays behind the traveler
+    const k = Math.min(scale, 1600 / W); if (inkCv.width !== Math.round(W * k) || inkCv.height !== Math.round(H * k)) { inkCv.width = Math.round(W * k); inkCv.height = Math.round(H * k); }
+    ctx = inkCtx; ctx.setTransform(k, 0, 0, k, 0, 0); ctx.clearRect(0, 0, W, H); drawWorld(true); ctx = mainCtx;
+    V3.frame(sx, sy, inkCv);
+    ctx.save(); ctx.translate(sx - camX, sy - camY); drawPlayer(); ctx.restore();   // the body's ink marks stay on top
+  } else {
   ctx.save(); ctx.translate(sx, sy); drawWorld(); ctx.restore();
   drawSkyBehind();
+  }
   if (unitsPending && (!uLayer.width || !uLayer.height)) unitsPending = false;
   if (unitsPending) { unitsPending = false; const g = mainCtx; g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.shadowColor = 'rgba(251,250,246,0.95)'; g.shadowBlur = 6 * scale; g.drawImage(uLayer, 0, 0); g.shadowBlur = 2 * scale; g.drawImage(uLayer, 0, 0); g.restore(); }
   drawDark(); drawOverDark();

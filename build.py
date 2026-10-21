@@ -14,6 +14,16 @@ PLACES = base64.b64encode(gzip.compress((ROOT / 'data' / 'places.txt').read_byte
 CITIES_V15 = (ROOT / 'star-panel' / 'cities.json').read_text().strip()  # test build 15 embedded the old list
 TZLOOKUP = (ROOT / 'vendor' / 'tz-lookup.js').read_text().replace('"undefined"!=typeof module&&(module.exports=tzlookup);', '')
 
+def art_json():
+    import json
+    parts = ROOT / 'art' / 'horse' / 'parts'
+    names = ['head', 'neck', 'body', 'tail'] + [f'leg{l}_{k}' for l in ['FL', 'FR', 'BL', 'BR'] for k in ['thigh', 'shin']]
+    import struct
+    def one(n):
+        b = (parts / f'{n}.png').read_bytes(); w, h = struct.unpack('>II', b[16:24])
+        return {'src': 'data:image/png;base64,' + base64.b64encode(b).decode(), 'w': w, 'h': h}
+    return json.dumps({'horse': {n: one(n) for n in names}})
+
 def game(folder, out):
     head = (folder / 'head.html').read_text()
     code = (folder / 'game.js').read_text()
@@ -23,6 +33,8 @@ def game(folder, out):
     # from build 24: the painted look, drawn with three.js (three.js itself rides along as text)
     draw3 = folder / 'draw-three.js'
     if draw3.exists(): code = code.replace('/*DRAW3*/', draw3.read_text())
+    # from build 25: Sahan's art, packed into the page (the night horse's parts)
+    if '/*ART*/' in code: code = code.replace('/*ART*/null', art_json())
     level = folder / 'level.json' if (folder / 'level.json').exists() else ROOT / 'levels' / 'proving-grounds.json'
     code = code.replace('/*LEVEL*/null', level.read_text().strip())
     if '/*THREE*/' in head: head = head.replace('/*THREE*/', (ROOT / 'vendor' / 'three.module.min.js').read_text())
