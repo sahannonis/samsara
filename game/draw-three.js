@@ -792,7 +792,7 @@ void main(){
     if (!model) throw new Error('none of the files has a rigged body');
     // replace what was there
     if (B3.model) { B3.wrap.remove(B3.model.scene); B3.mixer && B3.mixer.stopAllAction(); }
-    B3.model = model; B3.mats = []; B3.acts = {}; B3.w = {}; B3.t = {}; B3.bones = {};
+    B3.model = model; B3.mats = []; B3.acts = {}; B3.w = {}; B3.t = {}; B3.bones = {}; B3.sp = { t: 0 }; KEPT.clear();   // a new body starts fresh: no half-played piece, no kept bones of the old one
     for (const m of model.meshes) { m.material = bodyMat(m.userData.mat); m.renderOrder = 55; B3.mats.push(m.material); if (/weapon|sword|bow|shield/i.test(m.name)) m.visible = false; }   // the game shows its own weapons
     model.scene.traverse(o => { if (o.isBone) B3.bones[o.name] = o; });
     const find = (...words) => Object.values(B3.bones).find(b => words.every(w => b.name.toLowerCase().includes(w.toLowerCase())));
@@ -912,6 +912,7 @@ void main(){
       else if (p.face !== B3.lastFace && p.onG && (B3.lastSp || 0) > 190 && !p.crouch && !p.atk) startPiece('run_turn', 0.42, 0.05, 0.95, B3.lastFace > 0 ? Math.PI / 2 : -Math.PI / 2);
       else if (moving && (B3.lastSp || 0) < 15 && !S.key) startPiece('start_walk', 0.42, 0.0, 0.42);
       else if (!p.mount && p.onG && sp > 180 && !held.left && !held.right && !p.atk && p.rollT <= 0 && !p.crouch && !S.key) startPiece('run_stop', 0.55, 0.08, 0.6);   // let go at a run: slide to a stop
+      if (S.key && !B3.acts[S.key]) S.key = null;
       if (S.key) { S.t += dt; const cut = p.dead || p.rollT > 0 || p.atk || !p.onG || p.hitT > 0 || (S.key === K('start_walk') && sp < 15) || (S.key === K('run_stop') && (held.left || held.right)); if (S.t >= S.dur || cut) S.key = null; }
     }
     B3.lastFace = p.face; B3.lastSp = sp;
@@ -942,7 +943,7 @@ void main(){
     else if (p.inWater && !p.onG && K('swim', 'tread')) { const mv = sp > 30 || held.up || held.down; key = (mv && K('swim')) || K('tread') || K('swim'); speed = mv ? Math.max(0.7, sp / 170) : 1; }
     else if (!p.onG && !p.inWater && K('jump')) { key = K('jump'); scrub = 0.3 + 0.45 * clamp((p.vy + 700) / 1400, 0, 1); }
     else if (p.crouch && p.onG && K('crouch_idle', 'crouch')) { const mv = sp > 15 && K('crouch_walk'); key = mv || K('crouch_idle', 'crouch'); speed = mv ? Math.max(0.6, sp / 110) : 1; }
-    else if (S.key) { key = S.key; scrub = S.a0 + (S.a1 - S.a0) * clamp(S.t / S.dur, 0, 1); }
+    else if (S.key && B3.acts[S.key]) { key = S.key; scrub = S.a0 + (S.a1 - S.a0) * clamp(S.t / S.dur, 0, 1); }
     else if (sp > 20 && p.onG && (K('walk') || K('run'))) key = 'move';   // walk and run blended by speed, below
     const rate = 1 - Math.exp(-dt * (fast ? 28 : 11)), walkK = pickKey(['walk']), runK = pickKey(['run', 'sprint']);
     // one stride for both: the walk and the run share a phase, so their feet stay in step while they blend
